@@ -3,7 +3,7 @@ import random
 
 url = 'http://localhost:5000/device_input'
 
-device = 302
+device = 102
 
 def generate_random_coordinates():
     # Generate random latitude and longitude
@@ -19,4 +19,4 @@ data = {'latitude': latitude, 'longitude': longitude, 'device': device}
 response = requests.post(url, json=data)  # Use json=data instead of data=data
 
 print(f'Status code: {response.status_code}')
-print(f'Sent coordinates: Latitude = {latitude}, Longitude = {longitude}, device = {302}')
+print(f'Sent coordinates: Latitude = {latitude}, Longitude = {longitude}, device = {device}')

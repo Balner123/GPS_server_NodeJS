@@ -4,6 +4,7 @@ const app = express();
 const port = 5000;
 
 app.use(express.json());
+app.use(express.static('public'));
 
 app.post("/device_input", (req, res) => {
   const { device, longitude, latitude } = req.body;
@@ -39,6 +40,22 @@ app.post("/device_input", (req, res) => {
       });
     }
   });
+});
+
+app.get("/api/devices", (req, res) => {
+  const selectSql = `SELECT * FROM gps_devices`;
+  db.all(selectSql, [], (err, rows) => {
+    if (err) {
+      console.error("Error fetching devices:", err.message);  // Debugging line
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
+
+
+app.get("/", (req, res) => {
+    res.sendFile(__dirname + "/public/index.html");
 });
 
 app.listen(port, () => {
