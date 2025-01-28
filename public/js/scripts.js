@@ -36,11 +36,11 @@ function fetchCoordinatesAndUpdateMap() {
           });
           tableBody.appendChild(tr);
 
-          // Add marker to the map
+          // Add marker to the map with the tooltip "tracker:<number>"
           const marker = new google.maps.Marker({
             position: { lat: parseFloat(row.latitude), lng: parseFloat(row.longitude) },
             map: map,
-            title: `Device ${row.device}`
+            title: `tracker:${row.device}`
           });
           markers.push(marker); // Add the new marker to the markers array
         }
