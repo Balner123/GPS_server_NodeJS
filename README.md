@@ -10,4 +10,4 @@
   - docker-compose up
 
 ## On Server
- https://github.com/Balner123/GPS_server_NodeJS
+  https://gpsbalner.kube.sspu-opava.cz/
