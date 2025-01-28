@@ -3,7 +3,7 @@ import random
 
 url = 'http://localhost:5000/device_input'
 
-device = 102
+device = 200
 
 def generate_random_coordinates():
     # Generate random latitude and longitude

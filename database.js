@@ -8,14 +8,4 @@ const db = new sqlite3.Database('./gps_database.db', (err) => {
   }
 });
 
-// Vytvoření tabulky
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS gps_devices (
-    ID INTEGER PRIMARY KEY AUTOINCREMENT,
-    device INTEGER NOT NULL,
-    longitude CHAR(50),
-    latitude CHAR(50)
-  )`);
-});
-
 module.exports = db;

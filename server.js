@@ -10,54 +10,94 @@ app.post("/device_input", (req, res) => {
   const { device, longitude, latitude } = req.body;
   console.log("Received data:", req.body);  // Debugging line
 
-  // Zkontrolujeme, zda device již existuje
-  const checkSql = `SELECT * FROM gps_devices WHERE device = ?`;
-  db.get(checkSql, [device], (err, row) => {
+  // Název tabulky pro dané zařízení
+  const tableName = `device_${device}`;
+
+  // Vytvoření tabulky, pokud neexistuje
+  const createTableSql = `
+    CREATE TABLE IF NOT EXISTS ${tableName} (
+      ID INTEGER PRIMARY KEY AUTOINCREMENT,
+      longitude CHAR(50),
+      latitude CHAR(50),
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  db.run(createTableSql, [], (err) => {
     if (err) {
-      console.error("Error checking device:", err.message);  // Debugging line
+      console.error("Error creating table:", err.message);
       return res.status(500).json({ error: err.message });
     }
 
-    if (row) {
-      // Pokud device existuje, aktualizujeme hodnoty longitude a latitude
-      const updateSql = `UPDATE gps_devices SET longitude = ?, latitude = ? WHERE device = ?`;
-      db.run(updateSql, [longitude, latitude, device], function(err) {
-        if (err) {
-          console.error("Error updating device:", err.message);  // Debugging line
-          return res.status(500).json({ error: err.message });
-        }
-        res.json({ message: "Coordinates updated!", device: device });
-      });
-    } else {
-      // Pokud device neexistuje, vložíme nový záznam s daným device
-      const insertSql = `INSERT INTO gps_devices (device, longitude, latitude) VALUES (?, ?, ?)`;
-      db.run(insertSql, [device, longitude, latitude], function(err) {
-        if (err) {
-          console.error("Error inserting device:", err.message);  // Debugging line
-          return res.status(500).json({ error: err.message });
-        }
-        res.json({ message: "Coordinates received!", device: device });
-      });
-    }
+    // Vložení dat do tabulky
+    const insertSql = `INSERT INTO ${tableName} (longitude, latitude) VALUES (?, ?)`;
+    db.run(insertSql, [longitude, latitude], function(err) {
+      if (err) {
+        console.error("Error inserting data:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      res.status(200).json({ id: this.lastID });
+    });
   });
 });
 
-app.get("/api/devices", (req, res) => {
-  const selectSql = `SELECT * FROM gps_devices`;
-  db.all(selectSql, [], (err, rows) => {
+app.get("/current_coordinates", (req, res) => {
+  const getTablesSql = `
+    SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'device_%'
+  `;
+
+  db.all(getTablesSql, [], (err, tables) => {
     if (err) {
-      console.error("Error fetching devices:", err.message);  // Debugging line
+      console.error("Error fetching table names:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+
+    const promises = tables.map(table => {
+      const device = table.name.split('_')[1]; // Extract device number from table name
+      const sql = `
+        SELECT '${device}' as device, longitude, latitude, timestamp
+        FROM ${table.name}
+        ORDER BY ID DESC
+        LIMIT 1
+      `;
+      return new Promise((resolve, reject) => {
+        db.get(sql, [], (err, row) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve(row);
+        });
+      });
+    });
+
+    Promise.all(promises)
+      .then(results => {
+        res.json(results);
+      })
+      .catch(error => {
+        console.error("Error fetching data:", error.message);
+        res.status(500).json({ error: error.message });
+      });
+  });
+});
+
+app.get("/device", (req, res) => {
+  const deviceName = req.query.name;
+  res.sendFile(__dirname + '/public/device.html');
+});
+
+app.get("/device_data", (req, res) => {
+  const deviceName = req.query.name;
+  const sql = `SELECT longitude, latitude, timestamp FROM ${deviceName} ORDER BY ID DESC`;
+
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error("Error fetching data:", err.message);
       return res.status(500).json({ error: err.message });
     }
     res.json(rows);
   });
 });
 
-
-app.get("/", (req, res) => {
-    res.sendFile(__dirname + "/public/index.html");
-});
-
 app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+  console.log(`Server running at http://localhost:${port}/`);
 });

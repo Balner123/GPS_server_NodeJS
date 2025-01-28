@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GPS Coordinates</title>
+  <title>Device Data</title>
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAfFabSkZfm4pMVkcFegnuCGnb26jiK9M4&callback=initMap" async defer></script>
 </head>
 <body>
-  <h1>Current GPS Coordinates</h1>
+  <button onclick="window.location.href='index.html'" style="position: absolute; top: 10px; left: 10px;">BACK</button>
+  <h1>Device Data for <span id="deviceName"></span></h1>
   <div id="map" style="height: 500px; width: 80%; margin: 20px auto;"></div>
-  <table id="coordinatesTable">
+  <table id="deviceDataTable">
     <thead>
       <tr>
-        <th>Device</th>
         <th>Longitude</th>
         <th>Latitude</th>
         <th>Timestamp</th>
@@ -23,6 +23,6 @@
       <!-- Data will be inserted here by JavaScript -->
     </tbody>
   </table>
-  <script src="js/scripts.js"></script>
+  <script src="js/device.js"></script>
 </body>
 </html>
