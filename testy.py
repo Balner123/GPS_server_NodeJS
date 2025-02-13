@@ -2,9 +2,10 @@ import requests
 import random
 
 # url = 'http://localhost:5000/device_input'  # localhost
-url = 'https://gpsbalner.kube.sspu-opava.cz/device_input' # remote server
+# url = 'http://gps-server-nodejs.onrender.com/device_input'
+url = 'http://129.151.193.104:5000/device_input'
 
-device = 102
+device = 603
 
 def generate_random_coordinates():
     # Generate random latitude and longitude
