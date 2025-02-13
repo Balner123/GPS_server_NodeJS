@@ -1,5 +1,5 @@
 # Použijte oficiální Node.js image jako základ
-FROM node:14-buster
+FROM node:14-slim
 
 # Nastavte pracovní adresář v kontejneru
 WORKDIR /usr/src/app
