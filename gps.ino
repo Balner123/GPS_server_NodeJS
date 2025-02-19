@@ -2,15 +2,18 @@
 
 #include <Arduino.h>
 #include <TinyGsmClient.h>
+#include <TinyGPS++.h>
 
 // Piny pro GPS modul (UART2)
 #define GPS_TX 14
 #define GPS_RX 27
+#define GPS_POWER_PIN 25  // Pin pro napájení GPS modulu
+#define SATTELITES_NEEDED 7
 
 // Piny pro SIM800L (UART1)
 #define SIM800_TX 26
 #define SIM800_RX 27
-#define SIM800_PWRKEY 4
+#define SIM800_PWRKEY 4\
 #define SIM800_RST 5
 #define SIM800_POWER 23
 
@@ -23,44 +26,76 @@ int device = 606;
 HardwareSerial SerialGPS(2);  // GPS na UART2
 HardwareSerial SerialAT(1);   // SIM800L na UART1
 TinyGsm modem(SerialAT);
+TinyGPSPlus gps; // Objekt pro práci s GPS
+
+float latitude = 0.0;
+float longitude = 0.0;
+int numSats = 0;  // Počet satelitů
+
+// Definice časového intervalu pro deep sleep
+#define HOURS 0
+#define MINUTES 1
+#define SECONDS 0
+
+
+// Funkce pro přepočet času na mikrosekundy
+unsigned long convertToMicroseconds(int hours, int minutes, int seconds) {
+  return (hours * 3600 + minutes * 60 + seconds) * 1000000L;
+}
+
+// Přepočítání času na mikrosekundy
+unsigned long deepSleepTime = convertToMicroseconds(HOURS, MINUTES, SECONDS);
 
 void setup() {
   Serial.begin(115200);
-  SerialGPS.begin(9600, SERIAL_8N1, GPS_TX, GPS_RX);
-  SerialAT.begin(9600, SERIAL_8N1, SIM800_TX, SIM800_RX);
+  SerialGPS.begin(9600, SERIAL_8N1, GPS_TX, GPS_RX); // Nastavení GPS sériového portu
+  SerialAT.begin(9600, SERIAL_8N1, SIM800_TX, SIM800_RX); // Nastavení SIM800L
+  pinMode(GPS_POWER_PIN, OUTPUT); // Nastavení pinu pro napájení GPS
+  pinMode(SIM800_POWER, OUTPUT);
+
+  // Zapnutí GPS modulu
+  digitalWrite(GPS_POWER_PIN, HIGH);  
+  delay(2000);  // Krátká pauza pro stabilizaci GPS modulu
 
   Serial.println("Čekám na platné GPS souřadnice...");
   
-  float latitude = 0.0, longitude = 0.0;
-  bool gpsFix = false;
-
-  // Čekáme na platné GPS souřadnice
-  while (!gpsFix) {
-    if (SerialGPS.available()) {
-      String gpsData = SerialGPS.readStringUntil('\n');
-      Serial.println("GPS RAW: " + gpsData);
-
-      if (gpsData.startsWith("$GNGGA")) { // Formát NMEA
-        char *ptr = strtok((char*)gpsData.c_str(), ",");
-        int field = 0;
-        while (ptr != NULL) {
-          field++;
-          if (field == 3) latitude = atof(ptr) / 100.0; // Šířka
-          if (field == 5) longitude = atof(ptr) / 100.0; // Délka
-          ptr = strtok(NULL, ",");
-        }
-        if (latitude != 0.0 && longitude != 0.0) gpsFix = true;
-      }
+  // Čekáme na GPS fix s požadavkem na alespoň 7 satelitů
+  while (true) {
+    while (SerialGPS.available()) {
+      gps.encode(SerialGPS.read()); // Zpracování každého znaku z GPS dat
     }
-    delay(500);
+
+    // Kontrola, zda máme platný fix a dostatečný počet satelitů
+    if (gps.location.isUpdated() && gps.satellites.value() >= SATTELITES_NEEDED) {
+      latitude = gps.location.lat();
+      longitude = gps.location.lng();
+      numSats = gps.satellites.value();
+      
+      Serial.print("Souřadnice: ");
+      Serial.print(latitude, 6);
+      Serial.print(", ");
+      Serial.println(longitude, 6);
+      Serial.print("Počet satelitů: ");
+      Serial.println(numSats);
+      
+      break;  // Konec čekání na GPS fix
+    } else {
+      // Pokud není dostatek satelitů, zobrazíme upozornění a čekáme dál
+      Serial.println("Nedostatečný počet satelitů, čekám...");
+    }
+
+    delay(2500); // Chvíli čekáme před dalším pokusem
   }
 
-  Serial.println("GPS FIX! Souřadnice: " + String(latitude, 6) + ", " + String(longitude, 6));
+  Serial.println("Dostatečný počet satelitů pro GPS fix!");
+
+  // Vypneme GPS modul po získání souřadnic
+  digitalWrite(GPS_POWER_PIN, LOW);  // Vypnutí GPS modulu
+  Serial.println("GPS modul vypnut.");
 
   // Zapnutí napájení SIM800L
-  pinMode(SIM800_POWER, OUTPUT);
   digitalWrite(SIM800_POWER, HIGH);
-  delay(3000); // Čekání na zapnutí
+  delay(3000); // Čekání na zapnutí SIM800L
 
   Serial.println("Startuji modem...");
   modem.restart();
@@ -73,25 +108,30 @@ void setup() {
   }
   Serial.println("Připojeno!");
 
-  // Sestavíme data ve formátu JSON
+  // Data ve formátu JSON
   String postData = "{\"latitude\":" + String(latitude, 6) +
                     ",\"longitude\":" + String(longitude, 6) +
                     ",\"device\":" + String(device) + "}";
 
   Serial.println("Odesílám data: " + postData);
   
-  // Odeslání HTTP POST požadavku
+  // Odeslání HTTP POST (AT příkazy)
   if (gsm_http_post(url, postData)) {
     Serial.println("HTTP POST byl úspěšný.");
   } else {
     Serial.println("HTTP POST selhal.");
   }
   
+  //odpojení a vypnutí SIM800l
   modem.gprsDisconnect();
+  digitalWrite(SIM800_POWER, HIGH);
   
+
+  // Timer Wakeup pro deep sleep
   Serial.println("Data byla odeslána, přecházím do hlubokého spánku.");
+  esp_sleep_enable_timer_wakeup(deepSleepTime);  // Nastavení wakeup timeru
   delay(2000);
-  esp_deep_sleep_start();
+  esp_deep_sleep_start();  // Přejít do hlubokého spánku
 }
 
 void loop() {
@@ -148,3 +188,4 @@ bool gsm_http_post(String url, String postData) {
   Serial.println("----- HTTP POST End -----");
   return true;
 }
+
