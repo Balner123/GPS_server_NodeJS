@@ -1,27 +1,104 @@
-// Určete model modemu před zahrnutím knihovny
 #define TINY_GSM_MODEM_SIM800
 
 #include <Arduino.h>
 #include <TinyGsmClient.h>
 
-// Definice pinů pro SIM800L
-#define SIM800_RX     27
-#define SIM800_TX     26
-#define SIM800_PWRKEY 4
-#define SIM800_RST    5
-#define SIM800_POWER  23
+// Piny pro GPS modul (UART2)
+#define GPS_TX 14
+#define GPS_RX 27
 
-// Nastavení APN, URL a ID zařízení
+// Piny pro SIM800L (UART1)
+#define SIM800_TX 26
+#define SIM800_RX 27
+#define SIM800_PWRKEY 4
+#define SIM800_RST 5
+#define SIM800_POWER 23
+
+// Nastavení APN a serveru
 const char apn[] = "internet.t-mobile.cz";
-// const char* url = "http://gps-server-nodejs.onrender.com/device_input";  
 const char* url = "http://129.151.193.104:5000/device_input";
 int device = 606;
 
-// Použijeme HardwareSerial pro komunikaci s modulem
-HardwareSerial SerialAT(2);
+// Inicializace sériových portů
+HardwareSerial SerialGPS(2);  // GPS na UART2
+HardwareSerial SerialAT(1);   // SIM800L na UART1
 TinyGsm modem(SerialAT);
 
-// Pomocná funkce pro odeslání AT příkazu a čekání na očekávanou odpověď
+void setup() {
+  Serial.begin(115200);
+  SerialGPS.begin(9600, SERIAL_8N1, GPS_TX, GPS_RX);
+  SerialAT.begin(9600, SERIAL_8N1, SIM800_TX, SIM800_RX);
+
+  Serial.println("Čekám na platné GPS souřadnice...");
+  
+  float latitude = 0.0, longitude = 0.0;
+  bool gpsFix = false;
+
+  // Čekáme na platné GPS souřadnice
+  while (!gpsFix) {
+    if (SerialGPS.available()) {
+      String gpsData = SerialGPS.readStringUntil('\n');
+      Serial.println("GPS RAW: " + gpsData);
+
+      if (gpsData.startsWith("$GNGGA")) { // Formát NMEA
+        char *ptr = strtok((char*)gpsData.c_str(), ",");
+        int field = 0;
+        while (ptr != NULL) {
+          field++;
+          if (field == 3) latitude = atof(ptr) / 100.0; // Šířka
+          if (field == 5) longitude = atof(ptr) / 100.0; // Délka
+          ptr = strtok(NULL, ",");
+        }
+        if (latitude != 0.0 && longitude != 0.0) gpsFix = true;
+      }
+    }
+    delay(500);
+  }
+
+  Serial.println("GPS FIX! Souřadnice: " + String(latitude, 6) + ", " + String(longitude, 6));
+
+  // Zapnutí napájení SIM800L
+  pinMode(SIM800_POWER, OUTPUT);
+  digitalWrite(SIM800_POWER, HIGH);
+  delay(3000); // Čekání na zapnutí
+
+  Serial.println("Startuji modem...");
+  modem.restart();
+  delay(3000);
+
+  Serial.print("Připojuji se k GPRS...");
+  if (!modem.gprsConnect(apn, "", "")) {
+    Serial.println("Připojení selhalo!");
+    while (1) { delay(1000); }
+  }
+  Serial.println("Připojeno!");
+
+  // Sestavíme data ve formátu JSON
+  String postData = "{\"latitude\":" + String(latitude, 6) +
+                    ",\"longitude\":" + String(longitude, 6) +
+                    ",\"device\":" + String(device) + "}";
+
+  Serial.println("Odesílám data: " + postData);
+  
+  // Odeslání HTTP POST požadavku
+  if (gsm_http_post(url, postData)) {
+    Serial.println("HTTP POST byl úspěšný.");
+  } else {
+    Serial.println("HTTP POST selhal.");
+  }
+  
+  modem.gprsDisconnect();
+  
+  Serial.println("Data byla odeslána, přecházím do hlubokého spánku.");
+  delay(2000);
+  esp_deep_sleep_start();
+}
+
+void loop() {
+  // ESP32 přejde do hlubokého spánku, takže loop není potřeba.
+}
+
+// Pomocná funkce pro odeslání AT příkazu a čekání na odpověď
 bool sendAT(const String &command, const String &expected, unsigned long timeout = 5000) {
   Serial.print("Send ->: ");
   Serial.println(command);
@@ -44,7 +121,7 @@ bool sendAT(const String &command, const String &expected, unsigned long timeout
   return false;
 }
 
-// Vlastní implementace HTTP POST pomocí AT příkazů
+// Odesílání HTTP POST přes AT příkazy
 bool gsm_http_post(String url, String postData) {
   Serial.println("----- HTTP POST Start -----");
   
@@ -71,56 +148,3 @@ bool gsm_http_post(String url, String postData) {
   Serial.println("----- HTTP POST End -----");
   return true;
 }
-
-void setup() {
-  // Inicializace napájení SIM800L
-  pinMode(SIM800_POWER, OUTPUT);
-  digitalWrite(SIM800_POWER, HIGH);
-
-  Serial.begin(115200);
-  delay(3000);  // Krátká prodleva, aby se sériový monitor stabilizoval
-
-  // Inicializace sériové linky pro AT příkazy
-  SerialAT.begin(9600, SERIAL_8N1, SIM800_TX, SIM800_RX);
-  
-  Serial.println("Restartuji modem...");
-  modem.restart();
-  delay(3000);
-  
-  // Připojení k GPRS síti
-  Serial.print("Připojuji se k GPRS...");
-  if (!modem.gprsConnect(apn, "", "")) {
-    Serial.println("Připojení selhalo!");
-    while (1) { delay(1000); }
-  }
-  Serial.println("Připojeno!");
-  
-  // Vygenerujeme náhodné souřadnice
-  float latitude = random(-90000000, 90000000) / 1000000.0;
-  float longitude = random(-180000000, 180000000) / 1000000.0;
-  
-  // Sestavíme data ve formátu JSON
-  String postData = "{\"latitude\":" + String(latitude, 6) +
-                    ",\"longitude\":" + String(longitude, 6) +
-                    ",\"device\":" + String(device) + "}";
-  
-  Serial.println("Odesílám data: " + postData);
-  
-  // Odeslání HTTP POST požadavku
-  if (gsm_http_post(url, postData)) {
-    Serial.println("HTTP POST byl úspěšný.");
-  } else {
-    Serial.println("HTTP POST selhal.");
-  }
-  
-  modem.gprsDisconnect();
-  
-  Serial.println("Data byla odeslána, přecházím do hlubokého spánku.");
-  delay(2000);
-  esp_deep_sleep_start();
-}
-
-void loop() {
-  // Loop není potřeba, zařízení se po odeslání uspí.
-}
-
