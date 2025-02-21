@@ -8,19 +8,20 @@
 #define GPS_TX 14
 #define GPS_RX 27
 #define GPS_POWER_PIN 25  // Pin pro napájení GPS modulu
-#define SATTELITES_NEEDED 7
+#define SATTELITES_NEEDED 15
+#define GPRS_TRIES_COUNT 3
 
 // Piny pro SIM800L (UART1)
 #define SIM800_TX 26
 #define SIM800_RX 27
-#define SIM800_PWRKEY 4\
+#define SIM800_PWRKEY 4
 #define SIM800_RST 5
 #define SIM800_POWER 23
 
 // Nastavení APN a serveru
 const char apn[] = "internet.t-mobile.cz";
 const char* url = "http://129.151.193.104:5000/device_input";
-int device = 606;
+int device = 200;
 
 // Inicializace sériových portů
 HardwareSerial SerialGPS(2);  // GPS na UART2
@@ -82,6 +83,9 @@ void setup() {
     } else {
       // Pokud není dostatek satelitů, zobrazíme upozornění a čekáme dál
       Serial.println("Nedostatečný počet satelitů, čekám...");
+      Serial.print("Počet satelitů: ");
+      Serial.println(gps.satellites.value());
+
     }
 
     delay(2500); // Chvíli čekáme před dalším pokusem
@@ -101,12 +105,31 @@ void setup() {
   modem.restart();
   delay(3000);
 
-  Serial.print("Připojuji se k GPRS...");
-  if (!modem.gprsConnect(apn, "", "")) {
-    Serial.println("Připojení selhalo!");
-    while (1) { delay(1000); }
-  }
-  Serial.println("Připojeno!");
+ Serial.print("Připojuji se k GPRS...");
+int attempt = 0;
+bool connected = false;
+
+while (attempt < GPRS_TRIES_COUNT ) {
+    if (modem.gprsConnect(apn, "", "")) {
+        connected = true;
+        break;
+    }
+    Serial.print("Pokus ");
+    Serial.print(attempt + 1);
+    Serial.println(" selhal, opakuji...");
+    attempt++;
+    delay(5000);  // Počkej 5 sekund před dalším pokusem
+}
+
+if (!connected) {
+    Serial.println("Připojení selhalo,přecházím do hlubokého spánku.");
+    modem.poweroff();  // Vypni modem
+    digitalWrite(SIM800_POWER, LOW);
+    esp_sleep_enable_timer_wakeup(deepSleepTime);
+    esp_deep_sleep_start();
+}
+
+Serial.println("Připojeno!");
 
   // Data ve formátu JSON
   String postData = "{\"latitude\":" + String(latitude, 6) +
@@ -124,7 +147,10 @@ void setup() {
   
   //odpojení a vypnutí SIM800l
   modem.gprsDisconnect();
-  digitalWrite(SIM800_POWER, HIGH);
+  delay(1000);  // Počkej na odpojení
+  modem.poweroff();
+  digitalWrite(SIM800_POWER, LOW);
+
   
 
   // Timer Wakeup pro deep sleep
@@ -146,16 +172,18 @@ bool sendAT(const String &command, const String &expected, unsigned long timeout
   
   unsigned long start = millis();
   String response;
-  while(millis() - start < timeout) {
-    while(SerialAT.available()) {
-      response += (char)SerialAT.read();
+while (millis() - start < timeout) {
+    while (SerialAT.available()) {
+        response += (char)SerialAT.read();
     }
     if (response.indexOf(expected) != -1) {
-      Serial.print("Response: ");
-      Serial.println(response);
-      return true;
+        Serial.print("Response: ");
+        Serial.println(response);
+        return true;
     }
-  }
+    delay(10);  // Předejít zbytečnému zatížení CPU
+}
+
   Serial.print("Timeout/Error, response: ");
   Serial.println(response);
   return false;
