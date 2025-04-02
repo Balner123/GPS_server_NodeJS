@@ -1,2 +1,9 @@
 node_modules
-mpm-debug.log
+npm-debug.log
+.env
+.git
+.gitignore
+README.md
+*.md
+.vscode
+.idea

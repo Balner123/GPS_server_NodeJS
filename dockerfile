@@ -1,8 +1,8 @@
 # Použijte oficiální Node.js image jako základ
-FROM node:14-slim
+FROM node:18-alpine
 
 # Nastavte pracovní adresář v kontejneru
-WORKDIR /usr/src/app
+WORKDIR /app
 
 # Zkopírujte package.json a package-lock.json do pracovního adresáře
 COPY package*.json ./
@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 5000
 
 # Definujte příkaz pro spuštění aplikace
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

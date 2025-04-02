@@ -1,0 +1,134 @@
+/* Obecné styly */
+body {
+    background-color: #f8f9fa;
+}
+
+/* Karty */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1rem;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Mapa */
+#map, #history-map {
+    border-radius: 0.25rem;
+    border: 1px solid #dee2e6;
+}
+
+/* Seznam zařízení */
+.device-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.device-item:hover {
+    background-color: #f8f9fa;
+}
+
+.device-item.active {
+    background-color: #e9ecef;
+}
+
+.device-item:last-child {
+    border-bottom: none;
+}
+
+/* Tabulka */
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Modal */
+.modal-content {
+    border-radius: 0.5rem;
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Formuláře */
+.form-control:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Tlačítka */
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* Responsivní design */
+@media (max-width: 768px) {
+    .container {
+        padding: 0.5rem;
+    }
+    
+    #map, #history-map {
+        height: 300px !important;
+    }
+}
+
+/* Animace */
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Stav zařízení */
+.device-status {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.device-status.active {
+    background-color: #198754;
+}
+
+.device-status.inactive {
+    background-color: #dc3545;
+}
+
+/* Informační bubliny */
+.info-bubble {
+    padding: 0.5rem;
+    background-color: white;
+    border-radius: 0.25rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Časové značky */
+.timestamp {
+    color: #6c757d;
+    font-size: 0.875rem;
+} 
