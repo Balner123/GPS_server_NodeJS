@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Konfigurace
 BASE_URL = "http://localhost:5000"
-TEST_DEVICE = "200"
+TEST_DEVICE = "129.151.193.104:200"
 
 def test_device_registration():
     """Test registrace nového zařízení"""
