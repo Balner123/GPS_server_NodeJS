@@ -1,101 +1,186 @@
 const express = require("express");
+const cors = require("cors");
+const rateLimit = require("express-rate-limit");
+const { body, validationResult } = require("express-validator");
 const db = require("./database");
-const app = express();
-const port = 5000;
+require('dotenv').config();
 
+const app = express();
+const port = process.env.PORT || 5000;
+
+// Middleware
 app.use(express.json());
 app.use(express.static('public'));
+app.use(cors({
+  origin: process.env.CORS_ORIGIN
+}));
 
-app.post("/device_input", (req, res) => {
-  const { device, longitude, latitude } = req.body;
-  console.log("Received data:", req.body);  // Debugging line
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: process.env.RATE_LIMIT_WINDOW * 60 * 1000,
+  max: process.env.RATE_LIMIT_MAX
+});
+app.use(limiter);
 
-  // Název tabulky pro dané zařízení
-  const tableName = `device_${device}`;
+// Validation middleware
+const validateCoordinates = [
+  body('device').isString().trim().escape(),
+  body('longitude').isFloat({ min: -180, max: 180 }),
+  body('latitude').isFloat({ min: -90, max: 90 }),
+  body('speed').optional().isFloat({ min: 0, max: 1000 }),
+  body('altitude').optional().isFloat({ min: -1000, max: 10000 }),
+  body('accuracy').optional().isFloat({ min: 0, max: 100 }),
+  body('satellites').optional().isInt({ min: 0, max: 50 })
+];
 
-  // Vytvoření tabulky, pokud neexistuje
-  const createTableSql = `
-    CREATE TABLE IF NOT EXISTS ${tableName} (
-      ID INTEGER PRIMARY KEY AUTOINCREMENT,
-      longitude CHAR(50),
-      latitude CHAR(50),
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-  db.run(createTableSql, [], (err) => {
-    if (err) {
-      console.error("Error creating table:", err.message);
-      return res.status(500).json({ error: err.message });
-    }
+const validateSleepInterval = [
+  body('device').isString().trim().escape(),
+  body('sleep_interval').isInt({ min: 1, max: 3600 }) // 1 sekunda až 1 hodina
+];
 
-    // Vložení dat do tabulky
-    const insertSql = `INSERT INTO ${tableName} (longitude, latitude) VALUES (?, ?)`;
-    db.run(insertSql, [longitude, latitude], function(err) {
-      if (err) {
-        console.error("Error inserting data:", err.message);
-        return res.status(500).json({ error: err.message });
-      }
-      res.status(200).json({ id: this.lastID });
-    });
-  });
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
-app.get("/current_coordinates", (req, res) => {
-  const getTablesSql = `
-    SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'device_%'
-  `;
+// Endpoint pro získání nastavení zařízení
+app.get("/device_settings/:device", async (req, res) => {
+  try {
+    const deviceName = req.params.device;
+    const [rows] = await db.execute(
+      'SELECT sleep_interval FROM devices WHERE name = ?',
+      [deviceName]
+    );
 
-  db.all(getTablesSql, [], (err, tables) => {
-    if (err) {
-      console.error("Error fetching table names:", err.message);
-      return res.status(500).json({ error: err.message });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
     }
 
-    const promises = tables.map(table => {
-      const device = table.name.split('_')[1]; // Extract device number from table name
-      const sql = `
-        SELECT '${device}' as device, longitude, latitude, timestamp
-        FROM ${table.name}
-        ORDER BY ID DESC
-        LIMIT 1
-      `;
-      return new Promise((resolve, reject) => {
-        db.get(sql, [], (err, row) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve(row);
-        });
-      });
-    });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    Promise.all(promises)
-      .then(results => {
-        res.json(results);
-      })
-      .catch(error => {
-        console.error("Error fetching data:", error.message);
-        res.status(500).json({ error: error.message });
-      });
-  });
+// Endpoint pro aktualizaci odmlky zařízení (pouze pro administraci)
+app.post("/device_settings", validateSleepInterval, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { device, sleep_interval } = req.body;
+
+    const [result] = await db.execute(
+      `UPDATE devices 
+       SET sleep_interval = ?, 
+           sleep_interval_updated_at = CURRENT_TIMESTAMP 
+       WHERE name = ?`,
+      [sleep_interval, device]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    res.json({ message: 'Sleep interval updated successfully' });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/device_input", validateCoordinates, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { device, longitude, latitude, speed, altitude, accuracy, satellites } = req.body;
+
+    // Získání nebo vytvoření zařízení
+    const [deviceResult] = await db.execute(
+      'INSERT INTO devices (name) VALUES (?) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)',
+      [device]
+    );
+    const deviceId = deviceResult.insertId;
+
+    // Vložení lokace s rozšířenými daty
+    const [locationResult] = await db.execute(
+      'INSERT INTO locations (device_id, longitude, latitude, speed, altitude, accuracy, satellites) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [deviceId, longitude, latitude, speed || null, altitude || null, accuracy || null, satellites || null]
+    );
+
+    // Aktualizace last_seen
+    await db.execute(
+      'UPDATE devices SET last_seen = CURRENT_TIMESTAMP WHERE id = ?',
+      [deviceId]
+    );
+
+    // Získání aktuálního nastavení odmlky
+    const [settings] = await db.execute(
+      'SELECT sleep_interval FROM devices WHERE id = ?',
+      [deviceId]
+    );
+
+    res.status(200).json({ 
+      id: locationResult.insertId,
+      sleep_interval: settings[0].sleep_interval
+    });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/current_coordinates", async (req, res) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT d.name as device, l.longitude, l.latitude, l.timestamp
+      FROM devices d
+      LEFT JOIN locations l ON d.id = l.device_id
+      WHERE d.status = 'active'
+      AND l.id IN (
+        SELECT MAX(id)
+        FROM locations
+        GROUP BY device_id
+      )
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/device", (req, res) => {
-  const deviceName = req.query.name;
   res.sendFile(__dirname + '/public/device.html');
 });
 
-app.get("/device_data", (req, res) => {
-  const deviceName = req.query.name;
-  const sql = `SELECT longitude, latitude, timestamp FROM ${deviceName} ORDER BY ID DESC`;
+app.get("/device_data", async (req, res) => {
+  try {
+    const deviceName = req.query.name;
+    const [rows] = await db.execute(`
+      SELECT l.longitude, l.latitude, l.timestamp, l.speed, l.altitude, l.accuracy, l.satellites
+      FROM locations l
+      JOIN devices d ON l.device_id = d.id
+      WHERE d.name = ?
+      ORDER BY l.timestamp DESC
+    `, [deviceName]);
 
-  db.all(sql, [], (err, rows) => {
-    if (err) {
-      console.error("Error fetching data:", err.message);
-      return res.status(500).json({ error: err.message });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
     }
+
     res.json(rows);
-  });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(port, () => {
