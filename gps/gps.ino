@@ -33,8 +33,8 @@ const char gprsPass[] = ""; // GPRS heslo (pokud je vyžadováno)
 
 // Nastavení Serveru
 const char server[] = "129.151.193.104"; // Adresa serveru (bez http://)
-const int ports[] = {80, 443, 5000};     // Možné porty
-const int numPorts = 3;                  // Počet portů
+const int ports[] = {5000};               // Pouze port 5000, jako v testech
+const int numPorts = 1;                   // Počet portů
 const char resource[] = "/device_input"; // Cesta na serveru (endpoint)
 int device = 450;                        // ID zařízení
 
@@ -254,13 +254,15 @@ void setup() {
 
     Serial.println("Připojeno k serveru pro POST.");
     
-    // Odeslání HTTP POST hlaviček
-    client.print(String("POST ") + resource + " HTTP/1.0\r\n");  // Změna na HTTP/1.0
-    client.print(String("Host: ") + server + "\r\n");
-    client.print("User-Agent: ESP32-GPS-Tracker\r\n");
-    client.print("Accept: application/json\r\n");
+    // Odeslání HTTP POST hlaviček - zjednodušený formát
+    client.print("POST /device_input HTTP/1.1\r\n");
+    client.print("Host: ");
+    client.print(server);
+    client.print("\r\n");
     client.print("Content-Type: application/json\r\n");
-    client.print(String("Content-Length: ") + postData.length() + "\r\n");
+    client.print("Content-Length: ");
+    client.print(postData.length());
+    client.print("\r\n");
     client.print("Connection: close\r\n");
     client.print("\r\n");
 
@@ -271,29 +273,29 @@ void setup() {
     // Čekání na odpověď serveru (s timeoutem)
     unsigned long httpTimeoutStart = millis();
     String responseBody = "";
-    String currentLine = "";
     bool headersComplete = false;
     bool responseReceived = false;
     
+    // Čekáme na odpověď
     while (client.connected() && millis() - httpTimeoutStart < 30000L) {
       if (client.available()) {
-        char c = client.read();
+        String line = client.readStringUntil('\n');
+        line.trim();
         
-        if (c == '\n') {
-          if (currentLine.length() == 0) {
-            headersComplete = true;
-          } else if (headersComplete) {
-            responseBody += currentLine;
-            responseReceived = true;
-          }
-          currentLine = "";
-        } else if (c == '\r') {
-          // Ignorovat CR
-        } else {
-          currentLine += c;
+        // Prázdný řádek značí konec hlaviček
+        if (line.length() == 0) {
+          headersComplete = true;
+          continue;
+        }
+        
+        // Pokud jsme za hlavičkami, přidáme řádek do odpovědi
+        if (headersComplete) {
+          responseBody += line;
+          responseReceived = true;
         }
       }
       
+      // Pokud jsme dostali odpověď, ukončíme čekání
       if (responseReceived) {
         break;
       }
