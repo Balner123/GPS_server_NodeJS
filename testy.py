@@ -4,8 +4,8 @@ import time
 from datetime import datetime
 
 # Konfigurace
-BASE_URL = "http://localhost:5000"
-TEST_DEVICE = "129.151.193.104:200"
+BASE_URL = "http://129.151.193.104:5000/"
+TEST_DEVICE = "200"
 
 def test_device_registration():
     """Test registrace nového zařízení"""
@@ -14,7 +14,7 @@ def test_device_registration():
     # Odeslání GPS dat (automaticky zaregistruje zařízení)
     data = {
         "device": TEST_DEVICE,
-        "longitude": 14.4378,
+        "longitude": 18.4378,
         "latitude": 50.0755,
         "speed": 0.0,
         "altitude": 235.0,
