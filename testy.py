@@ -4,8 +4,8 @@ import time
 from datetime import datetime
 
 # Konfigurace
-#BASE_URL = "http://129.151.193.104:5000/"
-BASE_URL = "http://localhost:5000"
+BASE_URL = "http://129.151.193.104:5000/"
+#BASE_URL = "http://localhost:5000"
 EXISTING_TEST_DEVICE = "400" # Přejmenováno pro srozumitelnost
 NEW_TEST_DEVICE = "500"     # Nové testovací zařízení
 
