@@ -18,7 +18,7 @@
             <div class="col-md-8">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="card-title mb-0">Mapa zařízení</h5>
+                        <h5 class="card-title mb-0">Devices Locations</h5>
                     </div>
                     <div class="card-body">
                         <div id="map" style="height: 500px;"></div>
@@ -28,7 +28,7 @@
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="card-title mb-0">Aktivní zařízení</h5>
+                        <h5 class="card-title mb-0">Active devices</h5>
                     </div>
                     <div class="card-body">
                         <div id="devices-list"></div>
@@ -43,17 +43,17 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Detail zařízení</h5>
+                    <h5 class="modal-title">Detail of device</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div id="device-details"></div>
                     <form id="sleep-interval-form">
                         <div class="mb-3">
-                            <label class="form-label">Interval odmlky (sekundy)</label>
+                            <label class="form-label"> Update interval(seconds)</label>
                             <input type="number" class="form-control" id="sleep-interval" min="1" max="3600">
                         </div>
-                        <button type="submit" class="btn btn-primary">Uložit</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
                     </form>
                 </div>
             </div>
