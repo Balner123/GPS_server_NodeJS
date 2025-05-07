@@ -91,9 +91,22 @@ async function selectDevice(deviceName) {
     try {
         const response = await fetch(`${API_BASE_URL}/device_settings/${deviceName}`);
         const settings = await response.json();
-        document.getElementById('device-sleep-interval').value = settings.sleep_interval;
+        // document.getElementById('device-sleep-interval').value = settings.sleep_interval; // Původní řádek
+
+        // Převod sekund na DD:HH:MM:SS a nastavení hodnot do formuláře
+        const dhms = secondsToDhms(settings.sleep_interval || 10); // Výchozí 10s, pokud není definováno
+        document.getElementById('device-sleep-days').value = dhms.d;
+        document.getElementById('device-sleep-hours').value = dhms.h;
+        document.getElementById('device-sleep-minutes').value = dhms.m;
+        document.getElementById('device-sleep-seconds').value = dhms.s;
+
     } catch (error) {
         console.error('Chyba při načítání nastavení odmlky:', error);
+        // V případě chyby nastavit výchozí hodnoty (např. 10 sekund)
+        document.getElementById('device-sleep-days').value = 0;
+        document.getElementById('device-sleep-hours').value = 0;
+        document.getElementById('device-sleep-minutes').value = 0;
+        document.getElementById('device-sleep-seconds').value = 10;
     }
     
     // Načtení dat zařízení
@@ -220,6 +233,21 @@ function formatTimestamp(timestamp) {
     });
 }
 
+// --- Nové pomocné funkce pro převod času ---
+function secondsToDhms(totalSeconds) {
+    totalSeconds = Number(totalSeconds);
+    const d = Math.floor(totalSeconds / (3600 * 24));
+    const h = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.floor(totalSeconds % 60);
+    return { d, h, m, s };
+}
+
+function dhmsToSeconds(d, h, m, s) {
+    return Number(d) * 24 * 3600 + Number(h) * 3600 + Number(m) * 60 + Number(s);
+}
+// --- Konec nových pomocných funkcí ---
+
 // Zpracování aktualizace odmlky
 async function handleSleepIntervalUpdate(e) {
     e.preventDefault();
@@ -227,11 +255,35 @@ async function handleSleepIntervalUpdate(e) {
     
     if (!selectedDevice) {
         console.error('Není vybráno zařízení!');
+        alert('Nejprve vyberte zařízení.'); // Přidáno upozornění pro uživatele
         return;
     }
     
-    const sleepInterval = document.getElementById('device-sleep-interval').value;
-    console.log('Nový interval odmlky:', sleepInterval);
+    // const sleepInterval = document.getElementById('device-sleep-interval').value; // Původní řádek
+
+    // Načtení hodnot z nových polí
+    const days = document.getElementById('device-sleep-days').value || 0;
+    const hours = document.getElementById('device-sleep-hours').value || 0;
+    const minutes = document.getElementById('device-sleep-minutes').value || 0;
+    const seconds = document.getElementById('device-sleep-seconds').value || 0;
+
+    // Převod na celkový počet sekund
+    let totalSleepInterval = dhmsToSeconds(days, hours, minutes, seconds);
+
+    // Kontrola minimálního intervalu
+    if (totalSleepInterval < 10) {
+        alert('Minimální interval odmlky je 10 sekund.');
+        // Možná resetovat formulář na 10s nebo nechat uživatele opravit
+        const dhms = secondsToDhms(10);
+        document.getElementById('device-sleep-days').value = dhms.d;
+        document.getElementById('device-sleep-hours').value = dhms.h;
+        document.getElementById('device-sleep-minutes').value = dhms.m;
+        document.getElementById('device-sleep-seconds').value = dhms.s;
+        totalSleepInterval = 10; // Zajistit odeslání minimální hodnoty
+        return; // Zastavit odeslání, dokud uživatel neopraví nebo nechat odeslat 10s
+    }
+    
+    console.log('Nový interval odmlky (sekundy):', totalSleepInterval);
     
     try {
         console.log('Odesílám požadavek na server...');
@@ -242,7 +294,7 @@ async function handleSleepIntervalUpdate(e) {
             },
             body: JSON.stringify({
                 device: selectedDevice,
-                sleep_interval: parseInt(sleepInterval)
+                sleep_interval: totalSleepInterval // Odeslání celkového počtu sekund
             })
         });
         

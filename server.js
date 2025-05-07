@@ -4,13 +4,18 @@ const rateLimit = require("express-rate-limit");
 const { body, validationResult } = require("express-validator");
 const db = require("./database");
 require('dotenv').config();
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 5000;
 
+// Nastavení view engine na EJS
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 // Middleware
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors({
   origin: process.env.CORS_ORIGIN
 }));
@@ -157,8 +162,13 @@ app.get("/current_coordinates", async (req, res) => {
   }
 });
 
+// Routa pro hlavní stránku - renderuje index.ejs
+app.get("/", (req, res) => {
+  res.render('index', { currentPage: 'index' }); 
+});
+
 app.get("/device", (req, res) => {
-  res.sendFile(__dirname + '/public/device.html');
+  res.render('device', { currentPage: 'device' });
 });
 
 app.get("/device_data", async (req, res) => {
