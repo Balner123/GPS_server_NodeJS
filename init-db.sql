@@ -3,8 +3,9 @@ DROP DATABASE IF EXISTS gps_tracking;
 CREATE DATABASE gps_tracking;
 USE gps_tracking;
 
+
 -- Vytvoření tabulky zařízení
-CREATE TABLE devices (
+CREATE TABLE IF NOT EXISTS devices (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -15,7 +16,7 @@ CREATE TABLE devices (
 );
 
 -- Vytvoření tabulky lokací
-CREATE TABLE locations (
+CREATE TABLE IF NOT EXISTS locations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     device_id INT NOT NULL,
     longitude DECIMAL(10, 6) NOT NULL,
@@ -28,7 +29,7 @@ CREATE TABLE locations (
     FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
 );
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
