@@ -7,7 +7,7 @@ from datetime import datetime
 #BASE_URL = "http://129.151.193.104:5000/"
 BASE_URL = "http://localhost:5000"
 EXISTING_TEST_DEVICE = "400" # Přejmenováno pro srozumitelnost
-NEW_TEST_DEVICE = "320"     # Nové testovací zařízení
+NEW_TEST_DEVICE = "500"     # Nové testovací zařízení
 
 def send_gps_data(device_id, longitude, latitude, speed=None, altitude=None, accuracy=None, satellites=None):
     """Sends GPS data to the /device_input endpoint."""

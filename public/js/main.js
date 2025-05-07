@@ -14,15 +14,15 @@ document.addEventListener('DOMContentLoaded', () => {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Načtení dat
-    loadDevices();
-    loadCurrentCoordinates();
+    // Načtení dat (mapy i seznamu zařízení)
+    loadCurrentCoordinates(); // This will now populate both map and device list
 
-    // Nastavení automatické aktualizace
+    // Nastavení automatické aktualizace (mapy i seznamu zařízení)
     setInterval(loadCurrentCoordinates, UPDATE_INTERVAL);
 });
 
-// Načtení seznamu zařízení
+// Načtení seznamu zařízení (tato funkce může zůstat pro případné jiné použití,
+// ale pro hlavní aktualizaci seznamu se nyní spoléháme na loadCurrentCoordinates)
 async function loadDevices() {
     try {
         const response = await fetch(`${API_BASE_URL}/current_coordinates`);
@@ -36,7 +36,7 @@ async function loadDevices() {
             devicesList.appendChild(deviceElement);
         });
     } catch (error) {
-        console.error('Chyba při načítání zařízení:', error);
+        console.error('Chyba při načítání zařízení (loadDevices):', error);
     }
 }
 
@@ -57,18 +57,34 @@ function createDeviceElement(device) {
     return div;
 }
 
-// Načtení aktuálních souřadnic
+// Načtení aktuálních souřadnic a aktualizace seznamu zařízení
 async function loadCurrentCoordinates() {
     try {
         const response = await fetch(`${API_BASE_URL}/current_coordinates`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const devices = await response.json();
         
-        // Aktualizace markerů na mapě
+        // --- Aktualizace seznamu zařízení (sidebar) ---
+        const devicesList = document.getElementById('devices-list');
+        if (devicesList) {
+            devicesList.innerHTML = ''; // Vyčistit stávající seznam
+            devices.forEach(device => {
+                const deviceElement = createDeviceElement(device); // Použít existující funkci
+                devicesList.appendChild(deviceElement);
+            });
+        } else {
+            console.error('Element #devices-list nebyl nalezen.');
+        }
+        // --- Konec aktualizace seznamu zařízení ---
+
+        // Aktualizace markerů na mapě (stávající logika)
         devices.forEach(device => {
             updateDeviceMarker(device);
         });
     } catch (error) {
-        console.error('Chyba při načítání souřadnic:', error);
+        console.error('Chyba při načítání souřadnic a aktualizaci UI:', error);
     }
 }
 
@@ -97,6 +113,7 @@ function createPopupContent(device) {
 
 // Formátování časové značky
 function formatTimestamp(timestamp) {
+    if (!timestamp) return 'Neznámý čas'; // Pojistka pro případ, že timestamp je null/undefined
     const date = new Date(timestamp);
     return date.toLocaleString('cs-CZ', {
         year: 'numeric',
