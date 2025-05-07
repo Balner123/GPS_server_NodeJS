@@ -1,28 +1,28 @@
-// Inicializace mapy
+// Map initialization
 let map;
 let markers = {};
 
-// Konfigurace
+// Configuration
 const API_BASE_URL = window.location.origin;
-const UPDATE_INTERVAL = 5000; // 5 sekund
+const UPDATE_INTERVAL = 5000; // 5 seconds
 
-// Inicializace při načtení stránky
+// Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializace mapy
+    // Initialize map
     map = L.map('map').setView([50.0755, 14.4378], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Načtení dat (mapy i seznamu zařízení)
+    // Load data (map and device list)
     loadCurrentCoordinates(); // This will now populate both map and device list
 
-    // Nastavení automatické aktualizace (mapy i seznamu zařízení)
+    // Set up automatic update (map and device list)
     setInterval(loadCurrentCoordinates, UPDATE_INTERVAL);
 });
 
-// Načtení seznamu zařízení (tato funkce může zůstat pro případné jiné použití,
-// ale pro hlavní aktualizaci seznamu se nyní spoléháme na loadCurrentCoordinates)
+// Load device list (this function can remain for other potential uses,
+// but for the main list update, we now rely on loadCurrentCoordinates)
 async function loadDevices() {
     try {
         const response = await fetch(`${API_BASE_URL}/current_coordinates`);
@@ -36,28 +36,28 @@ async function loadDevices() {
             devicesList.appendChild(deviceElement);
         });
     } catch (error) {
-        console.error('Chyba při načítání zařízení (loadDevices):', error);
+        console.error('Error loading devices (loadDevices):', error);
     }
 }
 
-// Vytvoření elementu pro zařízení
+// Create device element
 function createDeviceElement(device) {
     const div = document.createElement('div');
     div.className = 'device-item';
     div.innerHTML = `
         <span class="device-status active"></span>
         <strong>${device.device}</strong>
-        <div class="timestamp">Poslední aktualizace: ${formatTimestamp(device.timestamp)}</div>
+        <div class="timestamp">Last update: ${formatTimestamp(device.timestamp)}</div>
     `;
     
     div.addEventListener('click', () => {
-        window.location.href = `/device?name=${encodeURIComponent(device.device)}`;
+        window.location.href = `/device`;
     });
     
     return div;
 }
 
-// Načtení aktuálních souřadnic a aktualizace seznamu zařízení
+// Load current coordinates and update device list
 async function loadCurrentCoordinates() {
     try {
         const response = await fetch(`${API_BASE_URL}/current_coordinates`);
@@ -66,29 +66,29 @@ async function loadCurrentCoordinates() {
         }
         const devices = await response.json();
         
-        // --- Aktualizace seznamu zařízení (sidebar) ---
+        // --- Update device list (sidebar) ---
         const devicesList = document.getElementById('devices-list');
         if (devicesList) {
-            devicesList.innerHTML = ''; // Vyčistit stávající seznam
+            devicesList.innerHTML = ''; // Clear existing list
             devices.forEach(device => {
-                const deviceElement = createDeviceElement(device); // Použít existující funkci
+                const deviceElement = createDeviceElement(device); // Use existing function
                 devicesList.appendChild(deviceElement);
             });
         } else {
-            console.error('Element #devices-list nebyl nalezen.');
+            console.error('Element #devices-list not found.');
         }
-        // --- Konec aktualizace seznamu zařízení ---
+        // --- End of device list update ---
 
-        // Aktualizace markerů na mapě (stávající logika)
+        // Update markers on the map (existing logic)
         devices.forEach(device => {
             updateDeviceMarker(device);
         });
     } catch (error) {
-        console.error('Chyba při načítání souřadnic a aktualizaci UI:', error);
+        console.error('Error loading coordinates and updating UI:', error);
     }
 }
 
-// Aktualizace markeru zařízení
+// Update device marker
 function updateDeviceMarker(device) {
     const position = [device.latitude, device.longitude];
     
@@ -101,7 +101,7 @@ function updateDeviceMarker(device) {
     }
 }
 
-// Vytvoření obsahu popup okna
+// Create popup content
 function createPopupContent(device) {
     return `
         <div class="info-bubble">
@@ -111,11 +111,11 @@ function createPopupContent(device) {
     `;
 }
 
-// Formátování časové značky
+// Format timestamp
 function formatTimestamp(timestamp) {
-    if (!timestamp) return 'Neznámý čas'; // Pojistka pro případ, že timestamp je null/undefined
+    if (!timestamp) return 'Unknown time'; // Fallback for null/undefined timestamp
     const date = new Date(timestamp);
-    return date.toLocaleString('cs-CZ', {
+    return date.toLocaleString('en-US', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',

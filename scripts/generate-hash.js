@@ -1,11 +1,11 @@
 const bcrypt = require('bcryptjs');
-const password = 'root'; // Změňte na vaše skutečné heslo
-const saltRounds = 10; // Doporučený počet saltovacích kol
+const password = 'root'; // Change to your actual password
+const saltRounds = 10; // Recommended number of salt rounds
 
 bcrypt.hash(password, saltRounds, function(err, hash) {
   if (err) {
-    console.error('Chyba při hashování hesla:', err);
+    console.error('Error hashing password:', err);
     return;
   }
-  console.log('Vygenerovaný hash hesla:', hash);
+  console.log('Generated password hash:', hash);
 });

@@ -1,10 +1,10 @@
--- Vytvoření databáze
+-- Create database
 DROP DATABASE IF EXISTS gps_tracking;
 CREATE DATABASE gps_tracking;
 USE gps_tracking;
 
 
--- Vytvoření tabulky zařízení
+-- Create devices table
 CREATE TABLE IF NOT EXISTS devices (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,

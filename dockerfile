@@ -1,20 +1,20 @@
-# Použijte oficiální Node.js image jako základ
+# Use the official Node.js image as a base
 FROM node:24-alpine
 
-# Nastavte pracovní adresář v kontejneru
+# Set the working directory in the container
 WORKDIR /app
 
-# Zkopírujte package.json a package-lock.json do pracovního adresáře
+# Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
 
-# Nainstalujte závislosti
+# Install dependencies
 RUN npm install
 
-# Zkopírujte zbytek zdrojového kódu do pracovního adresáře
+# Copy the rest of the source code to the working directory
 COPY . .
 
-# Exponujte port, na kterém aplikace běží
+# Expose the port the application runs on
 EXPOSE 5000
 
-# Definujte příkaz pro spuštění aplikace
+# Define the command to run the application
 CMD ["node", "server.js"]
