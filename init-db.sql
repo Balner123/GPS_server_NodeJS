@@ -28,7 +28,16 @@ CREATE TABLE locations (
     FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
 );
 
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Vytvoření indexů pro optimalizaci
 CREATE INDEX idx_device_id ON locations(device_id);
 CREATE INDEX idx_timestamp ON locations(timestamp);
 CREATE INDEX idx_device_status ON devices(status); 
+
+INSERT INTO users (username, password) VALUES ('root', '$2b$10$RWZ9TyKNfXi9pGMb6k.3s.QaGE1lrVDyD9.X4VXzvZ/i4pYMfyuNq');

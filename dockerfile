@@ -1,5 +1,5 @@
 # Použijte oficiální Node.js image jako základ
-FROM node:18-alpine
+FROM node:24-alpine
 
 # Nastavte pracovní adresář v kontejneru
 WORKDIR /app

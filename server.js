@@ -5,6 +5,8 @@ const { body, validationResult } = require("express-validator");
 const db = require("./database");
 require('dotenv').config();
 const path = require('path');
+const session = require('express-session');
+const bcrypt = require('bcryptjs'); // Budeme potřebovat pro porovnání hesel
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -19,6 +21,32 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors({
   origin: process.env.CORS_ORIGIN
 }));
+
+app.use(express.urlencoded({ extended: false }));
+
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'b4b1dcd41017a113f49a8fecb9500572cf1b99a52cf0cbdf9d081948dfe0f677cf934fd90d258103db8ec31d68cb1544', // Uložte do .env!
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'using_ssl', // Použít secure cookies v produkci (HTTPS)
+    maxAge: 1000 * 60 * 60 * 6 // Platnost cookie (např. 24 hodin)
+  }
+}));
+
+// Middleware pro zpřístupnění informací o uživateli v šablonách
+app.use((req, res, next) => {
+  if (req.session.userId && req.session.username) {
+    res.locals.currentUser = { 
+      id: req.session.userId,
+      username: req.session.username 
+    };
+  } else {
+    res.locals.currentUser = null;
+  }
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -42,6 +70,56 @@ const validateSleepInterval = [
   body('device').isString().trim().escape(),
   body('sleep_interval').isInt({ min: 1, max: 3600 }) // 1 sekunda až 1 hodina
 ];
+
+// Routy pro přihlášení/odhlášení
+app.get('/login', (req, res) => {
+  if (req.session.userId) {
+    return res.redirect('/'); // Pokud je již přihlášen, přesměruj na hlavní stránku
+  }
+  res.render('login', { error: null, currentPage: 'login', user: null });
+});
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.render('login', { error: 'Prosím, zadejte uživatelské jméno i heslo.', currentPage: 'login', user: null });
+  }
+
+  try {
+    const [users] = await db.execute('SELECT * FROM users WHERE username = ?', [username]);
+    if (users.length === 0) {
+      return res.render('login', { error: 'Neplatné uživatelské jméno nebo heslo.', currentPage: 'login', user: null });
+    }
+
+    const user = users[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (isMatch) {
+      req.session.userId = user.id;
+      req.session.username = user.username;
+      // Přesměrování na hlavní stránku nebo dashboard po úspěšném přihlášení
+      return res.redirect('/'); 
+    } else {
+      return res.render('login', { error: 'Neplatné uživatelské jméno nebo heslo.', currentPage: 'login', user: null });
+    }
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).render('login', { error: 'Došlo k chybě serveru. Zkuste to prosím později.', currentPage: 'login', user: null });
+  }
+});
+
+app.get('/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      console.error("Logout error:", err);
+      // Můžete zobrazit chybovou stránku nebo jen přesměrovat
+      return res.redirect('/'); 
+    }
+    res.clearCookie('connect.sid'); // Název cookie závisí na konfiguraci session middleware, 'connect.sid' je výchozí
+    res.redirect('/login');
+  });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
