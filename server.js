@@ -257,6 +257,40 @@ app.get("/device_data", isAuthenticated, async (req, res) => {
   }
 });
 
+// API route to delete a device and its data
+app.delete('/api/device/:deviceName', isAuthenticated, async (req, res) => {
+  const deviceName = req.params.deviceName;
+
+  if (!deviceName) {
+    return res.status(400).json({ error: 'Device name is required.' });
+  }
+
+  try {
+    // 1. Find the device ID
+    const [deviceRows] = await db.execute('SELECT id FROM devices WHERE name = ?', [deviceName]);
+    if (deviceRows.length === 0) {
+      return res.status(404).json({ error: 'Device not found.' });
+    }
+    const deviceId = deviceRows[0].id;
+
+    // 2. Delete associated locations (ensure this happens first due to potential foreign keys)
+    await db.execute('DELETE FROM locations WHERE device_id = ?', [deviceId]);
+
+    // 3. Delete the device itself
+    const [deleteResult] = await db.execute('DELETE FROM devices WHERE id = ?', [deviceId]);
+
+    if (deleteResult.affectedRows > 0) {
+      res.status(200).json({ message: `Device '${deviceName}' and all its data have been deleted successfully.` });
+    } else {
+      // This case should ideally not be reached if the device was found earlier
+      res.status(404).json({ error: 'Device found but could not be deleted.' });
+    }
+  } catch (err) {
+    console.error(`Error deleting device ${deviceName}:`, err);
+    res.status(500).json({ error: 'Failed to delete device. An internal server error occurred.' });
+  }
+});
+
 // --- User Account Settings Routes ---
 app.get('/user_settings', isAuthenticated, (req, res) => {
   res.render('user_settings', {

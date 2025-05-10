@@ -48,11 +48,11 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDevices();
 
     // Set up automatic update (if needed)
-    // setInterval(() => {
-    //     if (selectedDevice) {
-    //         loadDeviceData(selectedDevice); // Consider if automatic history update is necessary
-    //     }
-    // }, UPDATE_INTERVAL);
+    setInterval(() => {
+        if (selectedDevice) {
+           loadDeviceData(selectedDevice); // Consider if automatic history update is necessary
+        }
+    }, UPDATE_INTERVAL);
 
     // Set up sleep interval form
     const form = document.getElementById('device-settings-form');
@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Load device list
+
 async function loadDevices() {
     try {
         // Assume /current_coordinates returns a list of active devices
@@ -90,11 +90,6 @@ async function loadDevices() {
             devicesList.appendChild(deviceElement);
         });
 
-        // Volitelně: automaticky vybrat první zařízení v seznamu
-        // if (devices.length > 0) {
-        //     selectDevice(devices[0].device);
-        // }
-
     } catch (error) {
         console.error('Error loading devices:', error);
         const devicesList = document.getElementById('devices-list');
@@ -102,21 +97,35 @@ async function loadDevices() {
     }
 }
 
-// Create device element
+
 function createDeviceElement(device) {
     const div = document.createElement('div');
-    // Add data-* attribute for easier access to device name
-    div.className = 'list-group-item list-group-item-action device-item'; 
+    div.className = 'list-group-item list-group-item-action device-item d-flex justify-content-between align-items-center'; 
     div.dataset.deviceName = device.device;
-    div.innerHTML = `
+    
+    const deviceInfo = document.createElement('div');
+    deviceInfo.innerHTML = `
         <div class="d-flex w-100 justify-content-between">
             <h6 class="mb-1"><strong>${device.device}</strong></h6>
             <small class="text-muted">${formatTimestamp(device.timestamp)}</small>
         </div>
         <small class="text-muted">Last position: ${formatCoordinate(device.latitude)}, ${formatCoordinate(device.longitude)}</small>
     `;
+    deviceInfo.style.flexGrow = '1';
+    deviceInfo.addEventListener('click', () => selectDevice(device.device));
+
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'btn btn-danger btn-sm ms-20';
+    deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
+    deleteButton.title = `Delete device ${device.device}`;
+    deleteButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleDeleteDevice(device.device);
+    });
+
+    div.appendChild(deviceInfo);
+    div.appendChild(deleteButton);
     
-    div.addEventListener('click', () => selectDevice(device.device));
     return div;
 }
 
@@ -128,19 +137,17 @@ async function selectDevice(deviceName) {
     // Update active state in the list
     document.querySelectorAll('.device-item').forEach(item => {
         item.classList.remove('active');
-        // Compare using data-* attribute
         if (item.dataset.deviceName === deviceName) { 
             item.classList.add('active');
         }
     });
     
-    // Display sleep interval settings card
     const settingsCard = document.getElementById('device-settings-card');
     if (settingsCard) {
         settingsCard.style.display = 'block';
     } else {
         console.error('Card #device-settings-card not found!');
-        return; // Cannot proceed without settings card
+        return;
     }
     
     // Load current sleep interval settings
@@ -252,13 +259,6 @@ function updateMap(data) {
         ])
             .bindPopup(createPopupContent(point))
             .addTo(map);
-            
-        // Add sequence number to marker - consider performance for many points
-        // marker.bindTooltip((index + 1).toString(), {
-        //     permanent: true,
-        //     direction: 'top',
-        //     className: 'marker-number' 
-        // });
     });
 }
 
@@ -289,7 +289,6 @@ function updateTable(data) {
 
 // Create popup content
 function createPopupContent(point) {
-    // Use ?? for default value '-', if value is null or undefined
     return `
         <div class="info-bubble">
             <strong>Time:</strong> ${formatTimestamp(point.timestamp)}<br>
@@ -362,13 +361,11 @@ async function handleSleepIntervalUpdate(e) {
     const minutes = parseInt(document.getElementById('interval-minutes').value || '0', 10);
     const seconds = parseInt(document.getElementById('interval-seconds').value || '0', 10);
 
-    // Check if values are numbers (although type=number should help)
     if (isNaN(days) || isNaN(hours) || isNaN(minutes) || isNaN(seconds)) {
         displayAlert('Please enter valid numbers for the interval.', 'danger');
         return;
     }
     
-    // Check ranges (can also be done on client-side for quick feedback)
      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59 || days < 0) {
         displayAlert('Please enter valid values (H: 0-23, M/S: 0-59, D >= 0).', 'danger');
         return;
@@ -379,16 +376,14 @@ async function handleSleepIntervalUpdate(e) {
 
     console.log(`Calculated interval for sending: ${totalSleepIntervalSeconds} seconds`);
 
-     // Validate minimum and maximum number of seconds (optionally on client-side)
     if (totalSleepIntervalSeconds < 1) {
         displayAlert('Minimum sleep interval is 1 second.', 'danger');
         return; 
     }
-    // We can also add an upper limit, e.g., 30 days
-    // if (totalSleepIntervalSeconds > 30 * 24 * 60 * 60) {
-    //    displayAlert('Maximum sleep interval is 30 days.', 'danger');
-    //    return;
-    // }
+     if (totalSleepIntervalSeconds > 30 * 24 * 60 * 60) {
+        displayAlert('Maximum sleep interval is 30 days.', 'danger');
+        return;
+    }
 
     try {
         console.log('Sending request to /device_settings...');
@@ -399,7 +394,7 @@ async function handleSleepIntervalUpdate(e) {
             },
             body: JSON.stringify({
                 device: selectedDevice,
-                sleep_interval: totalSleepIntervalSeconds // <<<< CHANGE: Sending seconds directly
+                sleep_interval: totalSleepIntervalSeconds
             })
         });
 
@@ -411,7 +406,6 @@ async function handleSleepIntervalUpdate(e) {
             console.log('Settings saved successfully');
             displayAlert('Sleep interval settings saved successfully.', 'success');
             
-            // Update form to the just saved value (in seconds)
             const dhms = secondsToDhms(responseData.new_sleep_interval_seconds);
             document.getElementById('interval-days').value = dhms.d;
             document.getElementById('interval-hours').value = dhms.h;
@@ -434,12 +428,10 @@ async function handleSleepIntervalUpdate(e) {
     }
 }
 
-// Function to display temporary messages (alerts)
 function displayAlert(message, type = 'info') {
     const settingsForm = document.getElementById('device-settings-form'); 
     if (!settingsForm) return; // If form does not exist
 
-    // Create alert container if it doesn't exist
     let alertContainer = settingsForm.querySelector('.alert-container');
     if (!alertContainer) {
         alertContainer = document.createElement('div');
@@ -455,18 +447,60 @@ function displayAlert(message, type = 'info') {
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
 
-    // Remove previous alerts to prevent accumulation
     while (alertContainer.firstChild) {
         alertContainer.removeChild(alertContainer.firstChild);
     }
 
-    // Add new alert
     alertContainer.appendChild(alert);
 
-    // Automatically remove after 5 seconds (if not closed manually)
-    // Requires Bootstrap JS
     const bsAlert = new bootstrap.Alert(alert);
     setTimeout(() => {
         bsAlert.close();
     }, 5000);
+}
+
+async function handleDeleteDevice(deviceName) {
+    if (!confirm(`Are you sure you want to delete the device "${deviceName}" and all its associated data? This action cannot be undone.`)) {
+        return;
+    }
+
+    console.log(`Attempting to delete device: ${deviceName}`);
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/device/${deviceName}`, {
+            method: 'DELETE',
+        });
+
+        const responseData = await response.json();
+
+        if (response.ok) {
+            console.log(`Device ${deviceName} deleted successfully.`);
+            displayAlert(responseData.message || `Device "${deviceName}" deleted successfully.`, 'success');
+            loadDevices(); // Refresh the device list
+            // If the deleted device was the selected one, clear the selection and hide details
+            if (selectedDevice === deviceName) {
+                selectedDevice = null;
+                document.getElementById('device-settings-card').style.display = 'none';
+                // Clear map and table
+                if (map) {
+                    map.eachLayer(layer => {
+                        if (layer instanceof L.Polyline || layer instanceof L.Marker) {
+                            map.removeLayer(layer);
+                        }
+                    });
+                }
+                 if (polyline) {
+                    map.removeLayer(polyline);
+                    polyline = null;
+                }
+                document.getElementById('positions-table').innerHTML = '<tr><td colspan="7" class="text-muted">Select a device to see its history.</td></tr>';
+                 document.getElementById('history-map').style.visibility = 'hidden'; // Hide map initially
+            }
+        } else {
+            console.error(`Error deleting device ${deviceName}:`, responseData.error);
+            displayAlert(responseData.error || `Failed to delete device "${deviceName}".`, 'danger');
+        }
+    } catch (error) {
+        console.error(`Network or other error deleting device ${deviceName}:`, error);
+        displayAlert(`An error occurred: ${error.message}`, 'danger');
+    }
 }
