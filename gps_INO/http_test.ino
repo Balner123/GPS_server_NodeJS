@@ -67,10 +67,22 @@ void enterDeepSleep(uint64_t seconds) {
   esp_deep_sleep_start();
 }
 
+
 void setup() {
   // Set console baud rate
   Serial.begin(115200);
   delay(10);
+
+
+
+
+
+
+
+
+
+
+
   Serial.println(F("\n--- ESP32 SIM800L POST Cycle ---"));
 
   // Power on the SIM800L module
