@@ -9,7 +9,8 @@
 #define GPS_RX_PIN   32
 #define GPS_TX_PIN   33
 #define GPS_POWER_PIN 25
-#define SAT_THRESHOLD 4
+
+#define SAT_THRESHOLD 3
 
 SoftwareSerial SerialGPS(GPS_RX_PIN, GPS_TX_PIN);
 TinyGPSPlus gps;
@@ -293,7 +294,7 @@ void setup() {
   powerUpGPS();
   initGPSSerial();
 
-  Serial.println("Waiting up to 5 minutes for GPS fix...");
+  Serial.println("Waiting for GPS fix...");
   bool gotFix = waitForGPSFix(timeoutGPS * 60UL * 1000UL);
 
   closeGPSSerial();
@@ -309,6 +310,7 @@ void setup() {
 
   disconnectGPRS();
   powerOffModem();
+
   enterDeepSleep(sleepTimeSeconds);
 }
 
