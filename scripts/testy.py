@@ -4,8 +4,8 @@ import time
 from datetime import datetime
 
 # Configuration
-#BASE_URL = "http://129.151.193.104:5000/"
-BASE_URL = "http://localhost:5000"
+BASE_URL = "http://129.151.193.104:5000/"
+# BASE_URL = "http://localhost:5000"
 EXISTING_TEST_DEVICE = "500" # Renamed for clarity
 NEW_TEST_DEVICE = "ADAM"     # New test device
 
