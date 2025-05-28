@@ -1,5 +1,0 @@
-# Name,    Type, SubType, Offset, Size, Flags
-nvs,       data, nvs,     ,      0x6000,
-otadata,   data, ota,     ,      0x2000,
-factory,   app,  factory, ,      1M,
-user_app,  app,  ota_0,   ,      1M
