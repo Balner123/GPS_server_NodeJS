@@ -6,6 +6,11 @@
 #include <TinyGPS++.h>       // For external GPS module
 #include <SoftwareSerial.h>  // For external GPS module communication
 
+// --- OTA Includes ---
+#include <WiFi.h>
+#include <WebServer.h>
+#include <Update.h>
+
 // --------------------------- Configuration ---------------------------------
 // --- Modem Configuration (A7670E) ---
 #define SerialMon Serial
@@ -36,6 +41,61 @@ const unsigned long GPS_ACQUISITION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for
 // --- Sleep Configuration ---
 const uint64_t DEFAULT_SLEEP_SECONDS = 60;
 uint64_t sleepTimeSeconds = DEFAULT_SLEEP_SECONDS;
+
+// --- OTA Configuration ---
+const int otaPin = 23; // GPIO pin for OTA mode switch (connect to 3.3V for OTA mode)
+const char* ota_ssid = "GPS_Tracker_OTA";
+const char* ota_password = "password"; // Change or set to NULL for an open network
+
+WebServer otaServer(80);
+
+// HTML for OTA upload page
+const char* update_form_page = R"rawliteral(
+  <html>
+  <head><title>OTA Update</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 90vh; }
+    .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; }
+    h1 { color: #333; }
+    input[type='file'] { margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 4px; width: calc(100% - 22px); }
+    input[type='submit'] { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+    input[type='submit']:hover { background-color: #0056b3; }
+  </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>GPS Tracker OTA Update</h1>
+      <p>Connect to Wi-Fi: <b>%s</b></p>
+      <form method='POST' action='/update' enctype='multipart/form-data'>
+        <input type='file' name='update' accept='.bin' required><br>
+        <input type='submit' value='Upload and Update'>
+      </form>
+    </div>
+  </body>
+  </html>
+)rawliteral";
+
+// HTML for success page
+String success_page = R"rawliteral(
+  <html><head><title>OTA Update Success</title>
+  <style>body{font-family: Arial, sans-serif; text-align: center; padding-top: 50px;} .message{color: green; font-size: 1.2em;}</style></head>
+  <body>
+    <h1>OTA Update Successful!</h1>
+    <p class="message">Firmware has been updated.<br>Please manually power cycle the device and switch to ON mode.</p>
+    <p><a href="/">Upload another file</a></p>
+  </body></html>
+)rawliteral";
+
+// HTML for failure page template
+String failure_page_template = R"rawliteral(
+  <html><head><title>OTA Update Failed</title>
+  <style>body{font-family: Arial, sans-serif; text-align: center; padding-top: 50px;} .message{color: red; font-size: 1.2em;}</style></head>
+  <body>
+    <h1>OTA Update Failed!</h1>
+    <p class="message">Error: %s</p>
+    <p><a href="/">Try again</a></p>
+  </body></html>
+)rawliteral";
 
 // --------------------------- Global Objects --------------------------------
 #ifdef DUMP_AT_COMMANDS // if enabled it requires the streamDebugger lib
@@ -76,6 +136,9 @@ void closeGPSSerial();
 void displayAndStoreGPSInfo();
 bool waitForGPSFix(unsigned long timeout);
 
+// --- OTA Function Prototypes ---
+void startOTAMode();
+
 // ------------------------- Function Prototypes (Modem A7670E & System) -------------
 bool initializeModem();
 bool connectGPRS();
@@ -86,62 +149,83 @@ void enterDeepSleep(uint64_t seconds);
 
 // ----------------------------- Setup ---------------------------------------
 void setup() {
+  // Configure otaPin as INPUT_PULLDOWN.
+  // For OTA mode, the switch should connect GPIO23 to 3.3V (HIGH).
+  // If your switch connects GPIO23 to GND for OTA mode, use INPUT_PULLUP and check for LOW.
+  pinMode(otaPin, INPUT_PULLDOWN);
+  
   SerialMon.begin(115200);
-  delay(100);
-  SerialMon.println(F("\n--- LilyGO A76XX External GPS Tracker (Optimized Power) ---"));
+  delay(100); // Wait for serial monitor to connect
 
-  // 1. Initialize External GPS & Attempt to get fix
-  SerialMon.println(F("--- Initializing External GPS ---"));
-  powerUpGPS();
-  initGPSSerial();
-  // gpsFixObtained se globálně nastaví uvnitř waitForGPSFix
-  waitForGPSFix(GPS_ACQUISITION_TIMEOUT_MS);
-  
-  // 2. Immediately power down GPS module after fix attempt
-  SerialMon.println(F("--- Powering down External GPS module (post-fix attempt) ---"));
-  closeGPSSerial(); 
-  powerDownGPS(); // GPS se vypne hned zde
+  // Check OTA Pin state
+  // Add a small delay to allow the pin state to stabilize after power-on, especially with physical switches.
+  delay(50); 
+  bool otaModeActive = (digitalRead(otaPin) == HIGH);
 
-  // 3. Initialize Modem (A7670E)
-  // Modem se inicializuje až po kompletním zpracování GPS, aby GPS neběželo zbytečně dlouho,
-  // pokud by inicializace modemu trvala.
-  SerialMon.println(F("--- Initializing Modem A7670E ---"));
-  if (!initializeModem()) {
-    SerialMon.println(F("Failed to initialize modem. Entering deep sleep."));
-    // GPS je již vypnuté v tomto bodě
-    enterDeepSleep(DEFAULT_SLEEP_SECONDS);
-    return; 
-  }
-  
-  // 4. Connect to GPRS (only if modem initialized successfully)
-  SerialMon.println(F("--- Connecting to GPRS ---"));
-  if (connectGPRS()) {
-    SerialMon.println(F("GPRS Connected."));
-    // 5. Send data via HTTP POST (uses global GPS variables)
-    sendHTTPPostRequest(); 
-    // 6. Disconnect GPRS
-    disconnectGPRS();
-    SerialMon.println(F("GPRS Disconnected."));
+  if (otaModeActive) {
+    SerialMon.println(F("OTA Mode Activated."));
+    // Any modem/GPS specific de-initialization before WiFi can go here if needed.
+    // For this setup, we assume WiFi AP will work fine without explicitly turning off modem power pins yet,
+    // as modem initialization is skipped.
+    startOTAMode(); // This function will loop indefinitely, program will not proceed beyond this.
   } else {
-    SerialMon.println(F("Failed to connect to GPRS. Modem will be powered off."));
-    // I když GPRS selže, pokračujeme k vypnutí modemu a spánku
+    SerialMon.println(F("GPS Tracker Mode Activated."));
+    SerialMon.println(F("\n--- LilyGO A76XX External GPS Tracker (Optimized Power) ---"));
+
+    // 1. Initialize External GPS & Attempt to get fix
+    SerialMon.println(F("--- Initializing External GPS ---"));
+    powerUpGPS();
+    initGPSSerial();
+    // gpsFixObtained se globálně nastaví uvnitř waitForGPSFix
+    waitForGPSFix(GPS_ACQUISITION_TIMEOUT_MS);
+    
+    // 2. Immediately power down GPS module after fix attempt
+    SerialMon.println(F("--- Powering down External GPS module (post-fix attempt) ---"));
+    closeGPSSerial(); 
+    powerDownGPS(); // GPS se vypne hned zde
+
+    // 3. Initialize Modem (A7670E)
+    // Modem se inicializuje až po kompletním zpracování GPS, aby GPS neběželo zbytečně dlouho,
+    // pokud by inicializace modemu trvala.
+    SerialMon.println(F("--- Initializing Modem A7670E ---"));
+    if (!initializeModem()) {
+      SerialMon.println(F("Failed to initialize modem. Entering deep sleep."));
+      // GPS je již vypnuté v tomto bodě
+      enterDeepSleep(DEFAULT_SLEEP_SECONDS);
+      return; 
+    }
+    
+    // 4. Connect to GPRS (only if modem initialized successfully)
+    SerialMon.println(F("--- Connecting to GPRS ---"));
+    if (connectGPRS()) {
+      SerialMon.println(F("GPRS Connected."));
+      // 5. Send data via HTTP POST (uses global GPS variables)
+      sendHTTPPostRequest(); 
+      // 6. Disconnect GPRS
+      disconnectGPRS();
+      SerialMon.println(F("GPRS Disconnected."));
+    } else {
+      SerialMon.println(F("Failed to connect to GPRS. Modem will be powered off."));
+      // I když GPRS selže, pokračujeme k vypnutí modemu a spánku
+    }
+
+    // GPS je již vypnuté.
+    // Není potřeba zde znovu volat powerDownGPS().
+
+    // 7. Power off modem (A7670E)
+    SerialMon.println(F("--- Powering off Modem A7670E ---"));
+    powerOffModem();
+
+    // 8. Enter Deep Sleep
+    SerialMon.print(F("Next update in approx. ")); SerialMon.print(sleepTimeSeconds); SerialMon.println(F(" seconds."));
+    enterDeepSleep(sleepTimeSeconds);
   }
-
-  // GPS je již vypnuté.
-  // Není potřeba zde znovu volat powerDownGPS().
-
-  // 7. Power off modem (A7670E)
-  SerialMon.println(F("--- Powering off Modem A7670E ---"));
-  powerOffModem();
-
-  // 8. Enter Deep Sleep
-  SerialMon.print(F("Next update in approx. ")); SerialMon.print(sleepTimeSeconds); SerialMon.println(F(" seconds."));
-  enterDeepSleep(sleepTimeSeconds);
 }
 
 // ------------------------------ Loop ---------------------------------------
 void loop() {
-  // This part is not reached due to deep sleep in setup()
+  // This part is not reached due to deep sleep in setup() for GPS mode
+  // Or due to infinite loop in startOTAMode() for OTA mode
 }
 
 // ------------------------- Function Implementations (Modem & System)------------------------
@@ -496,4 +580,89 @@ bool waitForGPSFix(unsigned long timeout) {
     SerialMon.println(F("\nGPS fix timeout (External)."));
   }
   return gpsFixObtained;
+}
+
+// --- OTA Mode Function Implementation ---
+void startOTAMode() {
+  SerialMon.println(F("Starting OTA Mode setup..."));
+  
+  // Disconnect and turn off WiFi if it was somehow on (e.g. from a previous run if not deep sleeping)
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  delay(100);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(ota_ssid, ota_password); // Password can be NULL for an open network
+
+  IPAddress apIP = WiFi.softAPIP();
+  SerialMon.print(F("AP IP address: "));
+  SerialMon.println(apIP);
+  SerialMon.print(F("Connect to Wi-Fi: "));
+  SerialMon.println(ota_ssid);
+  SerialMon.println(F("Open browser to http://<IP_ADDRESS_ABOVE> or http://gps-tracker.local (if mDNS works)"));
+
+  // Simple mDNS responder
+  // if (MDNS.begin("gps-tracker")) {
+  //   SerialMon.println(F("MDNS responder started at http://gps-tracker.local"));
+  //   MDNS.addService("http", "tcp", 80);
+  // } else {
+  //   SerialMon.println(F("Error setting up MDNS responder!"));
+  // }
+  // Note: MDNS requires #include <ESPmDNS.h>
+
+  otaServer.on("/", HTTP_GET, []() {
+    otaServer.sendHeader("Connection", "close");
+    String page_content = String(update_form_page);
+    page_content.replace("%s", ota_ssid);
+    otaServer.send(200, "text/html", page_content);
+  });
+
+  otaServer.on("/update", HTTP_POST, []() {
+    // This is called after the upload is complete
+    otaServer.sendHeader("Connection", "close");
+    if (Update.hasError()) {
+        char errorMsg[128];
+        snprintf(errorMsg, sizeof(errorMsg), "Update failed! Error: %d - %s", Update.getError(), Update.errorString());
+        String page_content = failure_page_template;
+        page_content.replace("%s", errorMsg);
+        otaServer.send(500, "text/html", page_content);
+        SerialMon.println(errorMsg);
+    } else {
+        otaServer.send(200, "text/html", success_page);
+        SerialMon.println(F("OTA Update Successful. Please reboot."));
+    }
+    // User will manually restart the device
+  }, []() {
+    // This is the upload handler, called during the file upload
+    HTTPUpload& upload = otaServer.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      SerialMon.printf("OTA Update Start: %s\n", upload.filename.c_str());
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { // Use UPDATE_SIZE_UNKNOWN for web uploads
+        Update.printError(SerialMon);
+      }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(SerialMon);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) { // true to set the new sketch to boot
+        SerialMon.printf("OTA Update Finished. Total size: %u bytes\n", upload.totalSize);
+      } else {
+        Update.printError(SerialMon);
+      }
+    } else if (upload.status == UPLOAD_FILE_ABORTED) {
+        SerialMon.println(F("OTA Update Aborted by client."));
+        Update.end(false); // Ensure we don't boot a partial update
+    }
+  });
+
+  otaServer.begin();
+  SerialMon.println(F("OTA Web Server started. Waiting for connections and uploads..."));
+
+  // Loop indefinitely to handle OTA requests
+  while (true) {
+    otaServer.handleClient();
+    // MDNS.update(); // if mDNS is used
+    delay(1); // Small delay to yield to other system tasks if any
+  }
 } 
