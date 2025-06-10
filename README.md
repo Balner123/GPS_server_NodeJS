@@ -22,7 +22,9 @@ první pokusy o minimální serverovou část (Node.js)
 ## Demo kódu pro hardware 
 první pokusy o funkční kód pro hardware (ESP32)
 
-[lilygo_Esp32_SIM800l-code](https://github.com/Balner123/GPS_server_NodeJS/blob/main/gps.ino)
+[lilygo_Esp32_SIM800l-code](https://github.com/Balner123/GPS_server_NodeJS/blob/main/gps.ino) ## již nefunkční  a zastaralé 
+
+[lilygo t-call v1.0 A7670E](https://github.com/Balner123/GPS_server_NodeJS/blob/) ## nová verze pro trocu jinou desku
 
 ## Součástky pro hardwarou část
 
