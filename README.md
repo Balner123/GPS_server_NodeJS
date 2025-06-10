@@ -24,7 +24,7 @@ první pokusy o funkční kód pro hardware (ESP32)
 
 [lilygo_Esp32_SIM800l-code](https://github.com/Balner123/GPS_server_NodeJS/blob/main/gps.ino) ## již nefunkční  a zastaralé 
 
-[lilygo t-call v1.0 A7670E](https://github.com/Balner123/GPS_server_NodeJS/blob/) ## nová verze pro trocu jinou desku
+[lilygo t-call v1.0 A7670E](https://github.com/Balner123/GPS_server_NodeJS/blob/LilyGO-T-A76XX-main/MAIN/gps_tracker.ino) ## nová verze pro trocu jinou desku
 
 ## Součástky pro hardwarou část
 
