@@ -36,8 +36,6 @@ function dhmsToSeconds(d, h, m, s) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Page loaded, initializing...');
-    
     // Initialize map
     map = L.map('history-map').setView([50.0755, 14.4378], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -57,13 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set up sleep interval form
     const form = document.getElementById('device-settings-form');
     if (form) {
-        console.log('Settings form found, adding event listener');
         form.addEventListener('submit', (e) => {
-            console.log('Settings form submitted');
             handleSleepIntervalUpdate(e);
         });
-    } else {
-        console.error('Form #device-settings-form not found!');
     }
 });
 
@@ -91,7 +85,6 @@ async function loadDevices() {
         });
 
     } catch (error) {
-        console.error('Error loading devices:', error);
         const devicesList = document.getElementById('devices-list');
         if(devicesList) devicesList.innerHTML = '<p class="text-danger">Error loading device list.</p>';
     }
@@ -115,7 +108,7 @@ function createDeviceElement(device) {
     deviceInfo.addEventListener('click', () => selectDevice(device.device));
 
     const deleteButton = document.createElement('button');
-    deleteButton.className = 'btn btn-danger btn-sm ms-20';
+    deleteButton.className = 'btn btn-danger btn-sm ms-3';
     deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
     deleteButton.title = `Delete device ${device.device}`;
     deleteButton.addEventListener('click', (e) => {
@@ -131,7 +124,6 @@ function createDeviceElement(device) {
 
 // Select device
 async function selectDevice(deviceName) {
-    console.log(`Selecting device: ${deviceName}`);
     selectedDevice = deviceName;
     
     // Update active state in the list
@@ -146,7 +138,6 @@ async function selectDevice(deviceName) {
     if (settingsCard) {
         settingsCard.style.display = 'block';
     } else {
-        console.error('Card #device-settings-card not found!');
         return;
     }
     
@@ -156,7 +147,6 @@ async function selectDevice(deviceName) {
         if (!response.ok) {
             // Special handling for 404 Not Found
             if (response.status === 404) {
-                 console.warn(`Settings for device ${deviceName} not found, using defaults.`);
                  // Set default values (0 seconds)
                  document.getElementById('interval-days').value = 0;
                  document.getElementById('interval-hours').value = 0;
@@ -167,7 +157,6 @@ async function selectDevice(deviceName) {
             }
         } else {
             const settings = await response.json();
-            console.log(`Loaded settings for ${deviceName}:`, settings); 
 
             // Convert seconds to DD:HH:MM:SS and set values in the form
             // Use default 0 if sleep_interval is not defined or is null
@@ -179,7 +168,6 @@ async function selectDevice(deviceName) {
         }
 
     } catch (error) {
-        console.error(`Error loading sleep interval settings for ${deviceName}:`, error);
         // In case of error, set default values (e.g., 0 seconds)
         document.getElementById('interval-days').value = 0;
         document.getElementById('interval-hours').value = 0;
@@ -195,7 +183,6 @@ async function selectDevice(deviceName) {
 
 // Load device data (position history)
 async function loadDeviceData(deviceName) {
-    console.log(`Loading data for ${deviceName}`);
     try {
         const response = await fetch(`${API_BASE_URL}/device_data?name=${deviceName}`);
         if (!response.ok) {
@@ -203,14 +190,12 @@ async function loadDeviceData(deviceName) {
         }
         const data = await response.json();
         
-        console.log(`Data for ${deviceName} loaded, updating map and table.`);
         // Update map
         updateMap(data);
         
         // Update table
         updateTable(data);
     } catch (error) {
-        console.error(`Error loading data for device ${deviceName}:`, error);
         // Clear map and table in case of error?
         if (polyline) map.removeLayer(polyline);
         document.getElementById('positions-table').innerHTML = '<tr><td colspan="7" class="text-danger">Error loading position history.</td></tr>';
@@ -228,8 +213,6 @@ function updateMap(data) {
     polyline = null; // Reset polyline reference
     
     if (!data || data.length === 0) {
-         console.log('No data to display on the map.');
-         // Optionally display a message on the map?
          return;
     }
 
@@ -240,7 +223,6 @@ function updateMap(data) {
     ]).filter(coord => !isNaN(coord[0]) && !isNaN(coord[1])); // Filter out invalid coordinates
     
     if (coordinates.length === 0) {
-        console.log('No valid coordinates to display the route.');
         return;
     }
 
@@ -338,7 +320,6 @@ function formatTimestamp(timestamp) {
             second: '2-digit'
         });
     } catch (e) {
-        console.error("Error formatting time:", timestamp, e);
         return 'Date error';
     }
 }
@@ -347,10 +328,8 @@ function formatTimestamp(timestamp) {
 // Handle sleep interval update
 async function handleSleepIntervalUpdate(e) {
     e.preventDefault(); 
-    console.log('Processing sleep interval update...');
 
     if (!selectedDevice) {
-        console.error('No device selected!');
         alert('Please select a device first.');
         return;
     }
@@ -374,8 +353,6 @@ async function handleSleepIntervalUpdate(e) {
     // Calculate total number of seconds
     const totalSleepIntervalSeconds = dhmsToSeconds(days, hours, minutes, seconds);
 
-    console.log(`Calculated interval for sending: ${totalSleepIntervalSeconds} seconds`);
-
     if (totalSleepIntervalSeconds < 1) {
         displayAlert('Minimum sleep interval is 1 second.', 'danger');
         return; 
@@ -386,7 +363,6 @@ async function handleSleepIntervalUpdate(e) {
     }
 
     try {
-        console.log('Sending request to /device_settings...');
         const response = await fetch(`${API_BASE_URL}/device_settings`, {
             method: 'POST',
             headers: {
@@ -398,12 +374,9 @@ async function handleSleepIntervalUpdate(e) {
             })
         });
 
-        console.log('Server response status:', response.status);
         const responseData = await response.json(); 
-        console.log('Server response data:', responseData);
 
         if (response.ok) {
-            console.log('Settings saved successfully');
             displayAlert('Sleep interval settings saved successfully.', 'success');
             
             const dhms = secondsToDhms(responseData.new_sleep_interval_seconds);
@@ -419,11 +392,9 @@ async function handleSleepIntervalUpdate(e) {
             } else if (responseData.error) {
                 errorMessage = responseData.error;
             }
-            console.error('Server error:', errorMessage);
             throw new Error(errorMessage);
         }
     } catch (error) {
-        console.error('Error sending new interval:', error);
         displayAlert(`Error: ${error.message}`, 'danger');
     }
 }
@@ -464,7 +435,6 @@ async function handleDeleteDevice(deviceName) {
         return;
     }
 
-    console.log(`Attempting to delete device: ${deviceName}`);
     try {
         const response = await fetch(`${API_BASE_URL}/api/device/${deviceName}`, {
             method: 'DELETE',
@@ -473,7 +443,6 @@ async function handleDeleteDevice(deviceName) {
         const responseData = await response.json();
 
         if (response.ok) {
-            console.log(`Device ${deviceName} deleted successfully.`);
             displayAlert(responseData.message || `Device "${deviceName}" deleted successfully.`, 'success');
             loadDevices(); // Refresh the device list
             // If the deleted device was the selected one, clear the selection and hide details
@@ -496,11 +465,9 @@ async function handleDeleteDevice(deviceName) {
                  document.getElementById('history-map').style.visibility = 'hidden'; // Hide map initially
             }
         } else {
-            console.error(`Error deleting device ${deviceName}:`, responseData.error);
             displayAlert(responseData.error || `Failed to delete device "${deviceName}".`, 'danger');
         }
     } catch (error) {
-        console.error(`Network or other error deleting device ${deviceName}:`, error);
         displayAlert(`An error occurred: ${error.message}`, 'danger');
     }
 }

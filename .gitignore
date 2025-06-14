@@ -1,29 +1,8 @@
-# Dependency directories
 node_modules/
 
 logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-.env
-.env*.local
-!.env.example
-!.env.production.template
-!.env.development.template
-
-.vscode/
-
-.DS_Store
-._*
-.Spotlight-V100
-.Trashes
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
 
 .pio/
 
