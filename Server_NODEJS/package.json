@@ -1,0 +1,27 @@
+{
+  "name": "gps-server",
+  "version": "1.0.0",
+  "description": "GPS tracking server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "author": "Balner123",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "ejs": "^3.1.10",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.7.0",
+    "express-session": "^1.18.1",
+    "express-validator": "^7.0.1",
+    "mysql2": "^3.14.1",
+    "sequelize": "^6.37.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
