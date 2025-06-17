@@ -51,7 +51,7 @@ function createDeviceElement(device) {
     `;
     
     div.addEventListener('click', () => {
-        window.location.href = `/device`;
+        window.location.href = `/device?name=${encodeURIComponent(device.device)}`;
     });
     
     return div;
@@ -70,10 +70,15 @@ async function loadCurrentCoordinates() {
         const devicesList = document.getElementById('devices-list');
         if (devicesList) {
             devicesList.innerHTML = ''; // Clear existing list
-            devices.forEach(device => {
-                const deviceElement = createDeviceElement(device); // Use existing function
-                devicesList.appendChild(deviceElement);
-            });
+
+            if (devices.length === 0) {
+                devicesList.innerHTML = '<p class="text-muted p-2">No active devices found.</p>';
+            } else {
+                devices.forEach(device => {
+                    const deviceElement = createDeviceElement(device); // Use existing function
+                    devicesList.appendChild(deviceElement);
+                });
+            }
         } else {
             console.error('Element #devices-list not found.');
         }
@@ -96,31 +101,15 @@ function updateDeviceMarker(device) {
         markers[device.device].setLatLng(position);
     } else {
         const marker = L.marker(position).addTo(map);
-        marker.bindPopup(createPopupContent(device));
+        marker.bindPopup(createIndexPopup(device));
         markers[device.device] = marker;
     }
 }
 
 // Create popup content
-function createPopupContent(device) {
+function createIndexPopup(device) {
     return `
-        <div class="info-bubble">
-            <strong>${device.device}</strong><br>
-            <small class="timestamp">${formatTimestamp(device.timestamp)}</small>
-        </div>
+        <strong>${device.device}</strong><br>
+        <small class="timestamp">${formatTimestamp(device.timestamp)}</small>
     `;
-}
-
-// Format timestamp
-function formatTimestamp(timestamp) {
-    if (!timestamp) return 'Unknown time'; // Fallback for null/undefined timestamp
-    const date = new Date(timestamp);
-    return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
 } 

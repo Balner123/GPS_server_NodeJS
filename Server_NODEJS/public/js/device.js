@@ -1,6 +1,8 @@
 let map;
 let selectedDevice = null;
 let polyline = null;
+let markers = [];
+let lastTimestamp = null;
 
 // Configuration
 const API_BASE_URL = window.location.origin;
@@ -12,7 +14,6 @@ const UPDATE_INTERVAL = 5000; // 5 seconds
 function secondsToDhms(totalSeconds) {
     totalSeconds = Number(totalSeconds);
     if (isNaN(totalSeconds) || totalSeconds < 0) {
-        // Return default value or null/undefined for error
         return { d: 0, h: 0, m: 0, s: 0 };
     }
     const d = Math.floor(totalSeconds / (3600 * 24));
@@ -27,7 +28,7 @@ function pad(num) {
     return String(num).padStart(2, '0');
 }
 
-// Helper function to convert DHMS to seconds (should already exist above)
+// Helper function to convert DHMS to seconds
 function dhmsToSeconds(d, h, m, s) {
      return Number(d) * 24 * 3600 + Number(h) * 3600 + Number(m) * 60 + Number(s);
 }
@@ -45,12 +46,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load device list
     loadDevices();
 
-    // Set up automatic update (if needed)
+    // Check for device name in URL and pre-select it
+    const urlParams = new URLSearchParams(window.location.search);
+    const deviceNameFromUrl = urlParams.get('name');
+    if (deviceNameFromUrl) {
+        selectDevice(decodeURIComponent(deviceNameFromUrl));
+    }
+
+    // Set up automatic update
     setInterval(() => {
         if (selectedDevice) {
-           loadDeviceData(selectedDevice); // Consider if automatic history update is necessary
+           loadDeviceData(); // Periodically check for new data for the selected device
         }
     }, UPDATE_INTERVAL);
+
+    // Handle browser back/forward navigation
+    window.addEventListener('popstate', (event) => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceNameFromUrl = urlParams.get('name');
+        if (deviceNameFromUrl && deviceNameFromUrl !== selectedDevice) {
+            selectDevice(decodeURIComponent(deviceNameFromUrl));
+        }
+    });
 
     // Set up sleep interval form
     const form = document.getElementById('device-settings-form');
@@ -64,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadDevices() {
     try {
-        // Assume /current_coordinates returns a list of active devices
         const response = await fetch(`${API_BASE_URL}/current_coordinates`); 
         if (!response.ok) {
              throw new Error(`HTTP error! status: ${response.status}`);
@@ -72,7 +88,7 @@ async function loadDevices() {
         const devices = await response.json();
         
         const devicesList = document.getElementById('devices-list');
-        devicesList.innerHTML = ''; // Clear list before adding
+        devicesList.innerHTML = ''; 
         
         if (devices.length === 0) {
             devicesList.innerHTML = '<p class="text-muted">No active devices found.</p>';
@@ -124,7 +140,14 @@ function createDeviceElement(device) {
 
 // Select device
 async function selectDevice(deviceName) {
+    if (selectedDevice === deviceName) return; // Do nothing if the same device is clicked again
+
+    // Update the browser's URL without reloading the page
+    const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?name=${encodeURIComponent(deviceName)}`;
+    window.history.pushState({path: newUrl}, '', newUrl);
+
     selectedDevice = deviceName;
+    clearMapAndData(); // Clear everything for the new device
     
     // Update active state in the list
     document.querySelectorAll('.device-item').forEach(item => {
@@ -145,9 +168,7 @@ async function selectDevice(deviceName) {
     try {
         const response = await fetch(`${API_BASE_URL}/device_settings/${deviceName}`);
         if (!response.ok) {
-            // Special handling for 404 Not Found
             if (response.status === 404) {
-                 // Set default values (0 seconds)
                  document.getElementById('interval-days').value = 0;
                  document.getElementById('interval-hours').value = 0;
                  document.getElementById('interval-minutes').value = 0;
@@ -157,104 +178,117 @@ async function selectDevice(deviceName) {
             }
         } else {
             const settings = await response.json();
-
-            // Convert seconds to DD:HH:MM:SS and set values in the form
-            // Use default 0 if sleep_interval is not defined or is null
             const dhms = secondsToDhms(settings.sleep_interval === null || settings.sleep_interval === undefined ? 0 : settings.sleep_interval);
             document.getElementById('interval-days').value = dhms.d;
             document.getElementById('interval-hours').value = dhms.h;
             document.getElementById('interval-minutes').value = dhms.m;
             document.getElementById('interval-seconds').value = dhms.s;
         }
-
     } catch (error) {
-        // In case of error, set default values (e.g., 0 seconds)
         document.getElementById('interval-days').value = 0;
         document.getElementById('interval-hours').value = 0;
         document.getElementById('interval-minutes').value = 0;
         document.getElementById('interval-seconds').value = 0;
-        // Inform the user?
-         displayAlert(`Error loading settings for ${deviceName}.`, 'danger');
+        displayAlert(`Error loading settings for ${deviceName}.`, 'danger');
     }
     
-    // Load device data (position history)
-    await loadDeviceData(deviceName);
+    // Initial data load for the selected device
+    await loadDeviceData(true);
 }
 
 // Load device data (position history)
-async function loadDeviceData(deviceName) {
+async function loadDeviceData(isInitialLoad = false) {
+    if (!selectedDevice) return;
+
     try {
-        const response = await fetch(`${API_BASE_URL}/device_data?name=${deviceName}`);
+        const response = await fetch(`${API_BASE_URL}/device_data?name=${selectedDevice}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data = await response.json();
-        
-        // Update map
-        updateMap(data);
-        
-        // Update table
-        updateTable(data);
+        const allData = await response.json();
+        let dataToRender;
+
+        if (isInitialLoad) {
+            dataToRender = allData;
+            if (allData.length > 0) {
+                lastTimestamp = allData.reduce((max, p) => p.timestamp > max ? p.timestamp : max, allData[0].timestamp);
+            }
+        } else {
+            dataToRender = allData.filter(p => !lastTimestamp || (new Date(p.timestamp) > new Date(lastTimestamp)));
+            if (dataToRender.length > 0) {
+                lastTimestamp = dataToRender.reduce((max, p) => p.timestamp > max ? p.timestamp : max, dataToRender[0].timestamp);
+            }
+        }
+
+        if (dataToRender.length > 0) {
+            updateMap(dataToRender, isInitialLoad);
+            updateTable(allData); // Full table refresh is easier
+        }
+
     } catch (error) {
-        // Clear map and table in case of error?
-        if (polyline) map.removeLayer(polyline);
         document.getElementById('positions-table').innerHTML = '<tr><td colspan="7" class="text-danger">Error loading position history.</td></tr>';
     }
 }
 
+function clearMapAndData() {
+    if (polyline) {
+        map.removeLayer(polyline);
+        polyline = null;
+    }
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
+    lastTimestamp = null;
+    document.getElementById('positions-table').innerHTML = '';
+}
+
 // Update map
-function updateMap(data) {
-    // Clear previous route and markers
-    map.eachLayer(layer => {
-        if (layer instanceof L.Polyline || layer instanceof L.Marker) {
-            map.removeLayer(layer);
-        }
-    });
-    polyline = null; // Reset polyline reference
-    
+function updateMap(data, isFullUpdate) {
     if (!data || data.length === 0) {
          return;
     }
 
-    // Create new route
     const coordinates = data.map(point => [
         Number(point.latitude),
         Number(point.longitude)
-    ]).filter(coord => !isNaN(coord[0]) && !isNaN(coord[1])); // Filter out invalid coordinates
-    
+    ]).filter(coord => !isNaN(coord[0]) && !isNaN(coord[1]));
+
     if (coordinates.length === 0) {
         return;
     }
 
-    polyline = L.polyline(coordinates, { color: 'blue' }).addTo(map);
-    
-    // Set map view to the route
-    map.fitBounds(polyline.getBounds().pad(0.1)); // Added a small padding
-    
-    // Add markers for each point
-    data.forEach((point, index) => {
-         if (isNaN(Number(point.latitude)) || isNaN(Number(point.longitude))) return; // Skip invalid points
+    if (isFullUpdate && coordinates.length > 0) {
+        polyline = L.polyline(coordinates, { color: 'blue' }).addTo(map);
+        map.fitBounds(polyline.getBounds().pad(0.1));
+    } else if (polyline) {
+        coordinates.forEach(coord => polyline.addLatLng(coord));
+    }
+
+    data.forEach((point) => {
+         if (isNaN(Number(point.latitude)) || isNaN(Number(point.longitude))) return;
 
         const marker = L.marker([
             Number(point.latitude),
             Number(point.longitude)
         ])
-            .bindPopup(createPopupContent(point))
+            .bindPopup(createDevicePopup(point))
             .addTo(map);
+        markers.push(marker);
     });
 }
 
 // Update table
 function updateTable(data) {
     const tbody = document.getElementById('positions-table');
-    tbody.innerHTML = ''; // Clear table
-
+    tbody.innerHTML = '';
+    
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No position history for this device.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No position history available for this device.</td></tr>';
         return;
     }
-    
-    data.forEach(point => {
+
+    const sortedData = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    sortedData.forEach(point => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${formatTimestamp(point.timestamp)}</td>
@@ -263,210 +297,118 @@ function updateTable(data) {
             <td>${formatSpeed(point.speed)}</td>
             <td>${formatAltitude(point.altitude)}</td>
             <td>${formatAccuracy(point.accuracy)}</td>
-            <td>${point.satellites === null || point.satellites === undefined ? '-' : point.satellites}</td>
+            <td>${point.satellites !== null ? point.satellites : 'N/A'}</td>
         `;
         tbody.appendChild(row);
     });
 }
 
-// Create popup content
-function createPopupContent(point) {
+function createDevicePopup(point) {
     return `
-        <div class="info-bubble">
-            <strong>Time:</strong> ${formatTimestamp(point.timestamp)}<br>
-            <strong>Speed:</strong> ${formatSpeed(point.speed)}<br>
-            <strong>Altitude:</strong> ${formatAltitude(point.altitude)}<br>
-            <strong>Accuracy:</strong> ${formatAccuracy(point.accuracy)}<br>
-            <strong>Satellites:</strong> ${point.satellites ?? '-'}
-        </div>
+        <strong>Time:</strong> ${formatTimestamp(point.timestamp)}<br>
+        <strong>Speed:</strong> ${formatSpeed(point.speed)}<br>
+        <strong>Altitude:</strong> ${formatAltitude(point.altitude)}
     `;
 }
 
-// Helper functions for formatting values
 function formatCoordinate(coord) {
-    const num = Number(coord);
-    return isNaN(num) ? '-' : num.toFixed(6);
+    return coord !== null ? Number(coord).toFixed(6) : 'N/A';
 }
 
 function formatSpeed(speed) {
-    const num = Number(speed);
-    return isNaN(num) ? '-' : num.toFixed(1) + ' km/h';
+    return speed !== null ? `${Number(speed).toFixed(2)} km/h` : 'N/A';
 }
 
 function formatAltitude(altitude) {
-    const num = Number(altitude);
-    return isNaN(num) ? '-' : num.toFixed(1) + ' m';
+    return altitude !== null ? `${Number(altitude).toFixed(2)} m` : 'N/A';
 }
 
 function formatAccuracy(accuracy) {
-    const num = Number(accuracy);
-    return isNaN(num) ? '-' : num.toFixed(1) + ' m';
+    return accuracy !== null ? `${Number(accuracy).toFixed(2)} m` : 'N/A';
 }
 
-// Format timestamp
-function formatTimestamp(timestamp) {
-    if (!timestamp) return '-';
-    try {
-        // Try to create date, handle invalid inputs
-        const date = new Date(timestamp);
-        if (isNaN(date.getTime())) return 'Invalid date'; 
-
-        return date.toLocaleString('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
-    } catch (e) {
-        return 'Date error';
-    }
-}
-
-
-// Handle sleep interval update
 async function handleSleepIntervalUpdate(e) {
-    e.preventDefault(); 
-
+    e.preventDefault();
     if (!selectedDevice) {
-        alert('Please select a device first.');
+        displayAlert('Please select a device first.', 'warning');
         return;
     }
 
-    // Load values from new fields, with default value 0
-    const days = parseInt(document.getElementById('interval-days').value || '0', 10);
-    const hours = parseInt(document.getElementById('interval-hours').value || '0', 10);
-    const minutes = parseInt(document.getElementById('interval-minutes').value || '0', 10);
-    const seconds = parseInt(document.getElementById('interval-seconds').value || '0', 10);
+    const days = document.getElementById('interval-days').value || 0;
+    const hours = document.getElementById('interval-hours').value || 0;
+    const minutes = document.getElementById('interval-minutes').value || 0;
+    const seconds = document.getElementById('interval-seconds').value || 0;
 
-    if (isNaN(days) || isNaN(hours) || isNaN(minutes) || isNaN(seconds)) {
-        displayAlert('Please enter valid numbers for the interval.', 'danger');
-        return;
-    }
-    
-     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59 || days < 0) {
-        displayAlert('Please enter valid values (H: 0-23, M/S: 0-59, D >= 0).', 'danger');
-        return;
-    }
+    const totalSeconds = dhmsToSeconds(days, hours, minutes, seconds);
 
-    // Calculate total number of seconds
-    const totalSleepIntervalSeconds = dhmsToSeconds(days, hours, minutes, seconds);
-
-    if (totalSleepIntervalSeconds < 1) {
-        displayAlert('Minimum sleep interval is 1 second.', 'danger');
-        return; 
-    }
-     if (totalSleepIntervalSeconds > 30 * 24 * 60 * 60) {
-        displayAlert('Maximum sleep interval is 30 days.', 'danger');
+    if (totalSeconds < 0) {
+        displayAlert('Interval values cannot be negative.', 'danger');
         return;
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/device_settings`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                device: selectedDevice,
-                sleep_interval: totalSleepIntervalSeconds
-            })
+        const response = await fetch(`${API_BASE_URL}/device_settings/${selectedDevice}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sleep_interval: totalSeconds })
         });
 
-        const responseData = await response.json(); 
-
-        if (response.ok) {
-            displayAlert('Sleep interval settings saved successfully.', 'success');
-            
-            const dhms = secondsToDhms(responseData.new_sleep_interval_seconds);
-            document.getElementById('interval-days').value = dhms.d;
-            document.getElementById('interval-hours').value = dhms.h;
-            document.getElementById('interval-minutes').value = dhms.m;
-            document.getElementById('interval-seconds').value = dhms.s;
-
-        } else {
-            let errorMessage = 'Error saving settings.';
-            if (responseData.errors && responseData.errors.length > 0) {
-                errorMessage = responseData.errors[0].msg;
-            } else if (responseData.error) {
-                errorMessage = responseData.error;
-            }
-            throw new Error(errorMessage);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to update settings');
         }
+
+        const result = await response.json();
+        displayAlert(result.message || 'Settings updated successfully!', 'success');
     } catch (error) {
-        displayAlert(`Error: ${error.message}`, 'danger');
+        displayAlert(`An error occurred: ${error.message}`, 'danger');
     }
 }
 
 function displayAlert(message, type = 'info') {
-    const settingsForm = document.getElementById('device-settings-form'); 
-    if (!settingsForm) return; // If form does not exist
+    const alertContainer = document.querySelector('.container');
+    if (!alertContainer) return;
 
-    let alertContainer = settingsForm.querySelector('.alert-container');
-    if (!alertContainer) {
-        alertContainer = document.createElement('div');
-        alertContainer.className = 'alert-container mt-3'; // Add margin
-        settingsForm.appendChild(alertContainer); 
-    }
-
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show`;
-    alert.role = 'alert';
-    alert.innerHTML = `
+    const alertEl = document.createElement('div');
+    alertEl.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+    alertEl.setAttribute('role', 'alert');
+    alertEl.innerHTML = `
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
 
-    while (alertContainer.firstChild) {
-        alertContainer.removeChild(alertContainer.firstChild);
-    }
+    alertContainer.prepend(alertEl);
 
-    alertContainer.appendChild(alert);
-
-    const bsAlert = new bootstrap.Alert(alert);
     setTimeout(() => {
+        const bsAlert = new bootstrap.Alert(alertEl);
         bsAlert.close();
     }, 5000);
 }
 
 async function handleDeleteDevice(deviceName) {
-    if (!confirm(`Are you sure you want to delete the device "${deviceName}" and all its associated data? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete device "${deviceName}"? This cannot be undone.`)) {
         return;
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/device/${deviceName}`, {
-            method: 'DELETE',
+        const response = await fetch(`${API_BASE_URL}/delete_device/${deviceName}`, {
+            method: 'DELETE'
         });
 
-        const responseData = await response.json();
-
-        if (response.ok) {
-            displayAlert(responseData.message || `Device "${deviceName}" deleted successfully.`, 'success');
-            loadDevices(); // Refresh the device list
-            // If the deleted device was the selected one, clear the selection and hide details
-            if (selectedDevice === deviceName) {
-                selectedDevice = null;
-                document.getElementById('device-settings-card').style.display = 'none';
-                // Clear map and table
-                if (map) {
-                    map.eachLayer(layer => {
-                        if (layer instanceof L.Polyline || layer instanceof L.Marker) {
-                            map.removeLayer(layer);
-                        }
-                    });
-                }
-                 if (polyline) {
-                    map.removeLayer(polyline);
-                    polyline = null;
-                }
-                document.getElementById('positions-table').innerHTML = '<tr><td colspan="7" class="text-muted">Select a device to see its history.</td></tr>';
-                 document.getElementById('history-map').style.visibility = 'hidden'; // Hide map initially
-            }
-        } else {
-            displayAlert(responseData.error || `Failed to delete device "${deviceName}".`, 'danger');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to delete device');
         }
+
+        displayAlert(`Device "${deviceName}" has been deleted.`, 'success');
+        await loadDevices();
+
+        if (selectedDevice === deviceName) {
+            selectedDevice = null;
+            clearMapAndData();
+            document.getElementById('device-settings-card').style.display = 'none';
+        }
+
     } catch (error) {
         displayAlert(`An error occurred: ${error.message}`, 'danger');
     }

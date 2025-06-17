@@ -1,6 +1,16 @@
 /* General styles */
 body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
     background-color: #f8f9fa;
+    background-image: url('../img/background_day.png');
+    background-repeat: repeat;
+    background-size: 35%;
+}
+
+.content-wrapper {
+    flex: 1;
 }
 
 /* Cards */
@@ -14,13 +24,11 @@ body {
     border-bottom: 1px solid rgba(0, 0, 0, 0.125);
 }
 
-/* Map */
 #map, #history-map {
     border-radius: 0.25rem;
     border: 1px solid #dee2e6;
 }
 
-/* Device list */
 .device-item {
     padding: 0.75rem;
     border-bottom: 1px solid #dee2e6;
@@ -40,11 +48,6 @@ body {
     background-color: #e9ecef;
 }
 
-.device-item:last-child {
-    border-bottom: none;
-}
-
-/* Table */
 .table th {
     background-color: #f8f9fa;
     border-bottom: 2px solid #dee2e6;
@@ -54,7 +57,6 @@ body {
     vertical-align: middle;
 }
 
-/* Modal */
 .modal-content {
     border-radius: 0.5rem;
 }
@@ -64,13 +66,11 @@ body {
     border-bottom: 1px solid #dee2e6;
 }
 
-/* Forms */
 .form-control:focus {
     border-color: #80bdff;
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-/* Buttons */
 .btn-primary {
     background-color: #0d6efd;
     border-color: #0d6efd;
@@ -81,7 +81,6 @@ body {
     border-color: #0a58ca;
 }
 
-/* Responsive design */
 @media (max-width: 768px) {
     .container {
         padding: 0.5rem;
@@ -92,7 +91,6 @@ body {
     }
 }
 
-/* Animations */
 .fade-in {
     animation: fadeIn 0.3s ease-in;
 }
@@ -106,7 +104,6 @@ body {
     }
 }
 
-/* Device status */
 .device-status {
     display: inline-block;
     width: 10px;
@@ -123,7 +120,6 @@ body {
     background-color: #dc3545;
 }
 
-/* Info bubbles */
 .info-bubble {
     padding: 0.5rem;
     background-color: white;
@@ -131,8 +127,27 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Timestamps */
 .timestamp {
     color: #6c757d;
     font-size: 0.875rem;
+}
+
+.main-container {
+    background-color: rgba(255, 255, 255, 0.8);
 } 
+
+.central-body .main-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-image: url('../img/background_day.png');
+    background-size: 35%;
+    background-repeat: repeat;
+}
+
+
+.central-body .login-card {
+    width: 100%;
+    max-width: 400px;
+}
