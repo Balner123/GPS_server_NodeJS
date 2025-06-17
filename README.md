@@ -16,9 +16,8 @@ Hardwarová čast by také mohla být zapozdřena v 3D tisknuté krabičce...
 
 ## Demo serverové části
 první pokusy o minimální serverovou část (Node.js)
-
 [GPS_server_Node_JS_demo](http://79.72.18.205:5000)
-
+heslo=>"admin123" PS: prosím neměnit!
 ## Demo kódu pro hardware 
 první pokusy o funkční kód pro hardware (ESP32)
 
