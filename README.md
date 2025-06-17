@@ -1,4 +1,4 @@
-# Maturitní projekt - návrh tématu -> LOTR - Locatin Tracker
+# Maturitní projekt -> LOTR - Location Tracker
 
  > Celý tento návrh je psán s uvědoměním vlastní neznalosti
 ### Popis a cíl projektu : 
