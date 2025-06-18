@@ -34,6 +34,10 @@ Možnost jakýchkoliv forntend frameworků
 
 [GeB Li-Ion Battery 1x18650 1S1P 3.7V 3200mAh  | LaskaKit](https://www.laskakit.cz/en/geb-li-ion-baterie-1x18650-1s1p-3-7v-3200mah/)
 
+### Další součásti
+ APK -> pro android a její vyvěšení na Google play (?)
+ 3D tisknutá schránka pro hardwerovou část (!)
+
 ## Postup a vývoj+ milníky
 
 - definování cílů -> základem byl fyzický Tracker -> server minimáně
