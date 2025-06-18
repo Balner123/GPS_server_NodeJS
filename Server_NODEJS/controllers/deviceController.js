@@ -31,7 +31,7 @@ const updateDeviceSettings = async (req, res) => {
     if (affectedRows === 0) {
       return res.status(404).json({ error: 'Device not found' });
     }
-    res.json({ message: 'Sleep interval updated successfully', new_sleep_interval_seconds: sleep_interval }); 
+    res.json({ success: true, message: 'Sleep interval updated successfully', new_sleep_interval_seconds: sleep_interval }); 
   } catch (err) {
     console.error("Error in /device_settings:", err);
     res.status(500).json({ error: err.message });

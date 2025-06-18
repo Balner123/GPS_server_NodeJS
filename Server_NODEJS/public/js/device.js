@@ -3,6 +3,9 @@ let selectedDevice = null;
 let polyline = null;
 let markers = [];
 let lastTimestamp = null;
+let completeDeviceHistory = [];
+let isShowingAllHistory = false;
+const HISTORY_ROW_LIMIT = 5;
 
 // Configuration
 const API_BASE_URL = window.location.origin;
@@ -76,6 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
             handleSleepIntervalUpdate(e);
         });
     }
+
+    document.getElementById('toggle-history-btn')?.addEventListener('click', () => {
+        isShowingAllHistory = !isShowingAllHistory;
+        renderPositionTable();
+    });
 });
 
 
@@ -147,6 +155,7 @@ async function selectDevice(deviceName) {
     window.history.pushState({path: newUrl}, '', newUrl);
 
     selectedDevice = deviceName;
+    isShowingAllHistory = false; // Reset view
     clearMapAndData(); // Clear everything for the new device
     
     // Update active state in the list
@@ -222,8 +231,10 @@ async function loadDeviceData(isInitialLoad = false) {
 
         if (dataToRender.length > 0) {
             updateMap(dataToRender, isInitialLoad);
-            updateTable(allData); // Full table refresh is easier
         }
+        
+        completeDeviceHistory = allData;
+        renderPositionTable();
 
     } catch (error) {
         document.getElementById('positions-table').innerHTML = '<tr><td colspan="7" class="text-danger">Error loading position history.</td></tr>';
@@ -238,7 +249,12 @@ function clearMapAndData() {
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
     lastTimestamp = null;
+    completeDeviceHistory = [];
     document.getElementById('positions-table').innerHTML = '';
+    const toggleBtn = document.getElementById('toggle-history-btn');
+    if (toggleBtn) {
+        toggleBtn.style.display = 'none';
+    }
 }
 
 // Update map
@@ -274,6 +290,31 @@ function updateMap(data, isFullUpdate) {
             .addTo(map);
         markers.push(marker);
     });
+
+    map.fitBounds(coordinates, { padding: [50, 50] });
+}
+
+function renderPositionTable() {
+    const dataToRender = isShowingAllHistory 
+        ? completeDeviceHistory 
+        : completeDeviceHistory.slice(0, HISTORY_ROW_LIMIT);
+
+    updateTable(dataToRender);
+    updateToggleButton();
+}
+
+function updateToggleButton() {
+    const toggleBtn = document.getElementById('toggle-history-btn');
+    if (!toggleBtn) return;
+
+    if (completeDeviceHistory.length > HISTORY_ROW_LIMIT) {
+        toggleBtn.style.display = 'block';
+        toggleBtn.textContent = isShowingAllHistory 
+            ? 'Zobrazit méně' 
+            : `Zobrazit vše (${completeDeviceHistory.length})`;
+    } else {
+        toggleBtn.style.display = 'none';
+    }
 }
 
 // Update table
@@ -330,7 +371,7 @@ function formatAccuracy(accuracy) {
 async function handleSleepIntervalUpdate(e) {
     e.preventDefault();
     if (!selectedDevice) {
-        displayAlert('Please select a device first.', 'warning');
+        displayAlert('Nejprve vyberte zařízení.', 'warning');
         return;
     }
 
@@ -338,51 +379,76 @@ async function handleSleepIntervalUpdate(e) {
     const hours = document.getElementById('interval-hours').value || 0;
     const minutes = document.getElementById('interval-minutes').value || 0;
     const seconds = document.getElementById('interval-seconds').value || 0;
-
     const totalSeconds = dhmsToSeconds(days, hours, minutes, seconds);
 
-    if (totalSeconds < 0) {
-        displayAlert('Interval values cannot be negative.', 'danger');
-        return;
-    }
-
     try {
-        const response = await fetch(`${API_BASE_URL}/device_settings/${selectedDevice}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sleep_interval: totalSeconds })
+        const response = await fetch(`${API_BASE_URL}/device_settings`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ device: selectedDevice, sleep_interval: totalSeconds })
         });
 
+        const result = await response.json();
+
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to update settings');
+            // Použijeme zprávu ze serveru, pokud je k dispozici, jinak obecnou chybu
+             throw new Error(result.message || result.error || 'Došlo k chybě při aktualizaci.');
         }
 
-        const result = await response.json();
-        displayAlert(result.message || 'Settings updated successfully!', 'success');
+        if (result.success) {
+            displayAlert(result.message || 'Interval spánku byl úspěšně aktualizován!', 'success');
+        } else {
+            // Tento blok by se neměl vykonat, pokud je !response.ok správně ošetřeno výše
+            throw new Error(result.message || 'Aktualizace se nezdařila.');
+        }
+
     } catch (error) {
-        displayAlert(`An error occurred: ${error.message}`, 'danger');
+        displayAlert(`Chyba: ${error.message}`, 'danger');
     }
 }
 
 function displayAlert(message, type = 'info') {
-    const alertContainer = document.querySelector('.container');
-    if (!alertContainer) return;
+    const toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        console.error('Toast container not found!');
+        return;
+    }
 
-    const alertEl = document.createElement('div');
-    alertEl.className = `alert alert-${type} alert-dismissible fade show mt-3`;
-    alertEl.setAttribute('role', 'alert');
-    alertEl.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    const toastId = `toast-${Date.now()}`;
+    // Map Bootstrap alert types to background color classes
+    const bgClass = {
+        'success': 'bg-success',
+        'danger': 'bg-danger',
+        'warning': 'bg-warning',
+        'info': 'bg-info'
+    }[type] || 'bg-secondary';
+
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
     `;
 
-    alertContainer.prepend(alertEl);
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+        delay: 5000 // Auto-hide after 5 seconds
+    });
+    
+    toast.show();
 
-    setTimeout(() => {
-        const bsAlert = new bootstrap.Alert(alertEl);
-        bsAlert.close();
-    }, 5000);
+    // Remove the toast from DOM after it's hidden
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
 }
 
 async function handleDeleteDevice(deviceName) {
