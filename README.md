@@ -14,7 +14,7 @@ Hardwarová čast by také mohla být zapozdřena v 3D tisknuté krabičce...
 
 ## Demo serverové části
 první pokusy o serverovou část (Node.js)
-[GPS_server_Node_JS_demo](http://79.72.18.205:5000)
+[GPS_server_Node_JS_demo](https://lotr-system.xyz)
 
 heslo=>"lotrlotr" PS: "Heslo neměň, neb stihne tě trest!"
 ## Technologie a Hardware
