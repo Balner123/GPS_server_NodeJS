@@ -30,8 +30,8 @@ const char gprsUser[] = "gprs";                 // Replace with your GPRS userna
 const char gprsPass[] = "gprs";                 // Replace with your GPRS password
 
 // --- Server Configuration ---
-const char server[]       = "129.151.215.96"; // Your server IP or hostname
-const int  port           = 5000;              // Your server port
+const char server[]       = "lotr-system.xyz"; // Your server IP or hostname
+const int  port           = 443;              // Your server port
 const char resourcePost[] = "/device_input";     // Your server endpoint
 
 // --- Device & GPS Configuration ---
@@ -106,6 +106,9 @@ TinyGsm modem(debugger);
 TinyGsm modem(SerialAT); // SerialAT is typically defined in utilities.h or via board definitions
 #endif
 
+// For the LewisHe fork, SSL functions are in the standard TinyGsmClient
+TinyGsmClient client(modem);
+
 // --- Objects for External GPS ---
 SoftwareSerial SerialGPS(GPS_RX_PIN, GPS_TX_PIN);
 TinyGPSPlus gps;
@@ -125,8 +128,6 @@ uint8_t  gpsDay = 0;
 uint8_t  gpsHour = 0;
 uint8_t  gpsMinute = 0;
 uint8_t  gpsSecond = 0;
-
-TinyGsmClient client(modem);
 
 // ------------------------- Function Prototypes (External GPS)-----------------------------
 void powerUpGPS();
@@ -199,7 +200,7 @@ void setup() {
     SerialMon.println(F("--- Connecting to GPRS ---"));
     if (connectGPRS()) {
       SerialMon.println(F("GPRS Connected."));
-      // 5. Send data via HTTP POST (uses global GPS variables)
+      // 5. Send data via HTTPS POST (uses global GPS variables)
       sendHTTPPostRequest(); 
       // 6. Disconnect GPRS
       disconnectGPRS();
@@ -325,97 +326,79 @@ bool connectGPRS() {
   return true;
 }
 
-void sendHTTPPostRequest() { 
-  SerialMon.println(F("Performing HTTP POST request (with external GPS data)..."));
-  
-  JsonDocument jsonDoc; 
+void sendHTTPPostRequest() {
+  SerialMon.println(F("Performing HTTPS POST request (A76XX Library Method)..."));
+
+  JsonDocument jsonDoc;
   jsonDoc["device"] = deviceName;
-  
-  if (gpsFixObtained) { 
+
+  if (gpsFixObtained) {
     jsonDoc["latitude"] = gpsLat;
     jsonDoc["longitude"] = gpsLon;
     jsonDoc["speed"] = gpsSpd;
     jsonDoc["altitude"] = gpsAlt;
-    jsonDoc["accuracy"] = gpsHdop; 
+    jsonDoc["accuracy"] = gpsHdop;
     jsonDoc["satellites"] = gpsSats;
-    
-    if (gpsYear != 0) { 
-        char timestamp[25];
-        sprintf(timestamp, "%04d-%02d-%02dT%02d:%02d:%02dZ", 
-                gpsYear, gpsMonth, gpsDay, 
-                gpsHour, gpsMinute, gpsSecond);
-        jsonDoc["timestamp"] = timestamp;
+
+    if (gpsYear != 0) {
+      char timestamp[25];
+      sprintf(timestamp, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+              gpsYear, gpsMonth, gpsDay,
+              gpsHour, gpsMinute, gpsSecond);
+      jsonDoc["timestamp"] = timestamp;
     } else {
-        jsonDoc["timestamp"] = "N/A_GPS_TIME"; 
+      jsonDoc["timestamp"] = "N/A_GPS_TIME";
     }
   } else {
     jsonDoc["error"] = "No GPS fix (External)";
   }
-  
+
   String jsonData;
   serializeJson(jsonDoc, jsonData);
   SerialMon.print(F("JSON Payload: ")); SerialMon.println(jsonData);
 
-  String url = "http://";
-  url += server;
-  url += resourcePost; 
-
-  String content_type = F("application/json");
-
-  SerialMon.print(F("Connecting to "));
-  SerialMon.println(server);
-  if (!client.connect(server, port)) {
-      SerialMon.println(F("Connection failed"));
+  // Correct step-by-step method for TinyGSM A76XX fork
+  SerialMon.println(F("Begin HTTPS session..."));
+  if (!modem.https_begin()) {
+    SerialMon.println(F("Failed to begin HTTPS session."));
     return;
   }
+
+  String fullUrl = "https://";
+  fullUrl += server;
+  fullUrl += resourcePost;
   
-  SerialMon.println(F("Sending POST request:"));
-  SerialMon.println(url);
-  SerialMon.println(jsonData);
-
-  client.print(String("POST ") + url + " HTTP/1.1\r\n" +
-               "Host: " + server + "\r\n" +
-               "Content-Type: " + content_type + "\r\n" +
-               "Content-Length: " + String(jsonData.length()) + "\r\n" +
-               "Connection: close\r\n\r\n" +
-               jsonData);
-
-  unsigned long httpTimeout = millis();
-  while (client.available() == 0) {
-      if (!client.connected()){
-          SerialMon.println(F("Client disconnected while waiting for response."));
-          client.stop();
-          return;
-      }
-      if (millis() - httpTimeout > 15000) { 
-          SerialMon.println(F(">>> Client HTTP Response Timeout !"));
-          client.stop();
-          return;
-      }
-      delay(100);
+  SerialMon.print(F("Set URL: ")); SerialMon.println(fullUrl);
+  if (!modem.https_set_url(fullUrl)) {
+    SerialMon.println(F("Failed to set URL."));
+    modem.https_end();
+    return;
   }
 
-  SerialMon.println(F("Response:"));
-  String status_line = client.readStringUntil('\r'); 
-  SerialMon.println(status_line);
-  if (client.available()) client.readStringUntil('\n'); 
-
-  while (client.connected()) {
-      String line = client.readStringUntil('\r');
-      if (client.available()) client.readStringUntil('\n'); 
-      if (line == "") {
-          break;
-      }
+  SerialMon.println(F("Set Content-Type header..."));
+  if (!modem.https_set_content_type("application/json")) {
+    SerialMon.println(F("Failed to set Content-Type."));
+    modem.https_end();
+    return;
   }
+
+  SerialMon.println(F("Sending POST request..."));
+  int statusCode = modem.https_post(jsonData);
+
+  if (statusCode <= 0) {
+    SerialMon.print(F("POST request failed with status code: ")); SerialMon.println(statusCode);
+    modem.https_end();
+    return;
+  }
+
+  SerialMon.print(F("Response Status Code: ")); SerialMon.println(statusCode);
+
+  SerialMon.println(F("Reading response body..."));
+  String response_body = modem.https_body();
   
-  String response_body = "";
-  unsigned long bodyReadStart = millis();
-  while(client.available() && client.connected() && (millis() - bodyReadStart < 5000)){ 
-    response_body += (char)client.read();
-  }
-  if (millis() - bodyReadStart >= 5000 && response_body.length() == 0) {
-      SerialMon.println(F("Timeout reading response body or body is empty."));
-  }
+  SerialMon.println(F("End HTTPS session."));
+  modem.https_end();
+
   SerialMon.println(F("Response Body:"));
   SerialMon.println(response_body);
   
@@ -427,17 +410,17 @@ void sendHTTPPostRequest() {
       SerialMon.print(F("deserializeJson() for server response failed: "));
       SerialMon.println(error.f_str());
     } else {
-      if (!serverResponseDoc["sleep_interval"].isNull()) { 
+      if (!serverResponseDoc["sleep_interval"].isNull()) {
         if (serverResponseDoc["sleep_interval"].is<unsigned int>()) {
-            uint64_t server_sleep = serverResponseDoc["sleep_interval"].as<unsigned int>();
-            if (server_sleep > 0 && server_sleep < (24 * 3600)) { 
-                 sleepTimeSeconds = server_sleep;
-                 SerialMon.print(F("Server updated sleep interval to: ")); SerialMon.println(sleepTimeSeconds);
-            } else {
-                SerialMon.println(F("Received invalid sleep_interval from server, using default."));
-            }
+          uint64_t server_sleep = serverResponseDoc["sleep_interval"].as<unsigned int>();
+          if (server_sleep > 0 && server_sleep < (24 * 3600)) {
+            sleepTimeSeconds = server_sleep;
+            SerialMon.print(F("Server updated sleep interval to: ")); SerialMon.println(sleepTimeSeconds);
+          } else {
+            SerialMon.println(F("Received invalid sleep_interval from server, using default."));
+          }
         } else {
-             SerialMon.println(F("sleep_interval from server is not an unsigned integer, using default."));
+          SerialMon.println(F("sleep_interval from server is not an unsigned integer, using default."));
         }
       } else {
         SerialMon.println(F("Server response does not contain 'sleep_interval' or it is null."));
@@ -446,9 +429,6 @@ void sendHTTPPostRequest() {
   } else {
     SerialMon.println(F("No body in server response or body read timed out."));
   }
-  
-  client.stop();
-  SerialMon.println(F("Disconnected from server."));
 }
 
 void disconnectGPRS() {
@@ -601,14 +581,6 @@ void startOTAMode() {
   SerialMon.println(ota_ssid);
   SerialMon.println(F("Open browser to http://<IP_ADDRESS_ABOVE> or http://gps-tracker.local (if mDNS works)"));
 
-  // Simple mDNS responder
-  // if (MDNS.begin("gps-tracker")) {
-  //   SerialMon.println(F("MDNS responder started at http://gps-tracker.local"));
-  //   MDNS.addService("http", "tcp", 80);
-  // } else {
-  //   SerialMon.println(F("Error setting up MDNS responder!"));
-  // }
-  // Note: MDNS requires #include <ESPmDNS.h>
 
   otaServer.on("/", HTTP_GET, []() {
     otaServer.sendHeader("Connection", "close");
@@ -662,7 +634,6 @@ void startOTAMode() {
   // Loop indefinitely to handle OTA requests
   while (true) {
     otaServer.handleClient();
-    // MDNS.update(); // if mDNS is used
-    delay(1); // Small delay to yield to other system tasks if any
+    delay(1);
   }
 } 
