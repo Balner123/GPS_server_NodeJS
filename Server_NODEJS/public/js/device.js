@@ -452,30 +452,56 @@ function displayAlert(message, type = 'info') {
 }
 
 async function handleDeleteDevice(deviceName) {
-    if (!confirm(`Are you sure you want to delete device "${deviceName}"? This cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete device '${deviceName}' and all its data? This action cannot be undone.`)) {
         return;
     }
-
+    
     try {
-        const response = await fetch(`${API_BASE_URL}/delete_device/${deviceName}`, {
+        const response = await fetch(`${API_BASE_URL}/api/device/${deviceName}`, {
             method: 'DELETE'
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to delete device');
+        const resultText = await response.text();
+        let result;
+
+        try {
+            result = JSON.parse(resultText);
+        } catch (e) {
+            if (!response.ok) {
+                throw new Error(resultText || `Server responded with status ${response.status}`);
+            }
+            // If response is not JSON but status is ok, maybe it's an empty response that can be considered a success
+            result = { message: `Device '${deviceName}' deleted successfully (empty response).` };
         }
 
-        displayAlert(`Device "${deviceName}" has been deleted.`, 'success');
-        await loadDevices();
-
-        if (selectedDevice === deviceName) {
-            selectedDevice = null;
-            clearMapAndData();
-            document.getElementById('device-settings-card').style.display = 'none';
+        if (response.ok) {
+            displayAlert(result.message, 'success');
+            // Reset the view if the deleted device was the selected one
+            if (selectedDevice === deviceName) {
+                const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+                window.history.pushState({path: newUrl}, '', newUrl);
+                
+                selectedDevice = null;
+                const details = document.getElementById('device-details');
+                if(details) details.style.display = 'none';
+                clearMapAndData();
+            }
+            // Reload the device list to reflect the deletion
+            loadDevices();
+        } else {
+            // Display error message from the server's JSON response
+            throw new Error(result.error || `Server responded with status ${response.status}`);
         }
-
     } catch (error) {
-        displayAlert(`An error occurred: ${error.message}`, 'danger');
+        console.error('Error during device deletion:', error);
+        displayAlert(`Failed to delete device: ${error.message}`, 'danger');
     }
+}
+
+function formatTimestamp(timestamp) {
+    if (!timestamp) {
+        return 'N/A';
+    }
+    const date = new Date(timestamp);
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
