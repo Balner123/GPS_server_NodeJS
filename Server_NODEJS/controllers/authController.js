@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { getPasswordHash } = require('../config/auth-config');
+const db = require('../database');
 
 const getLoginPage = (req, res) => {
   if (req.session.isAuthenticated) {
@@ -12,17 +12,24 @@ const loginUser = async (req, res) => {
   const { password } = req.body;
 
   if (!password) {
-    return res.render('login', { error: 'Please enter the password.', currentPage: 'login' });
+    return res.status(400).render('login', { error: 'Please enter the password.', currentPage: 'login' });
   }
 
   try {
-    const passwordHash = await getPasswordHash();
-    const isMatch = await bcrypt.compare(password, passwordHash);
+    const user = await db.User.findOne();
+
+    if (!user) {
+      return res.status(401).render('login', { error: 'No password configured in database.', currentPage: 'login' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
     if (isMatch) {
       req.session.isAuthenticated = true;
+      req.session.user = { id: user.id };
       return res.redirect('/');
     } else {
-      return res.render('login', { error: 'Invalid password.', currentPage: 'login' });
+      return res.status(401).render('login', { error: 'Invalid password.', currentPage: 'login' });
     }
   } catch (err) {
     console.error("Login error:", err);

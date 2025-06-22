@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { getPasswordHash, setPasswordHash } = require('../config/auth-config');
+const db = require('../database');
 const { body, validationResult } = require('express-validator');
 
 const getSettingsPage = (req, res) => {
@@ -18,15 +18,24 @@ const changePassword = async (req, res) => {
       currentPage: 'settings',
       errors: errors.array(),
       success_message: null,
-      error_message: 'Please correct the errors.',
     });
   }
 
   const { oldPassword, newPassword } = req.body;
 
   try {
-    const currentHash = await getPasswordHash();
-    const isMatch = await bcrypt.compare(oldPassword, currentHash);
+    const user = await db.User.findOne();
+
+    if (!user) {
+      return res.status(404).render('settings', {
+        currentPage: 'settings',
+        errors: [],
+        success_message: null,
+        error_message: 'User not found.',
+      });
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
 
     if (!isMatch) {
       return res.status(400).render('settings', {
@@ -38,7 +47,7 @@ const changePassword = async (req, res) => {
     }
 
     const newHash = await bcrypt.hash(newPassword, 10);
-    await setPasswordHash(newHash);
+    await user.update({ password: newHash });
 
     res.render('settings', {
       currentPage: 'settings',
@@ -60,7 +69,14 @@ const changePassword = async (req, res) => {
 
 const passwordValidationRules = [
   body('oldPassword').notEmpty().withMessage('Old password cannot be empty.'),
-  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters long.'),
+  body('newPassword')
+    .isLength({ min: 6 }).withMessage('New password must be at least 6 characters long.')
+    .custom((value, { req }) => {
+      if (value === req.body.oldPassword) {
+        throw new Error('New password cannot be the same as the old password.');
+      }
+      return true;
+    }),
   body('confirmPassword').custom((value, { req }) => {
     if (value !== req.body.newPassword) {
       throw new Error('Password confirmation does not match the new password.');

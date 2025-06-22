@@ -1,16 +1,8 @@
 const express = require("express");
-const cors = require("cors");
 const rateLimit = require("express-rate-limit");
-const db = require("./database");
 require('dotenv').config();
 const path = require('path');
 const session = require('express-session');
-
-// Route imports
-const authRoutes = require('./routes/auth');
-const deviceRoutes = require('./routes/devices');
-const indexRoutes = require('./routes/index');
-const settingsRoutes = require('./routes/settings');
 
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy
@@ -23,9 +15,6 @@ app.set('views', path.join(__dirname, 'views'));
 // Middleware (order is important)
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cors({
-  origin: process.env.CORS_ORIGIN
-}));
 app.use(express.static(path.join(__dirname, 'public'))); // Static files are public
 
 // Session middleware
@@ -55,13 +44,13 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Routes
-app.use('/', indexRoutes);
-app.use(authRoutes);
-app.use(deviceRoutes);
-app.use(settingsRoutes);
+app.use('/', require('./routes/index'));
+app.use(require('./routes/auth'));
+app.use(require('./routes/devices'));
+app.use(require('./routes/settings'));
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err, res, next) => {
   console.error("Unhandled error:", err.stack);
   if (res.headersSent) {
     return next(err);
