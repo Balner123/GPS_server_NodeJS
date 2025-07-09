@@ -36,6 +36,7 @@ const char resourcePost[] = "/device_input";     // Your server endpoint
 
 // --- Device & GPS Configuration ---
 const char* deviceName = "NEO-6M_A7670E"; // Device name for the payload
+const char* deviceID = ""; // Device ID for the payload
 const unsigned long GPS_ACQUISITION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for GPS fix attempt
 
 // --- Sleep Configuration ---
@@ -65,6 +66,7 @@ const char* update_form_page = R"rawliteral(
   <body>
     <div class="container">
       <h1>GPS Tracker OTA Update</h1>
+      <p><b>Device ID:</b> %id%</p>
       <p>Connect to Wi-Fi: <b>%s</b></p>
       <form method='POST' action='/update' enctype='multipart/form-data'>
         <input type='file' name='update' accept='.bin' required><br>
@@ -157,6 +159,15 @@ void setup() {
   
   SerialMon.begin(115200);
   delay(100); // Wait for serial monitor to connect
+
+  // Set Device ID from MAC Address, this is permanent and unique
+  String mac = WiFi.macAddress();
+  mac.replace(":", "");
+  // Use the last 10 characters of the MAC address for a shorter ID
+  String shortMac = mac.substring(mac.length() - 10);
+  deviceID = strdup(shortMac.c_str());
+  SerialMon.print(F("Device ID (last 10 of MAC): "));
+  SerialMon.println(deviceID);
 
   // Check OTA Pin state
   // Add a small delay to allow the pin state to stabilize after power-on, especially with physical switches.
@@ -330,7 +341,8 @@ void sendHTTPPostRequest() {
   SerialMon.println(F("Performing HTTPS POST request (A76XX Library Method)..."));
 
   JsonDocument jsonDoc;
-  jsonDoc["device"] = deviceName;
+  jsonDoc["device"] = deviceID;
+  jsonDoc["name"] = deviceName;
 
   if (gpsFixObtained) {
     jsonDoc["latitude"] = gpsLat;
@@ -586,6 +598,7 @@ void startOTAMode() {
     otaServer.sendHeader("Connection", "close");
     String page_content = String(update_form_page);
     page_content.replace("%s", ota_ssid);
+    page_content.replace("%id%", deviceID);
     otaServer.send(200, "text/html", page_content);
   });
 
