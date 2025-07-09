@@ -3,8 +3,13 @@ const { validationResult } = require('express-validator');
 
 const getDeviceSettings = async (req, res) => {
   try {
-    const deviceName = req.params.device;
-    const device = await Device.findOne({ where: { name: deviceName } });
+    const deviceId = req.params.device;
+    const device = await Device.findOne({ 
+      where: { 
+        device_id: deviceId,
+        user_id: req.session.user.id 
+      } 
+    });
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
@@ -21,11 +26,15 @@ const updateDeviceSettings = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    const { device: deviceName, sleep_interval } = req.body;
+    const { device: deviceId, sleep_interval } = req.body;
     
     const [affectedRows] = await Device.update(
       { sleep_interval, sleep_interval_updated_at: new Date() },
-      { where: { name: deviceName } }
+      { where: { 
+          device_id: deviceId,
+          user_id: req.session.user.id 
+        } 
+      }
     );
 
     if (affectedRows === 0) {
@@ -39,51 +48,65 @@ const updateDeviceSettings = async (req, res) => {
 };
 
 const handleDeviceInput = async (req, res) => {
-  const t = await sequelize.transaction();
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      await t.rollback();
       return res.status(400).json({ errors: errors.array() });
     }
-    const { device: deviceName, longitude, latitude, speed, altitude, accuracy, satellites } = req.body;
+    const { device: deviceId, name, longitude, latitude, speed, altitude, accuracy, satellites } = req.body;
     
-    const [device] = await Device.findOrCreate({
-      where: { name: deviceName },
-      defaults: { name: deviceName },
-      transaction: t
-    });
+    const device = await Device.findOne({ where: { device_id: deviceId } });
 
-    const location = await Location.create({
-      device_id: device.id,
-      longitude,
-      latitude,
-      speed,
-      altitude,
-      accuracy,
-      satellites
-    }, { transaction: t });
+    // If device is not registered in our system, silently ignore the request.
+    if (!device) {
+      // We send a 200 OK to not give away information about which devices are registered.
+      return res.status(200).send(); 
+    }
 
-    device.last_seen = new Date();
-    await device.save({ transaction: t });
-    
-    await t.commit();
-    
-    res.status(200).json({ 
-      id: location.id,
-      sleep_interval: device.sleep_interval
-    });
+    const t = await sequelize.transaction();
+    try {
+      // Update device name if provided
+      if (name && device.name !== name) {
+        device.name = name;
+      }
+
+      const location = await Location.create({
+        device_id: device.id,
+        longitude,
+        latitude,
+        speed,
+        altitude,
+        accuracy,
+        satellites
+      }, { transaction: t });
+
+      device.last_seen = new Date();
+      await device.save({ transaction: t });
+      
+      await t.commit();
+      
+      res.status(200).json({ 
+        id: location.id,
+        sleep_interval: device.sleep_interval
+      });
+    } catch (err) {
+      await t.rollback();
+      console.error("Error in handleDeviceInput transaction:", err);
+      res.status(500).json({ error: err.message });
+    }
   } catch (err) {
-    await t.rollback();
-    console.error("Error:", err);
-    res.status(500).json({ error: err.message });
+      console.error("Error in handleDeviceInput:", err);
+      res.status(500).json({ error: 'An unexpected error occurred.' });
   }
 };
 
 const getCurrentCoordinates = async (req, res) => {
   try {
     const devices = await Device.findAll({
-      where: { status: 'active' },
+      where: { 
+        status: 'active',
+        user_id: req.session.user.id
+      },
       include: {
         model: Location,
         where: {
@@ -98,7 +121,8 @@ const getCurrentCoordinates = async (req, res) => {
     const coordinates = devices.map(d => {
       const latestLocation = d.Locations[0];
       return {
-        device: d.name,
+        device: d.device_id,
+        name: d.name,
         longitude: latestLocation.longitude,
         latitude: latestLocation.latitude,
         timestamp: latestLocation.timestamp,
@@ -114,9 +138,12 @@ const getCurrentCoordinates = async (req, res) => {
 
 const getDeviceData = async (req, res) => {
   try {
-    const deviceName = req.query.name;
+    const deviceId = req.query.id; // ZMĚNA ZDE: Používáme 'id' z URL
     const device = await Device.findOne({
-      where: { name: deviceName },
+      where: { 
+        device_id: deviceId,
+        user_id: req.session.user.id 
+      },
       include: [{
         model: Location,
         order: [['timestamp', 'DESC']]
@@ -133,25 +160,136 @@ const getDeviceData = async (req, res) => {
 };
 
 const deleteDevice = async (req, res) => {
-  const deviceName = req.params.deviceName;
-  if (!deviceName) {
-    return res.status(400).json({ error: 'Device name is required.' });
+  const deviceId = req.params.deviceId;
+  if (!deviceId) {
+    return res.status(400).json({ error: 'Device ID is required.' });
   }
 
   try {
-    const device = await Device.findOne({ where: { name: deviceName } });
+    const device = await Device.findOne({ where: { 
+      device_id: deviceId,
+      user_id: req.session.user.id 
+    } });
     if (!device) {
       return res.status(404).json({ error: 'Device not found.' });
     }
     
     await device.destroy(); // This will also delete associated locations due to ON DELETE CASCADE
 
-    res.status(200).json({ message: `Device '${deviceName}' and all its data have been deleted successfully.` });
+    res.status(200).json({ message: `Device '${deviceId}' and all its data have been deleted successfully.` });
   } catch (err) {
-    console.error(`Error deleting device ${deviceName}:`, err);
+    console.error(`Error deleting device ${deviceId}:`, err);
     res.status(500).json({ error: 'Failed to delete device. An internal server error occurred.' });
   }
 };
+
+const getDevicesPage = async (req, res) => {
+  try {
+    const userDevices = await Device.findAll({
+      where: { user_id: req.session.user.id },
+      order: [['created_at', 'DESC']]
+    });
+    res.render('manage-devices', { 
+      devices: userDevices,
+      error: req.flash('error'),
+      success: req.flash('success'),
+      currentPage: 'devices'
+    });
+  } catch (err) {
+    console.error("Error fetching devices for management page:", err);
+    res.status(500).render('manage-devices', { 
+      devices: [], 
+      error: ['Došlo k chybě při načítání vašich zařízení.'],
+      success: null,
+      currentPage: 'devices'
+    });
+  }
+};
+
+const addDeviceToUser = async (req, res) => {
+  const { deviceId } = req.body;
+  if (!deviceId || deviceId.length !== 10) {
+    req.flash('error', 'Je vyžadováno platné 10místné ID zařízení.');
+    return res.redirect('/register-device');
+  }
+
+  try {
+    const existingDevice = await Device.findOne({ where: { device_id: deviceId } });
+
+    if (existingDevice) {
+      req.flash('error', `Zařízení s ID "${deviceId}" je již registrováno v systému.`);
+      return res.redirect('/register-device');
+    }
+
+    await Device.create({
+      device_id: deviceId,
+      user_id: req.session.user.id
+    });
+
+    req.flash('success', `Zařízení "${deviceId}" bylo úspěšně registrováno.`);
+    res.redirect('/devices');
+
+  } catch (err) {
+    console.error("Error adding device to user:", err);
+    if (err.name === 'SequelizeUniqueConstraintError') {
+       req.flash('error', `Zařízení s ID "${deviceId}" je již registrováno v systému.`);
+    } else {
+       req.flash('error', 'Došlo k chybě při registraci zařízení.');
+    }
+    res.redirect('/register-device');
+  }
+};
+
+const removeDeviceFromUser = async (req, res) => {
+  const { deviceId } = req.params;
+  try {
+    const device = await Device.findOne({ 
+      where: { 
+        device_id: deviceId, 
+        user_id: req.session.user.id 
+      } 
+    });
+
+    if (!device) {
+      req.flash('error', 'Zařízení nebylo nalezeno nebo k němu nemáte oprávnění.');
+      return res.redirect('/devices');
+    }
+
+    await device.destroy();
+
+    req.flash('success', `Registrace pro zařízení "${deviceId}" byla úspěšně zrušena.`);
+    res.redirect('/devices');
+
+  } catch (err) {
+    console.error("Error removing device from user:", err);
+    req.flash('error', 'Došlo k chybě při odebírání zařízení.');
+    res.redirect('/devices');
+  }
+};
+
+const getRegisterDevicePage = async (req, res) => {
+  try {
+    const userDevices = await Device.findAll({
+      where: { user_id: req.session.user.id },
+      order: [['created_at', 'DESC']]
+    });
+    res.render('register-device', { 
+      devices: userDevices,
+      error: req.flash('error'),
+      success: req.flash('success'),
+      currentPage: 'register-device'
+    });
+  } catch (err) {
+    console.error("Error fetching devices for register page:", err);
+    res.render('register-device', { 
+      devices: [], 
+      error: ['Došlo k chybě při načítání vašich zařízení.'],
+      success: null,
+      currentPage: 'register-device'
+    });
+  }
+};
+
 
 module.exports = {
   getDeviceSettings,
@@ -160,4 +298,8 @@ module.exports = {
   getCurrentCoordinates,
   getDeviceData,
   deleteDevice,
+  getDevicesPage,
+  getRegisterDevicePage,
+  addDeviceToUser,
+  removeDeviceFromUser,
 }; 

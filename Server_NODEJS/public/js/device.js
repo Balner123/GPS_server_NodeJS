@@ -40,6 +40,13 @@ function dhmsToSeconds(d, h, m, s) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if we are on the device detail page by looking for a specific element
+    if (document.getElementById('history-map')) {
+        initializeApp();
+    }
+});
+
+function initializeApp() {
     // Initialize map
     map = L.map('history-map').setView([50.0755, 14.4378], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -51,9 +58,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check for device name in URL and pre-select it
     const urlParams = new URLSearchParams(window.location.search);
-    const deviceNameFromUrl = urlParams.get('name');
-    if (deviceNameFromUrl) {
-        selectDevice(decodeURIComponent(deviceNameFromUrl));
+    const deviceIdFromUrl = urlParams.get('id'); // Změna z 'name' na 'id'
+    if (deviceIdFromUrl) {
+        selectDevice(decodeURIComponent(deviceIdFromUrl));
     }
 
     // Set up automatic update
@@ -66,9 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle browser back/forward navigation
     window.addEventListener('popstate', (event) => {
         const urlParams = new URLSearchParams(window.location.search);
-        const deviceNameFromUrl = urlParams.get('name');
-        if (deviceNameFromUrl && deviceNameFromUrl !== selectedDevice) {
-            selectDevice(decodeURIComponent(deviceNameFromUrl));
+        const deviceIdFromUrl = urlParams.get('id'); // Změna z 'name' na 'id'
+        if (deviceIdFromUrl && deviceIdFromUrl !== selectedDevice) {
+            selectDevice(decodeURIComponent(deviceIdFromUrl));
         }
     });
 
@@ -84,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isShowingAllHistory = !isShowingAllHistory;
         renderPositionTable();
     });
-});
+}
 
 
 async function loadDevices() {
@@ -118,25 +125,31 @@ async function loadDevices() {
 function createDeviceElement(device) {
     const div = document.createElement('div');
     div.className = 'list-group-item list-group-item-action device-item d-flex justify-content-between align-items-center'; 
-    div.dataset.deviceName = device.device;
+    div.dataset.deviceId = device.device; // Používáme ID pro data atribut
+    
+    // Použijeme jméno zařízení, pokud existuje, jinak ID jako fallback.
+    const displayName = device.name || device.device;
     
     const deviceInfo = document.createElement('div');
     deviceInfo.innerHTML = `
         <div class="d-flex w-100 justify-content-between">
-            <h6 class="mb-1"><strong>${device.device}</strong></h6>
+            <h6 class="mb-1"><strong>${displayName}</strong></h6>
             <small class="text-muted">${formatTimestamp(device.timestamp)}</small>
         </div>
         <small class="text-muted">Last position: ${formatCoordinate(device.latitude)}, ${formatCoordinate(device.longitude)}</small>
     `;
     deviceInfo.style.flexGrow = '1';
+    // Kliknutí na prvek vybere zařízení podle jeho unikátního ID
     deviceInfo.addEventListener('click', () => selectDevice(device.device));
 
     const deleteButton = document.createElement('button');
     deleteButton.className = 'btn btn-danger btn-sm ms-3';
     deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
-    deleteButton.title = `Delete device ${device.device}`;
+    // Titulek tlačítka zobrazuje displayName pro lepší čitelnost
+    deleteButton.title = `Delete device ${displayName}`;
     deleteButton.addEventListener('click', (e) => {
         e.stopPropagation();
+        // Mazání se vždy provádí přes unikátní ID
         handleDeleteDevice(device.device);
     });
 
@@ -147,21 +160,21 @@ function createDeviceElement(device) {
 }
 
 // Select device
-async function selectDevice(deviceName) {
-    if (selectedDevice === deviceName) return; // Do nothing if the same device is clicked again
+async function selectDevice(deviceId) { // Změna parametru z deviceName na deviceId
+    if (selectedDevice === deviceId) return; // Do nothing if the same device is clicked again
 
     // Update the browser's URL without reloading the page
-    const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?name=${encodeURIComponent(deviceName)}`;
+    const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?id=${encodeURIComponent(deviceId)}`; // Změna z 'name' na 'id'
     window.history.pushState({path: newUrl}, '', newUrl);
 
-    selectedDevice = deviceName;
+    selectedDevice = deviceId; // Ukládáme si ID
     isShowingAllHistory = false; // Reset view
     clearMapAndData(); // Clear everything for the new device
     
     // Update active state in the list
     document.querySelectorAll('.device-item').forEach(item => {
         item.classList.remove('active');
-        if (item.dataset.deviceName === deviceName) { 
+        if (item.dataset.deviceId === deviceId) { // Porovnáváme s data-device-id
             item.classList.add('active');
         }
     });
@@ -175,7 +188,7 @@ async function selectDevice(deviceName) {
     
     // Load current sleep interval settings
     try {
-        const response = await fetch(`${API_BASE_URL}/device_settings/${deviceName}`);
+        const response = await fetch(`${API_BASE_URL}/device_settings/${deviceId}`); // Používáme deviceId
         if (!response.ok) {
             if (response.status === 404) {
                  document.getElementById('interval-days').value = 0;
@@ -198,7 +211,7 @@ async function selectDevice(deviceName) {
         document.getElementById('interval-hours').value = 0;
         document.getElementById('interval-minutes').value = 0;
         document.getElementById('interval-seconds').value = 0;
-        displayAlert(`Error loading settings for ${deviceName}.`, 'danger');
+        displayAlert(`Error loading settings for ${deviceId}.`, 'danger'); // Používáme deviceId
     }
     
     // Initial data load for the selected device
@@ -210,7 +223,7 @@ async function loadDeviceData(isInitialLoad = false) {
     if (!selectedDevice) return;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/device_data?name=${selectedDevice}`);
+        const response = await fetch(`${API_BASE_URL}/device_data?id=${selectedDevice}`); // Změna z 'name' na 'id'
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -451,50 +464,50 @@ function displayAlert(message, type = 'info') {
     });
 }
 
-async function handleDeleteDevice(deviceName) {
-    if (!confirm(`Are you sure you want to delete device '${deviceName}' and all its data? This action cannot be undone.`)) {
+async function handleDeleteDevice(deviceId) { // Změna z deviceName na deviceId
+    const deviceElement = document.querySelector(`.device-item[data-device-id='${deviceId}']`);
+    const displayName = deviceElement ? (deviceElement.querySelector('strong').textContent) : deviceId;
+
+    if (!confirm(`Are you sure you want to permanently delete device '${displayName}' and all its associated data? This action cannot be undone.`)) {
         return;
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/device/${deviceName}`, {
-            method: 'DELETE'
+        const response = await fetch(`${API_BASE_URL}/devices/delete/${deviceId}`, { // Používáme deviceId
+            method: 'POST',
         });
 
-        const resultText = await response.text();
-        let result;
-
-        try {
-            result = JSON.parse(resultText);
-        } catch (e) {
             if (!response.ok) {
-                throw new Error(resultText || `Server responded with status ${response.status}`);
-            }
-            // If response is not JSON but status is ok, maybe it's an empty response that can be considered a success
-            result = { message: `Device '${deviceName}' deleted successfully (empty response).` };
+            const result = await response.json();
+            throw new Error(result.error || 'Failed to delete device.');
         }
 
-        if (response.ok) {
+        const result = await response.json();
             displayAlert(result.message, 'success');
-            // Reset the view if the deleted device was the selected one
-            if (selectedDevice === deviceName) {
-                const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-                window.history.pushState({path: newUrl}, '', newUrl);
                 
+        // If the deleted device was the selected one, clear the details view
+        if (selectedDevice === deviceId) { // Porovnáváme ID
                 selectedDevice = null;
-                const details = document.getElementById('device-details');
-                if(details) details.style.display = 'none';
                 clearMapAndData();
-            }
-            // Reload the device list to reflect the deletion
-            loadDevices();
-        } else {
-            // Display error message from the server's JSON response
-            throw new Error(result.error || `Server responded with status ${response.status}`);
+            document.getElementById('device-settings-card').style.display = 'none';
+            const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+            window.history.pushState({ path: newUrl }, '', newUrl);
         }
+
+        // Remove the device from the list
+        if (deviceElement) {
+            deviceElement.remove();
+        }
+
+        // Check if the list is now empty
+        const devicesList = document.getElementById('devices-list');
+        if (devicesList && devicesList.children.length === 0) {
+            devicesList.innerHTML = '<p class="text-muted">No active devices found.</p>';
+        }
+
     } catch (error) {
-        console.error('Error during device deletion:', error);
-        displayAlert(`Failed to delete device: ${error.message}`, 'danger');
+        console.error('Error deleting device:', error);
+        displayAlert(`Error: ${error.message}`, 'danger');
     }
 }
 

@@ -1,12 +1,12 @@
-const getIndexPage = (req, res) => {
-  res.render('index', { currentPage: 'index' }); 
-};
+const { Device, Location, sequelize } = require('../database');
 
-const getDevicePage = (req, res) => {
-  res.render('device', { currentPage: 'device' });
+const getHomePage = (req, res) => {
+    res.render('index', {
+        currentPage: 'index',
+        user: req.session.user
+    });
 };
 
 module.exports = {
-  getIndexPage,
-  getDevicePage,
+  getHomePage
 }; 

@@ -1,92 +1,106 @@
 const bcrypt = require('bcryptjs');
-const db = require('../database');
+const { User } = require('../database');
 const { body, validationResult } = require('express-validator');
 
 const getSettingsPage = (req, res) => {
-  res.render('settings', {
-    currentPage: 'settings',
-    success_message: null,
-    error_message: null,
-    errors: [],
-  });
-};
-
-const changePassword = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).render('settings', {
-      currentPage: 'settings',
-      errors: errors.array(),
-      success_message: null,
-    });
-  }
-
-  const { oldPassword, newPassword } = req.body;
-
-  try {
-    const user = await db.User.findOne();
-
-    if (!user) {
-      return res.status(404).render('settings', {
-        currentPage: 'settings',
-        errors: [],
-        success_message: null,
-        error_message: 'User not found.',
-      });
-    }
-
-    const isMatch = await bcrypt.compare(oldPassword, user.password);
-
-    if (!isMatch) {
-      return res.status(400).render('settings', {
-        currentPage: 'settings',
-        errors: [],
-        success_message: null,
-        error_message: 'Old password is not correct.',
-      });
-    }
-
-    const newHash = await bcrypt.hash(newPassword, 10);
-    await user.update({ password: newHash });
-
     res.render('settings', {
-      currentPage: 'settings',
-      errors: [],
-      success_message: 'Password successfully changed.',
-      error_message: null,
+        currentPage: 'settings',
+        user: req.session.user,
+        success: req.flash('success'),
+        error: req.flash('error')
     });
-
-  } catch (err) {
-    console.error("Error changing password:", err);
-    res.status(500).render('settings', {
-      currentPage: 'settings',
-      errors: [],
-      success_message: null,
-      error_message: 'An internal server error occurred.',
-    });
-  }
 };
 
-const passwordValidationRules = [
-  body('oldPassword').notEmpty().withMessage('Old password cannot be empty.'),
-  body('newPassword')
-    .isLength({ min: 6 }).withMessage('New password must be at least 6 characters long.')
-    .custom((value, { req }) => {
-      if (value === req.body.oldPassword) {
-        throw new Error('New password cannot be the same as the old password.');
-      }
-      return true;
-    }),
-  body('confirmPassword').custom((value, { req }) => {
-    if (value !== req.body.newPassword) {
-      throw new Error('Password confirmation does not match the new password.');
+const updateUsername = async (req, res) => {
+    const { username } = req.body;
+    const userId = req.session.user.id;
+
+    if (!username || username.trim().length === 0) {
+        req.flash('error', 'Uživatelské jméno nesmí být prázdné.');
+        return res.redirect('/settings');
     }
-    return true;
-  }),
-];
+
+    if (username === req.session.user.username) {
+        // No change, just redirect
+        return res.redirect('/settings');
+    }
+
+    try {
+        const existingUser = await User.findOne({ where: { username: username } });
+        if (existingUser) {
+            req.flash('error', 'Uživatelské jméno je již obsazené.');
+            return res.redirect('/settings');
+        }
+        await User.update({ username: username }, { where: { id: userId } });
+        req.session.user.username = username; // Update username in session
+        req.flash('success', 'Uživatelské jméno bylo úspěšně změněno.');
+    } catch (err) {
+        console.error("Error updating username:", err);
+        req.flash('error', 'Došlo k chybě při změně jména.');
+    }
+    res.redirect('/settings');
+};
+
+const updatePassword = async (req, res) => {
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+    const userId = req.session.user.id;
+
+    if (!oldPassword || !newPassword || !confirmPassword) {
+        req.flash('error', 'Pro změnu hesla musíte vyplnit všechna tři pole.');
+        return res.redirect('/settings');
+    }
+    if (newPassword.length < 6) {
+        req.flash('error', 'Nové heslo musí mít alespoň 6 znaků.');
+        return res.redirect('/settings');
+    }
+    if (newPassword !== confirmPassword) {
+        req.flash('error', 'Nové heslo a jeho potvrzení se neshodují.');
+        return res.redirect('/settings');
+    }
+
+    try {
+        const user = await User.findByPk(userId);
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+
+        if (!isMatch) {
+            req.flash('error', 'Staré heslo není správné.');
+            return res.redirect('/settings');
+        }
+
+        const newHash = await bcrypt.hash(newPassword, 10);
+        await user.update({ password: newHash });
+        req.flash('success', 'Heslo bylo úspěšně změněno.');
+
+    } catch (err) {
+        console.error("Error changing password:", err);
+        req.flash('error', 'Došlo k chybě při změně hesla.');
+    }
+     res.redirect('/settings');
+};
+
+const deleteAccount = async (req, res) => {
+    const userId = req.session.user.id;
+    try {
+        await User.destroy({ where: { id: userId } });
+        req.session.destroy((err) => {
+            if (err) {
+                console.error("Error destroying session:", err);
+                // Even if session destruction fails, redirect to login
+                return res.redirect('/login');
+            }
+            res.redirect('/login');
+        });
+    } catch (err) {
+        console.error("Error deleting account:", err);
+        req.flash('error', 'Došlo k chybě při mazání účtu.');
+        res.redirect('/settings');
+    }
+};
+
 
 module.exports = {
   getSettingsPage,
-  changePassword,
-  passwordValidationRules,
+  updateUsername,
+  updatePassword,
+  deleteAccount
 }; 

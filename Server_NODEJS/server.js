@@ -3,6 +3,7 @@ const rateLimit = require("express-rate-limit");
 require('dotenv').config();
 const path = require('path');
 const session = require('express-session');
+const flash = require('connect-flash');
 
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy
@@ -30,9 +31,13 @@ app.use(session({
   }
 }));
 
+// Flash middleware
+app.use(flash());
+
 // Middleware to make session status available in templates
 app.use((req, res, next) => {
   res.locals.isAuthenticated = req.session.isAuthenticated || false;
+  res.locals.user = req.session.user || null;
   next();
 });
 
@@ -47,7 +52,9 @@ app.use(limiter);
 app.use('/', require('./routes/index'));
 app.use(require('./routes/auth'));
 app.use(require('./routes/devices'));
+app.use(require('./routes/register-device'));
 app.use(require('./routes/settings'));
+app.use(require('./routes/administration')); // Nová cesta pro administraci
 
 // Error handling middleware
 app.use((err, res, next) => {

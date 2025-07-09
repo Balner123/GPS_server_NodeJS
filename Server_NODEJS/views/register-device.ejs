@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('partials/_head.ejs', {title: 'Registrace Zařízení'}) %>
+</head>
+<body>
+    <%- include('partials/_navbar', { currentPage: 'register-device' }) %>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Register new device</h3>
+                    </div>
+                    <div class="card-body">
+                        <% if (error && error.length > 0) { %>
+                            <div class="alert alert-danger">
+                                <% error.forEach(function(msg){ %><p><%= msg %></p><% }); %>
+                            </div>
+                        <% } %>
+                        <p class="card-text text-muted">Here you can register a unique 10-digit ID of your tracker. After successful registration, you will be redirected to the Device Management page.</p>
+                        <form action="/register-device" method="POST">
+                            <div class="mb-3">
+                                <label for="deviceId" class="form-label">10-digit device ID</label>
+                                <input type="text" class="form-control" id="deviceId" name="deviceId" required minlength="10" maxlength="10" pattern="[a-zA-Z0-9]{10}" title="ID must contain 10 alphanumeric characters.">
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">Register device</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Already registered devices</h5>
+                    </div>
+                    <div class="card-body">
+                        <% if (devices && devices.length > 0) { %>
+                            <ul class="list-group">
+                                <% devices.forEach(function(device){ %>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>ID:</strong> <%= device.device_id %>
+                                            <% if (device.name) { %>
+                                                <br><small class="text-muted">Name: <%= device.name %></small>
+                                            <% } %>
+                                        </div>
+                                        <form action="/devices/delete/<%= device.device_id %>" method="POST" onsubmit="return confirm('Are you sure you want to revoke registration for this device?');">
+                                            <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
+                                        </form>
+                                    </li>
+                                <% }); %>
+                            </ul>
+                        <% } else { %>
+                            <p class="text-center">You have no registered devices yet.</p>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <%- include('partials/_footer') %>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

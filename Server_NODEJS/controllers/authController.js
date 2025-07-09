@@ -9,31 +9,40 @@ const getLoginPage = (req, res) => {
 };
 
 const loginUser = async (req, res) => {
-  const { password } = req.body;
+  const { username, password } = req.body;
 
-  if (!password) {
-    return res.status(400).render('login', { error: 'Please enter the password.', currentPage: 'login' });
+  if (!username || !password) {
+    return res.status(400).render('login', { error: 'Prosím, zadejte uživatelské jméno i heslo.', currentPage: 'login' });
   }
 
   try {
-    const user = await db.User.findOne();
+    const user = await db.User.findOne({ where: { username } });
 
     if (!user) {
-      return res.status(401).render('login', { error: 'No password configured in database.', currentPage: 'login' });
+      // General error message for security
+      return res.status(401).render('login', { error: 'Neplatné přihlašovací údaje.', currentPage: 'login' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (isMatch) {
       req.session.isAuthenticated = true;
-      req.session.user = { id: user.id };
-      return res.redirect('/');
+      req.session.user = {
+        id: user.id,
+        username: user.username
+      };
+
+      // Přesměrování na základě role
+      if (user.username === 'root') {
+        return res.redirect('/administration');
+      }
+      res.redirect('/');
     } else {
-      return res.status(401).render('login', { error: 'Invalid password.', currentPage: 'login' });
+      return res.status(401).render('login', { error: 'Neplatné přihlašovací údaje.', currentPage: 'login' });
     }
   } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).render('login', { error: 'A server error occurred. Please try again later.', currentPage: 'login' });
+    console.error("Error during login:", err);
+    res.status(500).render('login', { error: 'Došlo k chybě serveru. Zkuste to prosím později.', currentPage: 'login' });
   }
 };
 
@@ -48,8 +57,53 @@ const logoutUser = (req, res) => {
   });
 };
 
+const getRegisterPage = (req, res) => {
+  if (req.session.isAuthenticated) {
+    return res.redirect('/');
+  }
+  res.render('register', { error: null, currentPage: 'register' });
+};
+
+const registerUser = async (req, res) => {
+  const { username, password, confirmPassword } = req.body;
+
+  if (!username || !password || !confirmPassword) {
+    return res.status(400).render('register', { error: 'Všechna pole jsou povinná.', currentPage: 'register' });
+  }
+
+  if (password !== confirmPassword) {
+    return res.status(400).render('register', { error: 'Hesla se neshodují.', currentPage: 'register' });
+  }
+
+  try {
+    const existingUser = await db.User.findOne({ where: { username } });
+    if (existingUser) {
+      return res.status(409).render('register', { error: 'Uživatel s tímto jménem již existuje.', currentPage: 'register' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = await db.User.create({
+      username,
+      password: hashedPassword,
+    });
+
+    req.session.isAuthenticated = true;
+    req.session.user = { id: newUser.id, username: newUser.username };
+    res.redirect('/');
+
+  } catch (err) {
+    console.error("Registration error:", err);
+    res.status(500).render('register', { error: 'Došlo k chybě serveru při registraci.', currentPage: 'register' });
+  }
+};
+
+
 module.exports = {
   getLoginPage,
   loginUser,
   logoutUser,
+  getRegisterPage,
+  registerUser,
 }; 

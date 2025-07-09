@@ -1,19 +1,30 @@
 const express = require('express');
 const router = express.Router();
 const settingsController = require('../controllers/settingsController');
-const isAuthenticated = require('../middleware/isAuthenticated');
+const { isUser } = require('../middleware/authorization');
 
 router.get(
   '/settings',
-  isAuthenticated,
+  isUser,
   settingsController.getSettingsPage
 );
 
 router.post(
-  '/settings/change-password',
-  isAuthenticated,
-  settingsController.passwordValidationRules,
-  settingsController.changePassword
+  '/settings/username',
+  isUser,
+  settingsController.updateUsername
+);
+
+router.post(
+  '/settings/password',
+  isUser,
+  settingsController.updatePassword
+);
+
+router.post(
+  '/settings/delete',
+  isUser,
+  settingsController.deleteAccount
 );
 
 module.exports = router; 

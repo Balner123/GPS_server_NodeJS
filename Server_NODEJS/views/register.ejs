@@ -1,20 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <%- include('partials/_head.ejs', {title: 'Login'}) %>
-
+    <%- include('partials/_head.ejs', {title: 'Registrace'}) %>
 </head>
 <body class="central-body">
-    <%- include('partials/_navbar', { currentPage: 'login' }) %>
+    <%- include('partials/_navbar', { currentPage: 'register' }) %>
 
     <div class="main-container">
         <div class="card login-card">
             <div class="card-body">
-                <h3 class="card-title text-center mb-4">Login</h3>
+                <h3 class="card-title text-center mb-4">Registrace</h3>
                 <% if (error) { %>
                     <div class="alert alert-danger"><%= error %></div>
                 <% } %>
-                <form action="/login" method="POST">
+                <form action="/register" method="POST">
                     <div class="mb-3">
                         <label for="username" class="form-label">Uživatelské jméno</label>
                         <input type="text" class="form-control" id="username" name="username" required>
@@ -23,12 +22,16 @@
                         <label for="password" class="form-label">Heslo</label>
                         <input type="password" class="form-control" id="password" name="password" required>
                     </div>
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Potvrzení hesla</label>
+                        <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                    </div>
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">Login</button>
+                        <button type="submit" class="btn btn-primary">Registrovat</button>
                     </div>
                 </form>
                 <div class="text-center mt-3">
-                    <p>Nemáte účet? <a href="/register">Zaregistrujte se</a></p>
+                    <p>Máte již účet? <a href="/login">Přihlaste se</a></p>
                 </div>
             </div>
         </div>
@@ -37,4 +40,4 @@
     <%- include('partials/_footer') %>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-</html>
+</html> 

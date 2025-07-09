@@ -46,4 +46,21 @@ Object.keys(db).forEach(modelName => {
   }
 });
 
-module.exports = db;
+const User = require('./models/user')(sequelize, Sequelize);
+const Device = require('./models/device')(sequelize, Sequelize);
+const Location = require('./models/location')(sequelize, Sequelize);
+
+// Definice asociací
+User.hasMany(Device, { foreignKey: 'user_id', as: 'devices' });
+Device.belongsTo(User, { foreignKey: 'user_id' });
+
+Device.hasMany(Location, { foreignKey: 'device_id', onDelete: 'CASCADE' });
+Location.belongsTo(Device, { foreignKey: 'device_id' });
+
+module.exports = {
+  sequelize,
+  Sequelize,
+  User,
+  Device,
+  Location,
+};

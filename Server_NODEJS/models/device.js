@@ -5,10 +5,22 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
-    name: {
-      type: DataTypes.STRING,
+    device_id: {
+      type: DataTypes.STRING(10),
       allowNull: false,
       unique: true
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     },
     last_seen: {
       type: DataTypes.DATE,
@@ -29,7 +41,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     timestamps: true,
     createdAt: 'created_at',
-    updatedAt: 'last_seen',
+    updatedAt: false,
     tableName: 'devices'
   });
 
@@ -37,6 +49,9 @@ module.exports = (sequelize, DataTypes) => {
     Device.hasMany(models.Location, {
       foreignKey: 'device_id',
       onDelete: 'CASCADE'
+    });
+    Device.belongsTo(models.User, {
+      foreignKey: 'user_id'
     });
   };
 
