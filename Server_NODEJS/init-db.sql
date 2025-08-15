@@ -6,6 +6,7 @@ USE gps_tracking;
 CREATE TABLE IF NOT EXISTS users (
   id int(11) NOT NULL AUTO_INCREMENT,
   username varchar(255) NOT NULL UNIQUE,
+  email varchar(255) NOT NULL UNIQUE,
   password varchar(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
@@ -42,4 +43,4 @@ CREATE INDEX idx_timestamp ON locations(timestamp);
 CREATE INDEX idx_device_status ON devices(status);
 
 -- Vložení administrátorského účtu
-INSERT INTO users (username, password) VALUES ('root', '$2b$10$5JGpNVbNnSSbqs/hn9OW1OqdvhT5gCXh1n984mlPF46k5GHfZ/HwW');
+INSERT INTO users (username, email, password) VALUES ('root', 'root', '$2b$10$5JGpNVbNnSSbqs/hn9OW1OqdvhT5gCXh1n984mlPF46k5GHfZ/HwW');

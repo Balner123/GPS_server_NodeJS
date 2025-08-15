@@ -9,6 +9,13 @@
         .card-header h5 {
             margin-bottom: 0;
         }
+        .admin-table-container {
+            width: 66vw;
+            min-width: 400px;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+        }
     </style>
 </head>
 <body>
@@ -18,19 +25,20 @@
         <h2 class="mb-4">Database Administration</h2>
 
         <div class="row">
-            <!-- Uživatelé -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5>Users</h5>
-                        <span class="badge bg-primary rounded-pill"><%= users.length %></span>
-                    </div>
-                    <div class="card-body table-responsive">
-                        <table class="table table-sm table-striped">
+    <!-- Uživatelé -->
+    <div class="card mb-4 admin-table-container">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5>Users</h5>
+            <span class="badge bg-primary rounded-pill"><%= users.length %></span>
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-striped">
                             <thead>
                                 <tr>
                                     <th>ID</th>
                                     <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Password Hash</th>
                                     <th>Devices</th>
                                     <th>Created At</th>
                                 </tr>
@@ -40,8 +48,17 @@
                                     <tr>
                                         <td><%= user.id %></td>
                                         <td><%= user.username %></td>
+                                        <td><%= user.email %></td>
+                                        <td style="font-size: 0.8em; word-break: break-all;"><%= user.password %></td>
                                         <td><%= user.devices ? user.devices.length : 0 %></td>
                                         <td><%= new Date(user.created_at).toLocaleString() %></td>
+                                        <td>
+                                            <% if (user.username !== 'root') { %>
+                                                <form action="/administration/delete-user/<%= user.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Opravdu chcete smazat tohoto uživatele a všechna jeho data?');">
+                                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                                </form>
+                                            <% } %>
+                                        </td>
                                     </tr>
                                 <% }); %>
                             </tbody>
@@ -51,14 +68,14 @@
             </div>
 
             <!-- Zařízení -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5>Devices</h5>
-                        <span class="badge bg-success rounded-pill"><%= devices.length %></span>
-                    </div>
-                    <div class="card-body table-responsive">
-                         <table class="table table-sm table-striped">
+    <!-- Zařízení -->
+    <div class="card mb-4 admin-table-container">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5>Devices</h5>
+            <span class="badge bg-success rounded-pill"><%= devices.length %></span>
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-striped">
                             <thead>
                                 <tr>
                                     <th>Device ID</th>
@@ -74,6 +91,11 @@
                                         <td><%= device.name || 'N/A' %></td>
                                         <td><%= device.User ? device.User.username : 'N/A' %></td>
                                         <td><%= device.last_seen ? new Date(device.last_seen).toLocaleString() : 'Never' %></td>
+                                        <td>
+                                            <form action="/administration/delete-device/<%= device.device_id %>" method="POST" style="display:inline;" onsubmit="return confirm('Opravdu chcete smazat toto zařízení a všechna jeho data?');">
+                                                <button type="submit" class="btn btn-warning btn-sm">Delete</button>
+                                            </form>
+                                        </td>
                                     </tr>
                                 <% }); %>
                             </tbody>
@@ -83,14 +105,14 @@
             </div>
 
             <!-- Lokace -->
-            <div class="col-md-4">
-                <div class="card">
-                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5>Latest Locations (Last 50)</h5>
-                        <span class="badge bg-info rounded-pill"><%= locations.length %></span>
-                    </div>
-                    <div class="card-body table-responsive">
-                        <table class="table table-sm table-striped">
+    <!-- Lokace -->
+    <div class="card mb-4 admin-table-container">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5>Latest Locations (Last 50)</h5>
+            <span class="badge bg-info rounded-pill"><%= locations.length %></span>
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-striped">
                             <thead>
                                 <tr>
                                     <th>Device ID</th>

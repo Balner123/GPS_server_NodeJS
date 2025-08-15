@@ -9,14 +9,21 @@ const getLoginPage = (req, res) => {
 };
 
 const loginUser = async (req, res) => {
-  const { username, password } = req.body;
+  const { identifier, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).render('login', { error: 'Prosím, zadejte uživatelské jméno i heslo.', currentPage: 'login' });
+  if (!identifier || !password) {
+    return res.status(400).render('login', { error: 'Prosím, zadejte uživatelské jméno nebo email a heslo.', currentPage: 'login' });
   }
 
   try {
-    const user = await db.User.findOne({ where: { username } });
+    const user = await db.User.findOne({
+      where: {
+        [db.Sequelize.Op.or]: [
+          { username: identifier },
+          { email: identifier }
+        ]
+      }
+    });
 
     if (!user) {
       // General error message for security
@@ -65,20 +72,47 @@ const getRegisterPage = (req, res) => {
 };
 
 const registerUser = async (req, res) => {
-  const { username, password, confirmPassword } = req.body;
+  const { username, email, password, confirmPassword } = req.body;
 
-  if (!username || !password || !confirmPassword) {
+
+  if (!username || !email || !password || !confirmPassword) {
     return res.status(400).render('register', { error: 'Všechna pole jsou povinná.', currentPage: 'register' });
+  }
+  // Validace emailu
+  const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).render('register', { error: 'Zadejte platný email.', currentPage: 'register' });
   }
 
   if (password !== confirmPassword) {
     return res.status(400).render('register', { error: 'Hesla se neshodují.', currentPage: 'register' });
   }
 
+  // Validace hesla: min. 6 znaků, velké písmeno, číslo, speciální znak
+  const passwordRequirements = [
+    { regex: /.{6,}/, message: 'Heslo musí mít alespoň 6 znaků.' },
+    { regex: /[A-Z]/, message: 'Heslo musí obsahovat alespoň jedno velké písmeno.' },
+    { regex: /[0-9]/, message: 'Heslo musí obsahovat alespoň jedno číslo.' },
+    { regex: /[^A-Za-z0-9]/, message: 'Heslo musí obsahovat alespoň jeden speciální znak.' }
+  ];
+  for (const req of passwordRequirements) {
+    if (!req.regex.test(password)) {
+      return res.status(400).render('register', { error: req.message, currentPage: 'register' });
+    }
+  }
+
   try {
-    const existingUser = await db.User.findOne({ where: { username } });
+    // Kontrola duplicity username/email
+    const existingUser = await db.User.findOne({
+      where: {
+        [db.Sequelize.Op.or]: [
+          { username },
+          { email }
+        ]
+      }
+    });
     if (existingUser) {
-      return res.status(409).render('register', { error: 'Uživatel s tímto jménem již existuje.', currentPage: 'register' });
+      return res.status(409).render('register', { error: 'Uživatel s tímto jménem nebo emailem již existuje.', currentPage: 'register' });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -86,6 +120,7 @@ const registerUser = async (req, res) => {
 
     const newUser = await db.User.create({
       username,
+      email,
       password: hashedPassword,
     });
 

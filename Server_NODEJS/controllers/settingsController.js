@@ -1,3 +1,34 @@
+const updateEmail = async (req, res) => {
+    const { email } = req.body;
+    const userId = req.session.user.id;
+
+    // Validace emailu
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    if (!email || !emailRegex.test(email)) {
+        req.flash('error', 'Zadejte platný email.');
+        return res.redirect('/settings');
+    }
+
+    if (email === req.session.user.email) {
+        // No change
+        return res.redirect('/settings');
+    }
+
+    try {
+        const existingUser = await User.findOne({ where: { email: email } });
+        if (existingUser) {
+            req.flash('error', 'Email je již obsazený jiným účtem.');
+            return res.redirect('/settings');
+        }
+        await User.update({ email: email }, { where: { id: userId } });
+        req.session.user.email = email; // Update email in session
+        req.flash('success', 'Email byl úspěšně změněn.');
+    } catch (err) {
+        console.error("Error updating email:", err);
+        req.flash('error', 'Došlo k chybě při změně emailu.');
+    }
+    res.redirect('/settings');
+};
 const bcrypt = require('bcryptjs');
 const { User } = require('../database');
 const { body, validationResult } = require('express-validator');
@@ -99,8 +130,9 @@ const deleteAccount = async (req, res) => {
 
 
 module.exports = {
-  getSettingsPage,
-  updateUsername,
-  updatePassword,
-  deleteAccount
+    getSettingsPage,
+    updateUsername,
+    updatePassword,
+    updateEmail,
+    deleteAccount
 }; 

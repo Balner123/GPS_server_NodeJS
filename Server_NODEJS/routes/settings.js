@@ -1,7 +1,14 @@
+
 const express = require('express');
 const router = express.Router();
 const settingsController = require('../controllers/settingsController');
 const { isUser } = require('../middleware/authorization');
+
+router.post(
+  '/settings/email',
+  isUser,
+  settingsController.updateEmail
+);
 
 router.get(
   '/settings',

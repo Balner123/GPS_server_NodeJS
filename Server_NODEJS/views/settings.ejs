@@ -32,6 +32,19 @@
                 <!-- Left column: Change username and delete account -->
                 <div class="col-md-6">
                     <!-- Change username -->
+                    <!-- Change email -->
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Change email</h5>
+                            <form action="/settings/email" method="POST">
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" name="email" value="<%= user.email %>" required pattern="^[^@\s]+@[^@\s]+\.[^@\s]+$" title="Zadejte platný email">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save new email</button>
+                            </form>
+                        </div>
+                    </div>
                     <div class="card mb-4">
                         <div class="card-body">
                             <h5 class="card-title">Change username</h5>
