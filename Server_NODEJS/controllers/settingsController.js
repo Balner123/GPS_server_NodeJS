@@ -1,3 +1,5 @@
+const { sendVerificationEmail } = require('../utils/emailSender');
+
 const updateEmail = async (req, res) => {
     const { email } = req.body;
     const userId = req.session.user.id;
@@ -20,14 +22,30 @@ const updateEmail = async (req, res) => {
             req.flash('error', 'Email je již obsazený jiným účtem.');
             return res.redirect('/settings');
         }
-        await User.update({ email: email }, { where: { id: userId } });
-        req.session.user.email = email; // Update email in session
-        req.flash('success', 'Email byl úspěšně změněn.');
+        // Generování ověřovacího kódu
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minut
+
+        // Uložení pending_email, kódu a expirace
+        await User.update({ pending_email: email, verification_code: code, verification_expires: expires }, { where: { id: userId } });
+
+        // Odeslání emailu
+        try {
+            await sendVerificationEmail(email, code);
+        } catch (mailErr) {
+            console.error('Chyba při odesílání emailu:', mailErr);
+            req.flash('error', 'Nepodařilo se odeslat ověřovací email.');
+            return res.redirect('/settings');
+        }
+
+        // Přesměrování na stránku pro zadání kódu
+        req.session.pendingEmailChange = true;
+        return res.redirect('/verify-email-change');
     } catch (err) {
         console.error("Error updating email:", err);
         req.flash('error', 'Došlo k chybě při změně emailu.');
+        return res.redirect('/settings');
     }
-    res.redirect('/settings');
 };
 const bcrypt = require('bcryptjs');
 const { User } = require('../database');

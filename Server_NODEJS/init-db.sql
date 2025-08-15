@@ -8,7 +8,11 @@ CREATE TABLE IF NOT EXISTS users (
   username varchar(255) NOT NULL UNIQUE,
   email varchar(255) NOT NULL UNIQUE,
   password varchar(255) NOT NULL,
+  is_verified BOOLEAN NOT NULL DEFAULT 0,
+  verification_code VARCHAR(10),
+  verification_expires TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  pending_email VARCHAR(255) DEFAULT NULL,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -43,4 +47,4 @@ CREATE INDEX idx_timestamp ON locations(timestamp);
 CREATE INDEX idx_device_status ON devices(status);
 
 -- Vložení administrátorského účtu
-INSERT INTO users (username, email, password) VALUES ('root', 'root', '$2b$10$5JGpNVbNnSSbqs/hn9OW1OqdvhT5gCXh1n984mlPF46k5GHfZ/HwW');
+INSERT INTO users (username, email, is_verified, password) VALUES ('root', 'root', 1, '$2b$10$5JGpNVbNnSSbqs/hn9OW1OqdvhT5gCXh1n984mlPF46k5GHfZ/HwW');

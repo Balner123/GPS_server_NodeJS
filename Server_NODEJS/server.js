@@ -51,6 +51,7 @@ app.use(limiter);
 // Routes
 app.use('/', require('./routes/index'));
 app.use(require('./routes/auth'));
+app.use(require('./routes/verify-email-change'));
 app.use(require('./routes/devices'));
 app.use(require('./routes/register-device'));
 app.use(require('./routes/settings'));
