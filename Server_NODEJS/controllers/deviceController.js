@@ -291,7 +291,7 @@ const getRegisterDevicePage = async (req, res) => {
 };
 
 const registerDeviceApk = async (req, res) => {
-  const { deviceId } = req.body;
+  const { deviceId, deviceName } = req.body; // ZÍSKÁME I DEVICENAME
   if (!deviceId || !/^[a-zA-Z0-9]{10}$/.test(deviceId)) {
     return res.status(400).json({ success: false, error: 'Valid 10-character device ID is required.' });
   }
@@ -300,11 +300,18 @@ const registerDeviceApk = async (req, res) => {
     const existingDevice = await Device.findOne({ where: { device_id: deviceId } });
 
     if (existingDevice) {
-      return res.status(409).json({ success: false, error: `Device with ID "${deviceId}" is already registered.` });
+      // Pokud zařízení existuje, můžeme volitelně aktualizovat jeho jméno
+      if (deviceName && existingDevice.name !== deviceName) {
+        existingDevice.name = deviceName;
+        await existingDevice.save();
+      }
+      return res.status(200).json({ success: true, message: `Device with ID "${deviceId}" is already registered. Name updated.`, device: existingDevice });
     }
 
+    // Vytvoření nového zařízení i se jménem
     const newDevice = await Device.create({
       device_id: deviceId,
+      name: deviceName, // ULOŽÍME JMÉNO
       user_id: req.session.user.id
     });
 

@@ -124,7 +124,10 @@ class LoginActivity : AppCompatActivity() {
     private fun registerDevice(username: String) {
         executorService.execute { // Spustíme síťovou operaci na pozadí
             try {
-                val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                                val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                // ANDROID_ID je 16místný hex řetězec. Server vyžaduje 10 znaků.
+                // Pro zajištění unikátního a stabilního ID použijeme prvních 10 znaků.
+                val deviceId = androidId.take(10)
                 val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
 
                 val url = URL("https://lotr-system.xyz/api/apk/register-device") // Nový API endpoint
