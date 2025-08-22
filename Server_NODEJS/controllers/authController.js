@@ -227,6 +227,35 @@ const verifyEmailChangeCode = async (req, res) => {
   }
 };
 
+const loginApk = async (req, res) => {
+      const { identifier, password } = req.body;
+
+      if (!identifier || !password) {
+        return res.status(400).json({ success: false, error: 'Missing credentials' });
+      }
+
+      try {
+        const user = await db.User.findOne({ where: { [db.Sequelize.Op.or]: [{ username: identifier }, { email: identifier }] } });
+
+        if (!user) {
+          return res.status(401).json({ success: false, error: 'Invalid credentials' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (isMatch) {
+          req.session.isAuthenticated = true;
+          req.session.user = { id: user.id, username: user.username };
+          return res.status(200).json({ success: true, message: 'Login successful', user: req.session.user });
+        } else {
+          return res.status(401).json({ success: false, error: 'Invalid credentials' });
+        }
+      } catch (err) {
+        console.error("API Login Error:", err);
+        return res.status(500).json({ success: false, error: 'Server error' });
+      }
+    };
+
 module.exports = {
   getLoginPage,
   loginUser,
@@ -236,5 +265,6 @@ module.exports = {
   getVerifyEmailPage,
   verifyEmailCode,
   getVerifyEmailChangePage,
-  verifyEmailChangeCode
+  verifyEmailChangeCode,
+  loginApk
 };

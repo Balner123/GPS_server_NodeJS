@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Téma pro Splash Screen -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <!-- Nastaví pozadí pro splash screen na náš drawable -->
+        <item name="windowSplashScreenBackground">@drawable/splash_background</item>
+
+        <!-- Téma, které se použije po skončení splash screenu -->
+        <item name="postSplashScreenTheme">@style/Theme.GpsReporterApp</item>
+    </style>
+</resources> 

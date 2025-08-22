@@ -56,6 +56,7 @@ app.use(require('./routes/devices'));
 app.use(require('./routes/register-device'));
 app.use(require('./routes/settings'));
 app.use(require('./routes/administration')); // Nová cesta pro administraci
+app.use('/api/apk', require('./routes/apk')); // Nová routa pro APK
 
 // Error handling middleware
 app.use((err, res, next) => {

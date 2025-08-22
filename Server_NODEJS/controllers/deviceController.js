@@ -290,10 +290,41 @@ const getRegisterDevicePage = async (req, res) => {
   }
 };
 
+const registerDeviceApk = async (req, res) => {
+  const { deviceId } = req.body;
+  if (!deviceId || !/^[a-zA-Z0-9]{10}$/.test(deviceId)) {
+    return res.status(400).json({ success: false, error: 'Valid 10-character device ID is required.' });
+  }
+
+  try {
+    const existingDevice = await Device.findOne({ where: { device_id: deviceId } });
+
+    if (existingDevice) {
+      return res.status(409).json({ success: false, error: `Device with ID "${deviceId}" is already registered.` });
+    }
+
+    const newDevice = await Device.create({
+      device_id: deviceId,
+      user_id: req.session.user.id
+    });
+
+    return res.status(201).json({ success: true, message: `Device "${deviceId}" was successfully registered.`, device: newDevice });
+
+  } catch (err) {
+    console.error("Error registering device via APK:", err);
+    if (err.name === 'SequelizeUniqueConstraintError') {
+       return res.status(409).json({ success: false, error: `Device with ID "${deviceId}" is already registered.` });
+    } else {
+       return res.status(500).json({ success: false, error: 'An internal server error occurred during device registration.' });
+    }
+  }
+};
+
 
 module.exports = {
   getDeviceSettings,
   updateDeviceSettings,
+  registerDeviceApk,
   handleDeviceInput,
   getCurrentCoordinates,
   getDeviceData,
