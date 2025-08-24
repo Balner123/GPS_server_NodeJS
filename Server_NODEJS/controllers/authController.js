@@ -26,6 +26,7 @@ const loginUser = async (req, res) => {
     });
 
     if (!user) {
+      // General error message for security
       return res.status(401).render('login', { error: 'Neplatné přihlašovací údaje.', currentPage: 'login' });
     }
 
@@ -38,6 +39,7 @@ const loginUser = async (req, res) => {
         username: user.username
       };
 
+      // Přesměrování na základě role
       if (user.username === 'root') {
         return res.redirect('/administration');
       }
@@ -72,9 +74,11 @@ const getRegisterPage = (req, res) => {
 const registerUser = async (req, res) => {
   const { username, email, password, confirmPassword } = req.body;
 
+
   if (!username || !email || !password || !confirmPassword) {
     return res.status(400).render('register', { error: 'Všechna pole jsou povinná.', currentPage: 'register' });
   }
+  // Validace emailu
   const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).render('register', { error: 'Zadejte platný email.', currentPage: 'register' });
@@ -84,6 +88,7 @@ const registerUser = async (req, res) => {
     return res.status(400).render('register', { error: 'Hesla se neshodují.', currentPage: 'register' });
   }
 
+  // Validace hesla: min. 6 znaků, velké písmeno, číslo, speciální znak
   const passwordRequirements = [
     { regex: /.{6,}/, message: 'Heslo musí mít alespoň 6 znaků.' },
     { regex: /[A-Z]/, message: 'Heslo musí obsahovat alespoň jedno velké písmeno.' },
@@ -97,6 +102,7 @@ const registerUser = async (req, res) => {
   }
 
   try {
+    // Kontrola duplicity username/email
     const existingUser = await db.User.findOne({
       where: {
         [db.Sequelize.Op.or]: [
@@ -112,8 +118,9 @@ const registerUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Generování ověřovacího kódu
     const code = Math.floor(1000 + Math.random() * 9000).toString();
-    const expires = new Date(Date.now() + 10 * 60 * 1000);
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minut
 
     const newUser = await db.User.create({
       username,
@@ -124,6 +131,7 @@ const registerUser = async (req, res) => {
       verification_expires: expires
     });
 
+    // Odeslání emailu
     const { sendVerificationEmail } = require('../utils/emailSender');
     try {
       await sendVerificationEmail(email, code);
@@ -133,6 +141,7 @@ const registerUser = async (req, res) => {
       return res.redirect('/register');
     }
 
+    // Přesměrování na stránku pro zadání kódu
     req.session.pendingUserId = newUser.id;
     return res.redirect('/verify-email');
 
@@ -141,6 +150,9 @@ const registerUser = async (req, res) => {
     res.status(500).render('register', { error: 'Došlo k chybě serveru při registraci.', currentPage: 'register' });
   }
 };
+
+
+
 
 const getVerifyEmailPage = (req, res) => {
   res.render('verify-email', { error: null, currentPage: 'verify-email' });
@@ -163,6 +175,7 @@ const verifyEmailCode = async (req, res) => {
     if (user.verification_code !== code) {
       return res.render('verify-email', { error: 'Zadaný kód není správný.', currentPage: 'verify-email' });
     }
+    // Ověření úspěšné
     await user.update({ is_verified: true, verification_code: null, verification_expires: null });
     req.session.isAuthenticated = true;
     req.session.user = { id: user.id, username: user.username, email: user.email };
@@ -174,7 +187,9 @@ const verifyEmailCode = async (req, res) => {
   }
 };
 
+
 const getVerifyEmailChangePage = (req, res) => {
+  // Pokud není změna emailu zahájena, přesměruj zpět
   if (!req.session.pendingEmailChange) {
     return res.redirect('/settings');
   }
@@ -200,6 +215,7 @@ const verifyEmailChangeCode = async (req, res) => {
     if (user.verification_code !== code) {
       return res.render('verify-email', { error: 'Zadaný kód není správný.', currentPage: 'verify-email-change' });
     }
+    // Ověření úspěšné, změna emailu
     await user.update({ email: user.pending_email, pending_email: null, verification_code: null, verification_expires: null });
     req.session.user.email = user.email;
     req.session.pendingEmailChange = null;
@@ -212,13 +228,19 @@ const verifyEmailChangeCode = async (req, res) => {
 };
 
 const loginApk = async (req, res) => {
+    // Krok 1: Získání všech potřebných dat z těla požadavku
     const { identifier, password, installationId } = req.body;
 
-    if (!identifier || !password || !installationId) {
-        return res.status(400).json({ success: false, error: 'Chybí povinné údaje.' });
+    if (!identifier || !password) {
+        return res.status(400).json({ success: false, error: 'Chybí uživatelské jméno nebo heslo.' });
+    }
+    // Kontrola, zda klient poslal ID instalace
+    if (!installationId) {
+        return res.status(400).json({ success: false, error: 'Chybí identifikační kód instalace (installationId).' });
     }
 
     try {
+        // Krok 2: Ověření uživatele pomocí Sequelize
         const user = await db.User.findOne({
             where: {
                 [db.Sequelize.Op.or]: [{ username: identifier }, { email: identifier }]
@@ -235,18 +257,25 @@ const loginApk = async (req, res) => {
             return res.status(401).json({ success: false, error: 'Nesprávné heslo.' });
         }
 
-        req.session.isAuthenticated = true;
-        req.session.user = { id: user.id, username: user.username, role: user.role };
+        // Krok 3: Vytvoření session
+        req.session.isAuthenticated = true; // Důležité pro autorizaci dalších požadavků
+        req.session.user = {
+            id: user.id,
+            username: user.username,
+            role: user.role // Přidáno pro konzistenci
+        };
 
-        const device = await db.Device.findOne({
+        // Krok 4: Kontrola, zda je zařízení již registrováno (pomocí Sequelize)
+        const device = await db.Device.findOne({ // Předpokládám, že model se jmenuje 'Device'
             where: {
                 user_id: user.id,
-                device_id: installationId
+                device_id: installationId // Používám název sloupce z init-db.sql
             }
         });
 
-        const device_is_registered = !!device;
+        const device_is_registered = !!device; // Převod na boolean (true pokud device není null)
 
+        // Krok 5: Odeslání odpovědi s novým flagem
         res.status(200).json({ success: true, device_is_registered: device_is_registered });
 
     } catch (error) {

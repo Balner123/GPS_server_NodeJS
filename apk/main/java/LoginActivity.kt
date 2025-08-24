@@ -4,8 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
@@ -17,6 +17,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.UUID
 import java.util.concurrent.Executors
 
 class LoginActivity : AppCompatActivity() {
@@ -26,169 +27,189 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var loginButton: Button
     private lateinit var progressBar: ProgressBar
 
-    // Použijeme jeden ExecutorService pro všechny síťové operace
     private val executorService = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
+        // Inicializace UI prvků
         usernameEditText = findViewById(R.id.usernameEditText)
         passwordEditText = findViewById(R.id.passwordEditText)
         loginButton = findViewById(R.id.loginButton)
         progressBar = findViewById(R.id.progressBar)
+
+        // Zajistíme, že máme unikátní ID instalace
+        getInstallationId()
 
         loginButton.setOnClickListener {
             performLogin()
         }
     }
 
+    /**
+     * Získá nebo vytvoří unikátní ID pro tuto instalaci aplikace.
+     */
+    private fun getInstallationId(): String {
+        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        var installationId = sharedPrefs.getString("installation_id", null)
+        if (installationId == null) {
+            installationId = UUID.randomUUID().toString()
+            sharedPrefs.edit().putString("installation_id", installationId).apply()
+            Log.i("LoginActivity", "Generated new installation ID: $installationId")
+        }
+        return installationId
+    }
+
+    /**
+     * Hlavní funkce pro zpracování přihlášení.
+     */
     private fun performLogin() {
         val username = usernameEditText.text.toString()
         val password = passwordEditText.text.toString()
+        val installationId = getInstallationId()
 
         if (username.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, "Prosím, zadejte uživatelské jméno a heslo.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        runOnUiThread { // UI změny musí být na hlavním vlákně
-            progressBar.visibility = ProgressBar.VISIBLE
-            loginButton.isEnabled = false
-        }
+        setLoadingState(true)
 
-        executorService.execute { // Spustíme síťovou operaci na pozadí
+        executorService.execute {
             try {
-                val url = URL("https://lotr-system.xyz/api/apk/login") // Nový API endpoint
+                val url = URL("https://lotr-system.xyz/api/apk/login")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 connection.doOutput = true
-                connection.connectTimeout = 10000
-                connection.readTimeout = 10000
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
 
+                // Sestavení JSON s přihlašovacími údaji a ID instalace
                 val jsonInputString = JSONObject().apply {
                     put("identifier", username)
                     put("password", password)
+                    put("installationId", installationId)
                 }.toString()
 
-                OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
-                    writer.write(jsonInputString)
-                }
+                // Odeslání dat
+                OutputStreamWriter(connection.outputStream, "UTF-8").use { it.write(jsonInputString) }
 
+                // Zpracování odpovědi
                 val responseCode = connection.responseCode
+                val responseBody = if (responseCode < 400) connection.inputStream else connection.errorStream
+                val responseString = BufferedReader(InputStreamReader(responseBody, "UTF-8")).readText()
+
                 if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val reader = BufferedReader(InputStreamReader(connection.inputStream, "UTF-8"))
-                    val response = reader.readText()
-                    val jsonResponse = JSONObject(response)
-
+                    val jsonResponse = JSONObject(responseString)
                     if (jsonResponse.optBoolean("success", false)) {
-                        // Získání a uložení session cookie
-                        val cookies = connection.headerFields["Set-Cookie"]
-                        cookies?.forEach { cookie ->
-                            // Zde by se měla cookie uložit do SharedPreferences nebo jiného úložiště
-                            // pro pozdější použití v LocationService a dalších API voláních.
-                            // Pro jednoduchost ji nyní jen vypíšeme a budeme předpokládat, že systém HttpURLConnection
-                            // si ji pro další volání v rámci stejné instance udrží, což ale není spolehlivé pro celou aplikaci.
-                            // Pro robustní řešení by bylo potřeba implementovat CookieManager.
-                            Log.d("LoginActivity", "Received Cookie: $cookie")
-                            // Příklad uložení do SharedPreferences (zjednodušeno, pro produkci složitější)
-                            val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-                            sharedPrefs.edit().putString("session_cookie", cookie).apply()
-                        }
+                        // Uložíme session cookie
+                        val cookie = connection.headerFields["Set-Cookie"]?.firstOrNull()
+                        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+                        sharedPrefs.edit().putString("session_cookie", cookie).apply()
 
-                        runOnUiThread { Toast.makeText(this, "Přihlášení úspěšné!", Toast.LENGTH_SHORT).show() }
-                        registerDevice(username) // Pokračujeme registrací zařízení
+                        // Zkontrolujeme, zda je zařízení již registrováno
+                        val isDeviceRegistered = jsonResponse.optBoolean("device_is_registered", false)
+                        if (isDeviceRegistered) {
+                            // Pokud ano, uložíme potřebná data a jdeme na hlavní obrazovku
+                            sharedPrefs.edit().putString("device_id", installationId).apply()
+                            sharedPrefs.edit().putBoolean("isAuthenticated", true).apply()
+                            runOnUiThread { Toast.makeText(this, "Přihlášení úspěšné!", Toast.LENGTH_SHORT).show() }
+                            navigateToMain()
+                        } else {
+                            // Pokud ne, spustíme proces registrace
+                            registerDevice(installationId)
+                        }
                     } else {
                         val error = jsonResponse.optString("error", "Neznámá chyba přihlášení.")
-                        runOnUiThread { Toast.makeText(this, "Chyba přihlášení: $error", Toast.LENGTH_LONG).show() }
+                        showError(error)
                     }
                 } else {
-                    val errorStream = connection.errorStream
-                    val errorResponse = if (errorStream != null) BufferedReader(InputStreamReader(errorStream, "UTF-8")).readText() else ""
-                    val errorMessage = try { JSONObject(errorResponse).optString("error", "") } catch (e: Exception) { errorResponse }
-                    runOnUiThread { Toast.makeText(this, "Chyba serveru (${responseCode}): $errorMessage", Toast.LENGTH_LONG).show() }
+                    val error = try { JSONObject(responseString).optString("error", "Chyba serveru") } catch (e: Exception) { responseString }
+                    showError("Chyba serveru ($responseCode): $error")
                 }
+
             } catch (e: Exception) {
                 Log.e("LoginActivity", "Chyba při síťové komunikaci: ", e)
-                runOnUiThread { Toast.makeText(this, "Chyba sítě: ${e.message}", Toast.LENGTH_LONG).show() }
+                showError("Chyba sítě: ${e.message}")
             } finally {
-                runOnUiThread {
-                    progressBar.visibility = ProgressBar.GONE
-                    loginButton.isEnabled = true
-                }
+                setLoadingState(false)
             }
         }
     }
 
-    private fun registerDevice(username: String) {
-        executorService.execute { // Spustíme síťovou operaci na pozadí
-            try {
-                                val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-                // ANDROID_ID je 16místný hex řetězec. Server vyžaduje 10 znaků.
-                // Pro zajištění unikátního a stabilního ID použijeme prvních 10 znaků.
-                val deviceId = androidId.take(10)
-                val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+    /**
+     * Zaregistruje tuto instanci aplikace na serveru.
+     */
+    private fun registerDevice(installationId: String) {
+        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val sessionCookie = sharedPrefs.getString("session_cookie", null)
 
-                val url = URL("https://lotr-system.xyz/api/apk/register-device") // Nový API endpoint
+        executorService.execute {
+            try {
+                val url = URL("https://lotr-system.xyz/api/apk/register-device")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                sessionCookie?.let { connection.setRequestProperty("Cookie", it.split(";")[0]) }
                 connection.doOutput = true
-                connection.connectTimeout = 10000
-                connection.readTimeout = 10000
-
-                // Získání a nastavení session cookie pro tento požadavek
-                val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-                val sessionCookie = sharedPrefs.getString("session_cookie", null)
-                if (sessionCookie != null) {
-                    connection.setRequestProperty("Cookie", sessionCookie.split(";")[0]) // Posíláme jen název a hodnotu cookie
-                }
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
 
                 val jsonInputString = JSONObject().apply {
-                    put("deviceId", deviceId)
+                    put("installationId", installationId)
                     put("deviceName", deviceName)
                 }.toString()
 
-                OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
-                    writer.write(jsonInputString)
-                }
+                OutputStreamWriter(connection.outputStream, "UTF-8").use { it.write(jsonInputString) }
 
                 val responseCode = connection.responseCode
+                val responseBody = if (responseCode < 400) connection.inputStream else connection.errorStream
+                val responseString = BufferedReader(InputStreamReader(responseBody, "UTF-8")).readText()
+
                 if (responseCode == HttpURLConnection.HTTP_CREATED || responseCode == HttpURLConnection.HTTP_OK) {
-                    val reader = BufferedReader(InputStreamReader(connection.inputStream, "UTF-8"))
-                    val response = reader.readText()
-                    val jsonResponse = JSONObject(response)
-
+                    val jsonResponse = JSONObject(responseString)
                     if (jsonResponse.optBoolean("success", false)) {
-                        // Uložíme deviceId do SharedPreferences pro LocationService
-                        sharedPrefs.edit().putString("device_id", deviceId).apply()
+                        // Uložíme potřebná data a jdeme na hlavní obrazovku
+                        sharedPrefs.edit().putString("device_id", installationId).apply()
                         sharedPrefs.edit().putBoolean("isAuthenticated", true).apply()
-
-                        runOnUiThread { Toast.makeText(this, "Zařízení registrováno!", Toast.LENGTH_SHORT).show() }
-                        val intent = Intent(this, MainActivity::class.java)
-                        startActivity(intent)
-                        finish() // Ukončí LoginActivity
+                        runOnUiThread { Toast.makeText(this, "Zařízení úspěšně registrováno!", Toast.LENGTH_SHORT).show() }
+                        navigateToMain()
                     } else {
                         val error = jsonResponse.optString("error", "Neznámá chyba registrace.")
-                        runOnUiThread { Toast.makeText(this, "Chyba registrace: $error", Toast.LENGTH_LONG).show() }
+                        showError(error)
                     }
                 } else {
-                    val errorStream = connection.errorStream
-                    val errorResponse = if (errorStream != null) BufferedReader(InputStreamReader(errorStream, "UTF-8")).readText() else ""
-                    val errorMessage = try { JSONObject(errorResponse).optString("error", "") } catch (e: Exception) { errorResponse }
-                    runOnUiThread { Toast.makeText(this, "Chyba serveru (${responseCode}): $errorMessage", Toast.LENGTH_LONG).show() }
+                     val error = try { JSONObject(responseString).optString("error", "Chyba serveru") } catch (e: Exception) { responseString }
+                    showError("Chyba registrace ($responseCode): $error")
                 }
+
             } catch (e: Exception) {
                 Log.e("LoginActivity", "Chyba při registraci zařízení: ", e)
-                runOnUiThread { Toast.makeText(this, "Chyba sítě při registraci: ${e.message}", Toast.LENGTH_LONG).show() }
+                showError("Chyba sítě při registraci: ${e.message}")
             } finally {
-                runOnUiThread {
-                    progressBar.visibility = ProgressBar.GONE
-                    loginButton.isEnabled = true
-                }
+                setLoadingState(false)
             }
         }
+    }
+
+    private fun navigateToMain() {
+        val intent = Intent(this, MainActivity::class.java)
+        startActivity(intent)
+        finish() // Ukončí LoginActivity, aby se na ni nedalo vrátit tlačítkem zpět
+    }
+
+    private fun setLoadingState(isLoading: Boolean) {
+        runOnUiThread {
+            progressBar.visibility = if (isLoading) ProgressBar.VISIBLE else ProgressBar.GONE
+            loginButton.isEnabled = !isLoading
+        }
+    }
+
+    private fun showError(message: String) {
+        runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
     }
 
     override fun onDestroy() {
@@ -196,4 +217,3 @@ class LoginActivity : AppCompatActivity() {
         executorService.shutdown()
     }
 }
-

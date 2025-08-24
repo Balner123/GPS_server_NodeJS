@@ -1,5 +1,7 @@
 package com.example.gpsreporterapp // Zde bude tvůj package name
 
+import androidx.appcompat.app.AlertDialog
+
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -131,6 +133,37 @@ class MainActivity : AppCompatActivity() {
                 runPreFlightChecks()
             }
         }
+
+        // DOČASNÉ ŘEŠENÍ: Přidání odhlášení na dlouhé stisknutí hlavního tlačítka.
+        // V produkční verzi by zde mělo být dedikované tlačítko pro odhlášení.
+        toggleButton.setOnLongClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Odhlásit se?")
+                .setMessage("Opravdu se chcete odhlásit?")
+                .setPositiveButton("Ano") { _, _ -> performLogout() }
+                .setNegativeButton("Ne", null)
+                .show()
+            true // Vrátíme true, abychom indikovali, že událost byla zpracována
+        }
+    }
+
+    private fun performLogout() {
+        // Zastavíme službu, pokud běží
+        stopLocationService()
+
+        // Vymažeme citlivá data, ale ponecháme installation_id
+        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        sharedPrefs.edit()
+            .remove("session_cookie")
+            .putBoolean("isAuthenticated", false)
+            .apply()
+
+        Toast.makeText(this, "Odhlášení úspěšné.", Toast.LENGTH_SHORT).show()
+
+        // Přesměrujeme na přihlašovací obrazovku
+        val intent = Intent(this, LoginActivity::class.java)
+        startActivity(intent)
+        finish() // Ukončíme MainActivity
     }
 
     override fun onResume() {

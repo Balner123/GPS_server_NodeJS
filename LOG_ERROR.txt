@@ -1,0 +1,15 @@
+pp_1    | Connection has been established successfully with Sequelize.
+app_1    | (node:1) [DEP0044] DeprecationWarning: The `util.isArray` API is deprecated. Please use `Array.isArray()` instead.
+app_1    | (Use `node --trace-deprecation ...` to show where the warning was created)
+app_1    | Chyba pøi registraci zaøízení z APK: ReferenceError: db is not defined
+app_1    |     at registerDeviceFromApk (/app/controllers/deviceController.js:310:32)
+app_1    |     at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+app_1    |     at next (/app/node_modules/express/lib/router/route.js:149:13)
+app_1    |     at isAuthenticated (/app/middleware/authorization.js:3:12)
+app_1    |     at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+app_1    |     at next (/app/node_modules/express/lib/router/route.js:149:13)
+app_1    |     at Route.dispatch (/app/node_modules/express/lib/router/route.js:119:3)
+app_1    |     at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+app_1    |     at /app/node_modules/express/lib/router/index.js:284:15
+app_1    |     at router.process_params (/app/node_modules/express/lib/router/index.js:346:12)
+
