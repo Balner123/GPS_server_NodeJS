@@ -228,32 +228,71 @@ const verifyEmailChangeCode = async (req, res) => {
 };
 
 const loginApk = async (req, res) => {
-      const { identifier, password } = req.body;
+    // Krok 1: Získání všech potřebných dat z těla požadavku
+    const { identifier, password, installationId } = req.body;
 
-      if (!identifier || !password) {
-        return res.status(400).json({ success: false, error: 'Missing credentials' });
-      }
+    if (!identifier || !password) {
+        return res.status(400).json({ success: false, error: 'Chybí uživatelské jméno nebo heslo.' });
+    }
+    // Kontrola, zda klient poslal ID instalace
+    if (!installationId) {
+        return res.status(400).json({ success: false, error: 'Chybí identifikační kód instalace (installationId).' });
+    }
 
-      try {
-        const user = await db.User.findOne({ where: { [db.Sequelize.Op.or]: [{ username: identifier }, { email: identifier }] } });
+    try {
+        // Krok 2: Ověření uživatele pomocí Sequelize
+        const user = await db.User.findOne({
+            where: {
+                [db.Sequelize.Op.or]: [{ username: identifier }, { email: identifier }]
+            }
+        });
 
         if (!user) {
-          return res.status(401).json({ success: false, error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Uživatel nenalezen.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
-        if (isMatch) {
-          req.session.isAuthenticated = true;
-          req.session.user = { id: user.id, username: user.username };
-          return res.status(200).json({ success: true, message: 'Login successful', user: req.session.user });
-        } else {
-          return res.status(401).json({ success: false, error: 'Invalid credentials' });
+        if (!isMatch) {
+            return res.status(401).json({ success: false, error: 'Nesprávné heslo.' });
         }
-      } catch (err) {
-        console.error("API Login Error:", err);
-        return res.status(500).json({ success: false, error: 'Server error' });
-      }
+
+        // Krok 3: Vytvoření session
+        req.session.isAuthenticated = true; // Důležité pro autorizaci dalších požadavků
+        req.session.user = {
+            id: user.id,
+            username: user.username,
+            role: user.role // Přidáno pro konzistenci
+        };
+
+        // Krok 4: Kontrola, zda je zařízení již registrováno (pomocí Sequelize)
+        const device = await db.Device.findOne({ // Předpokládám, že model se jmenuje 'Device'
+            where: {
+                user_id: user.id,
+                device_id: installationId // Používám název sloupce z init-db.sql
+            }
+        });
+
+        const device_is_registered = !!device; // Převod na boolean (true pokud device není null)
+
+        // Krok 5: Odeslání odpovědi s novým flagem
+        res.status(200).json({ success: true, device_is_registered: device_is_registered });
+
+    } catch (error) {
+        console.error('Chyba při přihlašování přes APK:', error);
+        res.status(500).json({ success: false, error: 'Interní chyba serveru.' });
+    }
+};
+
+const logoutApk = (req, res) => {
+      req.session.destroy(err => {
+        if (err) {
+          console.error("API Logout error:", err);
+          return res.status(500).json({ success: false, error: 'Chyba při odhlašování.' });
+        }
+        res.clearCookie('connect.sid');
+        res.status(200).json({ success: true, message: 'Odhlášení úspěšné.' });
+      });
     };
 
 module.exports = {
@@ -266,5 +305,6 @@ module.exports = {
   verifyEmailCode,
   getVerifyEmailChangePage,
   verifyEmailChangeCode,
-  loginApk
+  loginApk,
+  logoutApk
 };

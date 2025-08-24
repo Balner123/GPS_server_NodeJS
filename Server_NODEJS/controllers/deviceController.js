@@ -290,62 +290,60 @@ const getRegisterDevicePage = async (req, res) => {
   }
 };
 
-const registerDeviceApk = async (req, res) => {
-  const { deviceId, deviceName } = req.body;
-  if (!deviceId || !/^[a-zA-Z0-9]{10}$/.test(deviceId)) {
-    return res.status(400).json({ success: false, error: 'Valid 10-character device ID is required.' });
-  }
-
-  try {
-    const existingDevice = await Device.findOne({ where: { device_id: deviceId } });
-    const currentUserId = req.session.user.id;
-
-    if (existingDevice) {
-      // Případ 1: Zařízení je registrováno k jinému uživateli.
-      if (existingDevice.user_id && existingDevice.user_id !== currentUserId) {
-        return res.status(409).json({ success: false, error: 'Device is already registered to another account.' });
-      }
-
-      // Případ 2: Zařízení existuje a je buď nepřiřazené, nebo patří aktuálnímu uživateli.
-      let message = 'Device name updated successfully.';
-      
-      // Přiřadíme k aktuálnímu uživateli, pokud je zařízení nepřiřazené.
-      if (!existingDevice.user_id) {
-          existingDevice.user_id = currentUserId;
-          message = 'Device is now registered to your account.';
-      }
-      
-      // Aktualizujeme jméno, pokud je poskytnuto.
-      if (deviceName && existingDevice.name !== deviceName) {
-        existingDevice.name = deviceName;
-      }
-      
-      await existingDevice.save();
-      return res.status(200).json({ success: true, message: message, device: existingDevice });
-
-    } else {
-      // Případ 3: Zařízení neexistuje. Vytvoříme ho.
-      const newDevice = await Device.create({
-        device_id: deviceId,
-        name: deviceName,
-        user_id: currentUserId
-      });
-      return res.status(201).json({ success: true, message: 'Device was successfully registered.', device: newDevice });
+const registerDeviceFromApk = async (req, res) => {
+    // Změna: Očekáváme installationId místo deviceId
+    const { installationId, deviceName } = req.body;
+    
+    if (!req.session.user || !req.session.user.id) {
+        return res.status(401).json({ success: false, error: 'Uživatel není přihlášen.' });
     }
 
-  } catch (err) {
-    console.error("Error registering device via APK:", err);
-    // Zde se vyhýbáme odhalení duplicitního klíče, protože to řešíme výše.
-    // Obecná chyba pro ostatní případy.
-    return res.status(500).json({ success: false, error: 'An internal server error occurred during device registration.' });
-  }
+    // Validace vstupu
+    if (!installationId || !deviceName) {
+        return res.status(400).json({ success: false, error: 'Chybí ID zařízení nebo jeho název.' });
+    }
+
+    try {
+        const userId = req.session.user.id;
+
+        // Kontrola, zda zařízení již neexistuje pro tohoto uživatele
+        const existingDevice = await db.Device.findOne({
+            where: {
+                user_id: userId,
+                device_id: installationId // Hledáme podle nového installationId
+            }
+        });
+
+        if (existingDevice) {
+            // Zařízení již existuje, vrátíme úspěch, protože cílem je mít ho zaregistrované.
+            // Toto chování je robustnější než vracení chyby.
+            return res.status(200).json({ success: true, message: 'Zařízení již bylo registrováno.' });
+        }
+
+        // Vytvoření nového zařízení
+        await db.Device.create({
+            user_id: userId,
+            device_id: installationId, // Ukládáme installationId do sloupce device_id
+            device_name: deviceName
+        });
+
+        res.status(201).json({ success: true, message: 'Zařízení úspěšně registrováno.' });
+
+    } catch (error) {
+        console.error('Chyba při registraci zařízení z APK:', error);
+        // Zde může dojít k chybě, pokud by se dva požadavky pokusily zapsat totéž ve stejný čas (race condition)
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ success: false, error: 'Toto ID zařízení již existuje.' });
+        }
+        res.status(500).json({ success: false, error: 'Interní chyba serveru.' });
+    }
 };
 
 
 module.exports = {
   getDeviceSettings,
   updateDeviceSettings,
-  registerDeviceApk,
+  registerDeviceFromApk,
   handleDeviceInput,
   getCurrentCoordinates,
   getDeviceData,
