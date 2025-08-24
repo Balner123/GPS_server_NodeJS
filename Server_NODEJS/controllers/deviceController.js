@@ -291,39 +291,53 @@ const getRegisterDevicePage = async (req, res) => {
 };
 
 const registerDeviceApk = async (req, res) => {
-  const { deviceId, deviceName } = req.body; // ZÍSKÁME I DEVICENAME
+  const { deviceId, deviceName } = req.body;
   if (!deviceId || !/^[a-zA-Z0-9]{10}$/.test(deviceId)) {
     return res.status(400).json({ success: false, error: 'Valid 10-character device ID is required.' });
   }
 
   try {
     const existingDevice = await Device.findOne({ where: { device_id: deviceId } });
+    const currentUserId = req.session.user.id;
 
     if (existingDevice) {
-      // Pokud zařízení existuje, můžeme volitelně aktualizovat jeho jméno
+      // Případ 1: Zařízení je registrováno k jinému uživateli.
+      if (existingDevice.user_id && existingDevice.user_id !== currentUserId) {
+        return res.status(409).json({ success: false, error: 'Device is already registered to another account.' });
+      }
+
+      // Případ 2: Zařízení existuje a je buď nepřiřazené, nebo patří aktuálnímu uživateli.
+      let message = 'Device name updated successfully.';
+      
+      // Přiřadíme k aktuálnímu uživateli, pokud je zařízení nepřiřazené.
+      if (!existingDevice.user_id) {
+          existingDevice.user_id = currentUserId;
+          message = 'Device is now registered to your account.';
+      }
+      
+      // Aktualizujeme jméno, pokud je poskytnuto.
       if (deviceName && existingDevice.name !== deviceName) {
         existingDevice.name = deviceName;
-        await existingDevice.save();
       }
-      return res.status(200).json({ success: true, message: `Device with ID "${deviceId}" is already registered. Name updated.`, device: existingDevice });
+      
+      await existingDevice.save();
+      return res.status(200).json({ success: true, message: message, device: existingDevice });
+
+    } else {
+      // Případ 3: Zařízení neexistuje. Vytvoříme ho.
+      const newDevice = await Device.create({
+        device_id: deviceId,
+        name: deviceName,
+        user_id: currentUserId
+      });
+      return res.status(201).json({ success: true, message: 'Device was successfully registered.', device: newDevice });
     }
-
-    // Vytvoření nového zařízení i se jménem
-    const newDevice = await Device.create({
-      device_id: deviceId,
-      name: deviceName, // ULOŽÍME JMÉNO
-      user_id: req.session.user.id
-    });
-
-    return res.status(201).json({ success: true, message: `Device "${deviceId}" was successfully registered.`, device: newDevice });
 
   } catch (err) {
     console.error("Error registering device via APK:", err);
-    if (err.name === 'SequelizeUniqueConstraintError') {
-       return res.status(409).json({ success: false, error: `Device with ID "${deviceId}" is already registered.` });
-    } else {
-       return res.status(500).json({ success: false, error: 'An internal server error occurred during device registration.' });
-    }
+    // Zde se vyhýbáme odhalení duplicitního klíče, protože to řešíme výše.
+    // Obecná chyba pro ostatní případy.
+    return res.status(500).json({ success: false, error: 'An internal server error occurred during device registration.' });
   }
 };
 

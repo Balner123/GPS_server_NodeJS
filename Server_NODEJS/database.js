@@ -51,7 +51,7 @@ const Device = require('./models/device')(sequelize, Sequelize);
 const Location = require('./models/location')(sequelize, Sequelize);
 
 // Definice asociací
-User.hasMany(Device, { foreignKey: 'user_id', as: 'devices' });
+User.hasMany(Device, { foreignKey: 'user_id', as: 'devices', onDelete: 'CASCADE' });
 Device.belongsTo(User, { foreignKey: 'user_id' });
 
 Device.hasMany(Location, { foreignKey: 'device_id', onDelete: 'CASCADE' });
