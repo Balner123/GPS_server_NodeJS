@@ -1,5 +1,7 @@
 package com.example.gpsreporterapp
 
+import java.security.MessageDigest
+
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -54,9 +56,16 @@ class LoginActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         var installationId = sharedPrefs.getString("installation_id", null)
         if (installationId == null) {
-            installationId = UUID.randomUUID().toString()
+            val fullUuid = UUID.randomUUID().toString()
+            // Hash the UUID to SHA-256 and take the first 10 characters
+            val bytes = fullUuid.toByteArray(Charsets.UTF_8)
+            val md = MessageDigest.getInstance("SHA-256")
+            val digest = md.digest(bytes)
+            val hexString = digest.fold("", { str, it -> str + "%02x".format(it) })
+            installationId = hexString.take(10) // Take first 10 characters
+
             sharedPrefs.edit().putString("installation_id", installationId).apply()
-            Log.i("LoginActivity", "Generated new installation ID: $installationId")
+            Log.i("LoginActivity", "Generated new 10-char installation ID: $installationId from UUID: $fullUuid")
         }
         return installationId
     }
