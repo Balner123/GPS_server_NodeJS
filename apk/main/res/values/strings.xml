@@ -10,5 +10,4 @@
     <string name="lorem_ipsum">
         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam in scelerisque sem. Mauris
     </string>
-    <string name="registered_as">Registered as: %s</string>
 </resources>

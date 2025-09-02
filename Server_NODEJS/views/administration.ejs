@@ -92,7 +92,7 @@
                                         <td><%= device.User ? device.User.username : 'N/A' %></td>
                                         <td><%= device.last_seen ? new Date(device.last_seen).toLocaleString() : 'Never' %></td>
                                         <td>
-                                            <form action="/api/admin/delete-device/<%= device.device_id %>" method="POST" style="display:inline;" onsubmit="return confirm('Opravdu chcete smazat toto zařízení a všechna jeho data?');">
+                                            <form action="/administration/delete-device/<%= device.device_id %>" method="POST" style="display:inline;" onsubmit="return confirm('Opravdu chcete smazat toto zařízení a všechna jeho data?');">
                                                 <button type="submit" class="btn btn-warning btn-sm">Delete</button>
                                             </form>
                                         </td>

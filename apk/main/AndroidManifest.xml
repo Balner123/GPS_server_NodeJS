@@ -22,7 +22,8 @@
         android:roundIcon="@drawable/ic_gps_pin"
         android:supportsRtl="true"
         android:theme="@style/Theme.GpsReporterApp"
-        tools:targetApi="34" >
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31" >
         <service
             android:name=".LocationService"
             android:enabled="true"
@@ -39,12 +40,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-
-        <activity
-            android:name=".LoginActivity"
-            android:exported="false" />
-
     </application>
 
 </manifest>

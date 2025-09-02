@@ -96,7 +96,7 @@ function initializeApp() {
 
 async function loadDevices() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`); 
+        const response = await fetch(`${API_BASE_URL}/current_coordinates`); 
         if (!response.ok) {
              throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -188,7 +188,7 @@ async function selectDevice(deviceId) { // Změna parametru z deviceName na devi
     
     // Load current sleep interval settings
     try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/settings/${deviceId}`); // Používáme deviceId
+        const response = await fetch(`${API_BASE_URL}/device_settings/${deviceId}`); // Používáme deviceId
         if (!response.ok) {
             if (response.status === 404) {
                  document.getElementById('interval-days').value = 0;
@@ -223,7 +223,7 @@ async function loadDeviceData(isInitialLoad = false) {
     if (!selectedDevice) return;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`); // Změna z 'name' na 'id'
+        const response = await fetch(`${API_BASE_URL}/device_data?id=${selectedDevice}`); // Změna z 'name' na 'id'
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -395,7 +395,7 @@ async function handleSleepIntervalUpdate(e) {
     const totalSeconds = dhmsToSeconds(days, hours, minutes, seconds);
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/settings`, {
+        const response = await fetch(`${API_BASE_URL}/device_settings`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -473,7 +473,7 @@ async function handleDeleteDevice(deviceId) { // Změna z deviceName na deviceId
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/delete/${deviceId}`, { // Používáme deviceId
+        const response = await fetch(`${API_BASE_URL}/devices/delete/${deviceId}`, { // Používáme deviceId
             method: 'POST',
         });
 

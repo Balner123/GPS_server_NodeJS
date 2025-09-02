@@ -148,45 +148,23 @@ Definuje všechny dostupné API endpointy a přiřazuje je k příslušným cont
 
 ## 5. API Endpointy
 
-Server poskytuje dvě hlavní kategorie endpointů: **Webové routy** pro zobrazování stránek a **API routy** pro datovou komunikaci.
+Následuje přehled klíčových API endpointů.
 
-### 5.1. API Routy (`/api/...`)
-
-Tyto endpointy slouží pro komunikaci s webovým frontendem, mobilní aplikací a HW zařízeními. Vracejí data ve formátu JSON.
-
-| Metoda | Endpoint                               | Popis                                                                 | Oprávnění         |
-| :----- | :------------------------------------- | :-------------------------------------------------------------------- | :---------------- |
-| POST   | `/api/auth/login`                      | Přihlášení uživatele.                                                 | Veřejné           |
-| POST   | `/api/auth/register`                   | Registrace nového uživatele.                                          | Veřejné           |
-| GET    | `/api/auth/logout`                     | Odhlášení uživatele.                                                  | `isAuthenticated` |
-| POST   | `/api/devices/input`                   | Příjem dat z GPS zařízení.                                            | Veřejné           |
-| GET    | `/api/devices/coordinates`             | Získá poslední známé souřadnice všech aktivních zařízení uživatele.    | `isUser`          |
-| GET    | `/api/devices/data?id=<deviceId>`      | Získá historii polohy pro specifické zařízení.                         | `isUser`          |
-| GET    | `/api/devices/settings/:deviceId`      | Získá nastavení pro specifické zařízení.                              | `isUser`          |
-| POST   | `/api/devices/settings`                | Aktualizuje `sleep_interval` pro zařízení.                            | `isUser`          |
-| POST   | `/api/devices/delete/:deviceId`        | Smaže specifické zařízení.                                            | `isUser`          |
-| POST   | `/api/settings/username`               | Změna uživatelského jména.                                            | `isUser`          |
-| POST   | `/api/settings/password`               | Změna hesla.                                                          | `isUser`          |
-| POST   | `/api/settings/email`                  | Zahájení procesu změny e-mailu.                                       | `isUser`          |
-| POST   | `/api/settings/delete-account`         | Smaže účet přihlášeného uživatele.                                     | `isUser`          |
-| POST   | `/api/admin/delete-user/:userId`       | Smaže uživatele a všechna jeho data.                                  | `isRoot`          |
-| POST   | `/api/admin/delete-device/:deviceId`   | Smaže zařízení a všechna jeho data (administrátor).                   | `isRoot`          |
-| POST   | `/api/apk/login`                       | Přihlášení pro mobilní aplikaci.                                      | Veřejné           |
-| POST   | `/api/apk/register-device`             | Registrace zařízení z mobilní aplikace.                               | `isAuthenticated` |
-
-### 5.2. Webové Routy (`/`)
-
-Tyto routy slouží k zobrazení stránek v prohlížeči.
-
-| Metoda | Endpoint             | Popis                               | Oprávnění         |
-| :----- | :------------------- | :---------------------------------- | :---------------- |
-| GET    | `/`                  | Zobrazí hlavní stránku s mapou.     | `isAuthenticated` |
-| GET    | `/login`             | Zobrazí přihlašovací stránku.       | Veřejné           |
-| GET    | `/register`          | Zobrazí registrační stránku.        | Veřejné           |
-| GET    | `/devices`           | Zobrazí stránku pro správu zařízení.| `isUser`          |
-| GET    | `/register-device`   | Zobrazí stránku pro registraci nového zařízení. | `isUser`          |
-| GET    | `/settings`          | Zobrazí stránku s nastavením účtu.  | `isUser`          |
-| GET    | `/administration`    | Zobrazí administrátorskou stránku.  | `isRoot`          |
+| Metoda | Endpoint                      | Popis                                                                 | Oprávnění      |
+| :----- | :---------------------------- | :-------------------------------------------------------------------- | :------------- |
+| POST   | `/login`                      | Přihlášení uživatele.                                                 | Veřejné        |
+| POST   | `/register`                   | Registrace nového uživatele.                                          | Veřejné        |
+| GET    | `/logout`                     | Odhlášení uživatele.                                                  | `isAuthenticated` |
+| POST   | `/device_input`               | Příjem dat z GPS zařízení.                                            | Veřejné        |
+| GET    | `/current_coordinates`        | Získá poslední známé souřadnice všech aktivních zařízení uživatele.    | `isUser`       |
+| GET    | `/device_data?id=<deviceId>`  | Získá historii polohy pro specifické zařízení.                         | `isUser`       |
+| POST   | `/device_settings`            | Aktualizuje `sleep_interval` pro zařízení.                            | `isUser`       |
+| POST   | `/register-device`            | Zaregistruje nové zařízení k uživatelskému účtu.                      | `isUser`       |
+| POST   | `/settings/username`          | Změna uživatelského jména.                                            | `isUser`       |
+| POST   | `/settings/password`          | Změna hesla.                                                          | `isUser`       |
+| POST   | `/settings/email`             | Zahájení procesu změny e-mailu.                                       | `isUser`       |
+| GET    | `/administration`             | Zobrazí administrátorskou stránku se všemi daty.                      | `isRoot`       |
+| POST   | `/administration/delete-user/:userId` | Smaže uživatele a všechna jeho data.                                | `isRoot`       |
 
 ## 6. Spuštění a Nasazení
 

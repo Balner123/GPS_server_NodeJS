@@ -1,17 +1,365 @@
-node .\server.js
-C:\Users\Repete\Desktop\PROJEKTGPS2025\GPS_server_NodeJS\Server_NODEJS\node_modules\express\lib\router\route.js:216
-        throw new Error(msg);
-        ^
-
-Error: Route.get() requires a callback function but got a [object Undefined]
-    at Route.<computed> [as get] (C:\Users\Repete\Desktop\PROJEKTGPS2025\GPS_server_NodeJS\Server_NODEJS\node_modules\express\lib\router\route.js:216:15)
-    at proto.<computed> [as get] (C:\Users\Repete\Desktop\PROJEKTGPS2025\GPS_server_NodeJS\Server_NODEJS\node_modules\express\lib\router\index.js:521:19)
-    at Object.<anonymous> (C:\Users\Repete\Desktop\PROJEKTGPS2025\GPS_server_NodeJS\Server_NODEJS\routes\auth.web.js:8:8)
-    at Module._compile (node:internal/modules/cjs/loader:1565:14)
-    at Object..js (node:internal/modules/cjs/loader:1708:10)
-    at Module.load (node:internal/modules/cjs/loader:1318:32)
-    at Function._load (node:internal/modules/cjs/loader:1128:12)
-    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
-    at wrapModuleLoad (node:internal/modules/cjs/loader:219:24)
-    at Module.require (node:internal/modules/cjs/loader:1340:12)
+app_1    | Server running at http://localhost:5000/
+app_1    | Connection has been established successfully with Sequelize.
+app_1    | (node:1) [DEP0044] DeprecationWarning: The `util.isArray` API is deprecated. Please use `Array.isArray()` instead.
+app_1    | (Use `node --trace-deprecation ...` to show where the warning was created)
+app_1    | Chyba pøi registraci zaøízení z APK: Error
+app_1    |     at Query.run (/app/node_modules/sequelize/lib/dialects/mysql/query.js:52:25)
+app_1    |     at /app/node_modules/sequelize/lib/sequelize.js:315:28
+app_1    |     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+app_1    |     at async MySQLQueryInterface.insert (/app/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
+app_1    |     at async model.save (/app/node_modules/sequelize/lib/model.js:2490:35)
+app_1    |     at async Device.create (/app/node_modules/sequelize/lib/model.js:1362:12)
+app_1    |     at async registerDeviceFromApk (/app/controllers/deviceController.js:315:9) {
+app_1    |   name: 'SequelizeDatabaseError',
+app_1    |   parent: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:25',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:25',
+app_1    |       '2025-08-24 17:23:25'
+app_1    |     ]
+app_1    |   },
+app_1    |   original: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:25',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:25',
+app_1    |       '2025-08-24 17:23:25'
+app_1    |     ]
+app_1    |   },
+app_1    |   sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |   parameters: [
+app_1    |     '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |     2,
+app_1    |     '2025-08-24 17:23:25',
+app_1    |     'active',
+app_1    |     60,
+app_1    |     '2025-08-24 17:23:25',
+app_1    |     '2025-08-24 17:23:25'
+app_1    |   ]
+app_1    | }
+app_1    | Chyba pøi registraci zaøízení z APK: Error
+app_1    |     at Query.run (/app/node_modules/sequelize/lib/dialects/mysql/query.js:52:25)
+app_1    |     at /app/node_modules/sequelize/lib/sequelize.js:315:28
+app_1    |     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+app_1    |     at async MySQLQueryInterface.insert (/app/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
+app_1    |     at async model.save (/app/node_modules/sequelize/lib/model.js:2490:35)
+app_1    |     at async Device.create (/app/node_modules/sequelize/lib/model.js:1362:12)
+app_1    |     at async registerDeviceFromApk (/app/controllers/deviceController.js:315:9) {
+app_1    |   name: 'SequelizeDatabaseError',
+app_1    |   parent: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:28',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:28',
+app_1    |       '2025-08-24 17:23:28'
+app_1    |     ]
+app_1    |   },
+app_1    |   original: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:28',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:28',
+app_1    |       '2025-08-24 17:23:28'
+app_1    |     ]
+app_1    |   },
+app_1    |   sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |   parameters: [
+app_1    |     '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |     2,
+app_1    |     '2025-08-24 17:23:28',
+app_1    |     'active',
+app_1    |     60,
+app_1    |     '2025-08-24 17:23:28',
+app_1    |     '2025-08-24 17:23:28'
+app_1    |   ]
+app_1    | }
+app_1    | Chyba pøi registraci zaøízení z APK: Error
+app_1    |     at Query.run (/app/node_modules/sequelize/lib/dialects/mysql/query.js:52:25)
+app_1    |     at /app/node_modules/sequelize/lib/sequelize.js:315:28
+app_1    |     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+app_1    |     at async MySQLQueryInterface.insert (/app/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
+app_1    |     at async model.save (/app/node_modules/sequelize/lib/model.js:2490:35)
+app_1    |     at async Device.create (/app/node_modules/sequelize/lib/model.js:1362:12)
+app_1    |     at async registerDeviceFromApk (/app/controllers/deviceController.js:315:9) {
+app_1    |   name: 'SequelizeDatabaseError',
+app_1    |   parent: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:29',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:29',
+app_1    |       '2025-08-24 17:23:29'
+app_1    |     ]
+app_1    |   },
+app_1    |   original: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:29',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:29',
+app_1    |       '2025-08-24 17:23:29'
+app_1    |     ]
+app_1    |   },
+app_1    |   sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |   parameters: [
+app_1    |     '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |     2,
+app_1    |     '2025-08-24 17:23:29',
+app_1    |     'active',
+app_1    |     60,
+app_1    |     '2025-08-24 17:23:29',
+app_1    |     '2025-08-24 17:23:29'
+app_1    |   ]
+app_1    | }
+app_1    | Chyba pøi registraci zaøízení z APK: Error
+app_1    |     at Query.run (/app/node_modules/sequelize/lib/dialects/mysql/query.js:52:25)
+app_1    |     at /app/node_modules/sequelize/lib/sequelize.js:315:28
+app_1    |     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+app_1    |     at async MySQLQueryInterface.insert (/app/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
+app_1    |     at async model.save (/app/node_modules/sequelize/lib/model.js:2490:35)
+app_1    |     at async Device.create (/app/node_modules/sequelize/lib/model.js:1362:12)
+app_1    |     at async registerDeviceFromApk (/app/controllers/deviceController.js:315:9) {
+app_1    |   name: 'SequelizeDatabaseError',
+app_1    |   parent: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:30',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:30',
+app_1    |       '2025-08-24 17:23:30'
+app_1    |     ]
+app_1    |   },
+app_1    |   original: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:30',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:30',
+app_1    |       '2025-08-24 17:23:30'
+app_1    |     ]
+app_1    |   },
+app_1    |   sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |   parameters: [
+app_1    |     '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |     2,
+app_1    |     '2025-08-24 17:23:30',
+app_1    |     'active',
+app_1    |     60,
+app_1    |     '2025-08-24 17:23:30',
+app_1    |     '2025-08-24 17:23:30'
+app_1    |   ]
+app_1    | }
+app_1    | Chyba pøi registraci zaøízení z APK: Error
+app_1    |     at Query.run (/app/node_modules/sequelize/lib/dialects/mysql/query.js:52:25)
+app_1    |     at /app/node_modules/sequelize/lib/sequelize.js:315:28
+app_1    |     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+app_1    |     at async MySQLQueryInterface.insert (/app/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
+app_1    |     at async model.save (/app/node_modules/sequelize/lib/model.js:2490:35)
+app_1    |     at async Device.create (/app/node_modules/sequelize/lib/model.js:1362:12)
+app_1    |     at async registerDeviceFromApk (/app/controllers/deviceController.js:315:9) {
+app_1    |   name: 'SequelizeDatabaseError',
+app_1    |   parent: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:34',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:34',
+app_1    |       '2025-08-24 17:23:34'
+app_1    |     ]
+app_1    |   },
+app_1    |   original: Error: Data too long for column 'device_id' at row 1
+app_1    |       at Packet.asError (/app/node_modules/mysql2/lib/packets/packet.js:740:17)
+app_1    |       at Execute.execute (/app/node_modules/mysql2/lib/commands/command.js:29:26)
+app_1    |       at Connection.handlePacket (/app/node_modules/mysql2/lib/base/connection.js:475:34)
+app_1    |       at PacketParser.onPacket (/app/node_modules/mysql2/lib/base/connection.js:93:12)
+app_1    |       at PacketParser.executeStart (/app/node_modules/mysql2/lib/packet_parser.js:75:16)
+app_1    |       at Socket.<anonymous> (/app/node_modules/mysql2/lib/base/connection.js:100:25)
+app_1    |       at Socket.emit (node:events:508:28)
+app_1    |       at addChunk (node:internal/streams/readable:559:12)
+app_1    |       at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+app_1    |       at Readable.push (node:internal/streams/readable:390:5) {
+app_1    |     code: 'ER_DATA_TOO_LONG',
+app_1    |     errno: 1406,
+app_1    |     sqlState: '22001',
+app_1    |     sqlMessage: "Data too long for column 'device_id' at row 1",
+app_1    |     sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |     parameters: [
+app_1    |       '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |       2,
+app_1    |       '2025-08-24 17:23:34',
+app_1    |       'active',
+app_1    |       60,
+app_1    |       '2025-08-24 17:23:34',
+app_1    |       '2025-08-24 17:23:34'
+app_1    |     ]
+app_1    |   },
+app_1    |   sql: 'INSERT INTO `devices` (`id`,`device_id`,`user_id`,`last_seen`,`status`,`sleep_interval`,`sleep_interval_updated_at`,`created_at`) VALUES (DEFAULT,?,?,?,?,?,?,?);',
+app_1    |   parameters: [
+app_1    |     '2d9d1879-698a-4918-93fa-fd70260c315b',
+app_1    |     2,
+app_1    |     '2025-08-24 17:23:34',
+app_1    |     'active',
+app_1    |     60,
+app_1    |     '2025-08-24 17:23:34',
+app_1    |     '2025-08-24 17:23:34'
+app_1    |   ]
+app_1    | }
 
