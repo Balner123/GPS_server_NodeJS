@@ -168,8 +168,8 @@ class LocationService : Service() {
                 broadcastLog("Odesílaná data:
 ${jsonPayload.toString(2)}")
 
-                // Sjednocení IP adresy serveru s gps_tracker.ino
-                val url = URL("https://lotr-system.xyz/device_input")
+                // Použít API endpoint, který server skutečně vystavuje
+                val url = URL("https://lotr-system.xyz/api/devices/input")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -197,20 +197,30 @@ ${jsonPayload.toString(2)}")
                 if (responseCode == HttpURLConnection.HTTP_OK) {
                     lastConnectionStatusMessage = "Data úspěšně odeslána."
                     val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
-                    broadcastLog("Přijatá data:\n$responseBody")
-                    val jsonResponse = JSONObject(responseBody)
 
-                    // Zkusíme z odpovědi vytáhnout nový interval - OPRAVA KLÍČE
-                    val newIntervalSeconds = jsonResponse.optLong("sleep_interval", -1)
-                    if (newIntervalSeconds > 0) {
-                        val newIntervalMillis = TimeUnit.SECONDS.toMillis(newIntervalSeconds)
-                        if (newIntervalMillis != sendIntervalMillis) {
-                            sendIntervalMillis = newIntervalMillis
-                            lastStatusMessage = "Server poslal nový interval: $newIntervalSeconds s."
-                            // Restartujeme sledování s novým intervalem
-                            stopLocationUpdates()
-                            startLocationUpdates()
-                            afterSendRestarted = true // Označíme, že proběhl restart
+                    if (responseBody.isNullOrBlank()) {
+                        // Server may return empty 200 (e.g. device not registered). Handle gracefully.
+                        broadcastLog("Server vrátil prázdnou odpověď (pravděpodobně zařízení neregistrováno). HTTP 200 bez těla.")
+                    } else {
+                        broadcastLog("Přijatá data:\n$responseBody")
+                        try {
+                            val jsonResponse = JSONObject(responseBody)
+                            // Zkusíme z odpovědi vytáhnout nový interval
+                            val newIntervalSeconds = jsonResponse.optLong("sleep_interval", -1)
+                            if (newIntervalSeconds > 0) {
+                                val newIntervalMillis = TimeUnit.SECONDS.toMillis(newIntervalSeconds)
+                                if (newIntervalMillis != sendIntervalMillis) {
+                                    sendIntervalMillis = newIntervalMillis
+                                    lastStatusMessage = "Server poslal nový interval: $newIntervalSeconds s."
+                                    // Restartujeme sledování s novým intervalem
+                                    stopLocationUpdates()
+                                    startLocationUpdates()
+                                    afterSendRestarted = true // Označíme, že proběhl restart
+                                }
+                            }
+                        } catch (e: Exception) {
+                            // Pokud odpověď není JSON nebo nelze parsovat, jen to zalogujeme a nepřerušujeme službu
+                            broadcastLog("Chyba parsování JSON odpovědi: ${e.message}")
                         }
                     }
                 } else {

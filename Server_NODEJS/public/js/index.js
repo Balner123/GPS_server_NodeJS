@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // but for the main list update, we now rely on loadCurrentCoordinates)
 async function loadDevices() {
     try {
-        const response = await fetch(`${API_BASE_URL}/current_coordinates`);
+        const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
         const devices = await response.json();
         
         const devicesList = document.getElementById('devices-list');
@@ -63,7 +63,7 @@ function createDeviceElement(device) {
 // Load current coordinates and update device list
 async function loadCurrentCoordinates(isInitialLoad = false) {
     try {
-        const response = await fetch(`${API_BASE_URL}/current_coordinates`);
+        const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }

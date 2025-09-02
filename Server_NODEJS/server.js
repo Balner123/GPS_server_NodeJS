@@ -48,15 +48,31 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Routes
+// --- Routes ---
+
+// Web routes (rendering pages)
 app.use('/', require('./routes/index'));
-app.use(require('./routes/auth'));
-app.use(require('./routes/verify-email-change'));
-app.use(require('./routes/devices'));
-app.use(require('./routes/register-device'));
-app.use(require('./routes/settings'));
-app.use(require('./routes/administration')); // Nová cesta pro administraci
-app.use('/api/apk', require('./routes/apk')); // Nová routa pro APK
+app.use('/', require('./routes/auth.web'));
+app.use('/', require('./routes/devices.web'));
+app.use('/', require('./routes/settings.web'));
+app.use('/', require('./routes/administration.web'));
+app.use('/', require('./routes/register-device'));
+app.use('/', require('./routes/verify-email-change'));
+
+// API routes (handling data)
+const apiLimiter = rateLimit({
+  windowMs: 5 * 1000, // 5 seconds
+  max: process.env.RATE_LIMIT_MAX_API || 100, // Stricter limit for API
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api', apiLimiter); // Apply stricter rate limiting to all API routes
+app.use('/api/auth', require('./routes/auth.api'));
+app.use('/api/devices', require('./routes/devices.api'));
+app.use('/api/settings', require('./routes/settings.api'));
+app.use('/api/admin', require('./routes/administration.api'));
+app.use('/api/apk', require('./routes/apk'));
 
 // Error handling middleware
 app.use((err, res, next) => {
