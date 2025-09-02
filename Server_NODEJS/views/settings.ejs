@@ -36,7 +36,7 @@
                     <div class="card mb-4">
                         <div class="card-body">
                             <h5 class="card-title">Change email</h5>
-                            <form action="/settings/email" method="POST">
+                            <form action="/api/settings/email" method="POST">
                                 <div class="mb-3">
                                     <label for="email" class="form-label">Email</label>
                                     <input type="email" class="form-control" id="email" name="email" value="<%= user.email %>" required pattern="^[^@\s]+@[^@\s]+\.[^@\s]+$" title="Zadejte platný email">
@@ -48,7 +48,7 @@
                     <div class="card mb-4">
                         <div class="card-body">
                             <h5 class="card-title">Change username</h5>
-                            <form action="/settings/username" method="POST">
+                            <form action="/api/settings/username" method="POST">
                                 <div class="mb-3">
                                     <label for="username" class="form-label">Username</label>
                                     <input type="text" class="form-control" id="username" name="username" value="<%= user.username %>" required>
@@ -63,7 +63,7 @@
                          <div class="card-body">
                             <h5 class="card-title text-danger">Danger zone</h5>
                             <p class="card-text">Deleting your account is irreversible. All your data, including registered devices and their history, will be permanently deleted.</p>
-                            <form action="/settings/delete" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete your account? This action is irreversible.');">
+                            <form action="/api/settings/delete-account" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete your account? This action is irreversible.');">
                                     <button type="submit" class="btn btn-danger">Permanently delete my account</button>
                             </form>
                         </div>
@@ -75,7 +75,7 @@
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title">Change password</h5>
-                            <form action="/settings/password" method="POST">
+                            <form action="/api/settings/password" method="POST">
                                 <div class="mb-3">
                                     <label for="oldPassword" class="form-label">Old password</label>
                                     <input type="password" class="form-control" id="oldPassword" name="oldPassword" required>

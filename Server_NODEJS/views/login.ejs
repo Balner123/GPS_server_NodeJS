@@ -14,7 +14,7 @@
                 <% if (error) { %>
                     <div class="alert alert-danger"><%= error %></div>
                 <% } %>
-                <form action="/login" method="POST">
+                <form action="/api/auth/login" method="POST">
                     <div class="mb-3">
                         <label for="identifier" class="form-label">Uživatelské jméno nebo email</label>
                         <input type="text" class="form-control" id="identifier" name="identifier" required>

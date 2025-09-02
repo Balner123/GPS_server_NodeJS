@@ -12,7 +12,7 @@ function initMap() {
 }
 
 function fetchCoordinatesAndUpdateMap() {
-  fetch("/current_coordinates")
+  fetch("/api/devices/coordinates")
     .then(response => response.json())
     .then(data => {
       const tableBody = document.querySelector("#coordinatesTable tbody");

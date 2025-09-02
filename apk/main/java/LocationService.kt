@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import androidx.core.content.ContextCompat // Added this import
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.gms.location.*
 import org.json.JSONObject
@@ -20,6 +21,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.Executors // Added this import
 import java.util.concurrent.TimeUnit
 
 class LocationService : Service() {
@@ -66,9 +68,12 @@ class LocationService : Service() {
     private val NOTIFICATION_CHANNEL_ID = "LocationServiceChannel"
     private val NOTIFICATION_ID = 12345
 
+    private lateinit var networkExecutor: java.util.concurrent.ExecutorService // Declare ExecutorService
+
     override fun onCreate() {
         super.onCreate()
         broadcastLog("Služba vytvářena...")
+        networkExecutor = Executors.newSingleThreadExecutor() // Initialize ExecutorService
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
@@ -99,6 +104,17 @@ class LocationService : Service() {
     }
 
     private fun startLocationUpdates() {
+        // Check for location permissions before requesting updates
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Log.e("LocationService", "Location permissions not granted. Cannot start updates.")
+            broadcastLog("CHYBA: Chybí oprávnění k poloze. Služba se ukončuje.")
+            lastStatusMessage = "Služba nemůže běžet - chybí oprávnění."
+            lastConnectionStatusMessage = "Kritická chyba"
+            stopSelf() // Stop the service if permissions are not granted
+            return
+        }
+
         val locationRequest = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
             sendIntervalMillis
@@ -114,10 +130,13 @@ class LocationService : Service() {
             nextUpdateTimestamp = System.currentTimeMillis() + sendIntervalMillis
             broadcastCurrentState()
         } catch (e: SecurityException) {
-            Log.e("LocationService", "Chybí oprávnění k poloze.", e)
+            // This catch block might still be useful for unexpected scenarios,
+            // but the primary check above should prevent most SecurityExceptions.
+            Log.e("LocationService", "Chybí oprávnění k poloze (SecurityException).", e)
             lastConnectionStatusMessage = "Chyba: Chybí oprávnění k poloze."
             lastStatusMessage = "Služba nemůže běžet."
             broadcastCurrentState()
+            stopSelf() // Ensure service stops on unexpected SecurityException
         }
     }
 
@@ -127,7 +146,7 @@ class LocationService : Service() {
     }
 
     private fun sendLocationAndProcessResponse(location: android.location.Location) {
-        Thread {
+        networkExecutor.execute {
             var afterSendRestarted = false
             try {
                 lastConnectionStatusMessage = "Odesílám data na server..."
@@ -141,7 +160,6 @@ class LocationService : Service() {
                     Log.e("LocationService", "Device ID not found in SharedPreferences. Stopping service.")
                     broadcastLog("CHYBA: ID zařízení nenalezeno. Služba se ukončuje.")
                     stopSelf()
-                    return
                 }
 
                 // Formátování timestampu do ISO 8601 UTC, aby odpovídal gps_tracker.ino
@@ -165,11 +183,10 @@ class LocationService : Service() {
                     put("timestamp", timestamp)
                 }
 
-                broadcastLog("Odesílaná data:
-${jsonPayload.toString(2)}")
+                broadcastLog("Odesílaná data:${jsonPayload.toString(2)}")
 
                 // Sjednocení IP adresy serveru s gps_tracker.ino
-                val url = URL("https://lotr-system.xyz/device_input")
+                val url = URL("https://lotr-system.xyz/api/devices/input")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
