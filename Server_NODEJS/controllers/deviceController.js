@@ -315,7 +315,7 @@ const registerDeviceFromApk = async (req, res) => {
         await db.Device.create({
             user_id: userId,
             device_id: installationId,
-            device_name: deviceName
+            name: deviceName
         });
 
         res.status(201).json({ success: true, message: 'Zařízení úspěšně registrováno.' });

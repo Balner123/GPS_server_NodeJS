@@ -151,9 +151,12 @@ class LocationService : Service() {
                 // Získání počtu satelitů, pokud je k dispozici
                 val satellites = location.extras?.getInt("satellites", 0) ?: 0
 
+                val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+
                 val jsonPayload = JSONObject().apply {
                     // Použití klíče "device" a uloženého deviceId
                     put("device", deviceId) // Use the stored deviceId
+                    put("name", deviceName) // Přidání názvu zařízení
                     put("latitude", location.latitude)
                     put("longitude", location.longitude)
                     put("speed", if (location.hasSpeed()) location.speed * 3.6 else 0.0) // Převod m/s na km/h
