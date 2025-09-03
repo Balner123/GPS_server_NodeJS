@@ -141,7 +141,6 @@ class LocationService : Service() {
                     Log.e("LocationService", "Device ID not found in SharedPreferences. Stopping service.")
                     broadcastLog("CHYBA: ID zařízení nenalezeno. Služba se ukončuje.")
                     stopSelf()
-                    return
                 }
 
                 // Formátování timestampu do ISO 8601 UTC, aby odpovídal gps_tracker.ino
@@ -165,8 +164,7 @@ class LocationService : Service() {
                     put("timestamp", timestamp)
                 }
 
-                broadcastLog("Odesílaná data:
-${jsonPayload.toString(2)}")
+                broadcastLog("Odesílaná data:${jsonPayload.toString(2)}")
 
                 // Použít API endpoint, který server skutečně vystavuje
                 val url = URL("https://lotr-system.xyz/api/devices/input")
