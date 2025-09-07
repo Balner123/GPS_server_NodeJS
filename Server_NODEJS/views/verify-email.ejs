@@ -10,18 +10,21 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
-                                                <h4 class="card-title mb-4">Ověření emailu</h4>
+                                                <h4 class="card-title mb-4"><%= pendingEmailChange ? 'Ověření změny emailu' : 'Ověření emailu' %></h4>
                                                 <p class="mb-3">
-                                                    <% if (currentPage === 'verify-email-change') { %>
+                                                    <% if (pendingEmailChange) { %>
                                                         Na váš nový email byl zaslán ověřovací kód. Zadejte jej níže pro potvrzení změny emailu.
                                                     <% } else { %>
                                                         Na váš email byl zaslán ověřovací kód. Zadejte jej níže pro dokončení registrace.
                                                     <% } %>
                                                 </p>
-                        <% if (error) { %>
-                            <div class="alert alert-danger"><%= error %></div>
+                        <% if (error && error.length > 0) { %>
+                            <div class="alert alert-danger"><%= error[0] %></div>
                         <% } %>
-                        <form action="<%= currentPage === 'verify-email-change' ? '/verify-email-change' : '/verify-email' %>" method="POST" id="verifyForm">
+                        <% if (success && success.length > 0) { %>
+                            <div class="alert alert-success"><%= success[0] %></div>
+                        <% } %>
+                                                 <form action="/verify-email" method="POST" id="verifyForm">
                             <div class="mb-4 text-center">
                                 <label class="form-label mb-3" style="font-size:1.2rem;">Ověřovací kód</label>
                                 <div style="display:flex; justify-content:center; gap:1rem;">
@@ -33,6 +36,11 @@
                             </div>
                             <button type="submit" class="btn btn-primary w-100" style="font-size:1.2rem;">Ověřit</button>
                         </form>
+                        <div class="text-center mt-3">
+                            <form action="/resend-verification-from-page" method="POST">
+                                <button type="submit" class="btn btn-link">Neobdrželi jste kód? Znovu odeslat.</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>

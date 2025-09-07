@@ -38,6 +38,7 @@
                                     <th>ID</th>
                                     <th>Username</th>
                                     <th>Email</th>
+                                    <th>Verified</th>
                                     <th>Password Hash</th>
                                     <th>Devices</th>
                                     <th>Created At</th>
@@ -49,12 +50,19 @@
                                         <td><%= user.id %></td>
                                         <td><%= user.username %></td>
                                         <td><%= user.email %></td>
+                                        <td>
+                                            <% if (user.is_verified) { %>
+                                                <i class="fa-solid fa-circle-check text-success" title="Yes"></i>
+                                            <% } else { %>
+                                                <i class="fa-solid fa-circle-xmark text-danger" title="No"></i>
+                                            <% } %>
+                                        </td>
                                         <td style="font-size: 0.8em; word-break: break-all;"><%= user.password %></td>
                                         <td><%= user.devices ? user.devices.length : 0 %></td>
                                         <td><%= new Date(user.created_at).toLocaleString() %></td>
                                         <td>
                                             <% if (user.username !== 'root') { %>
-                                                <form action="/administration/delete-user/<%= user.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Opravdu chcete smazat tohoto uživatele a všechna jeho data?');">
+                                                <form action="/api/admin/delete-user/<%= user.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Opravdu chcete smazat tohoto uživatele a všechna jeho data?');">
                                                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                                                 </form>
                                             <% } %>

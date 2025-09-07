@@ -5,6 +5,15 @@ const authController = require('../controllers/authController');
 // Routes for rendering pages
 router.get('/login', authController.getLoginPage);
 router.get('/register', authController.getRegisterPage);
-// router.get('/verify-email/:verificationCode', authController.verifyEmail); // This route is commented out as the controller function is missing and causes a server crash.
+
+// Routes for email verification
+router.get('/verify-email', authController.getVerifyEmailPage);
+router.post('/verify-email', authController.verifyEmailCode);
+
+// Route for resending verification code from the verification page
+router.post('/resend-verification-from-page', authController.resendVerificationCodeFromPage);
+
+// Route for web logout
+router.get('/logout', authController.logoutUser);
 
 module.exports = router;

@@ -1,0 +1,24 @@
+PLÁNY 
+	APK 
+		- zamknutí -> "runaway detection"
+		- odeslání reportu pøi odinstalaci
+		- menu : logout, Lock_device
+		- vìtší adaptivnost : rekce na špatný signál, bez intenetu -> "cachovaní pozic"
+		- mnohostní odesílání po znonabytí spojení 
+		- záloha signálu s SMSkami ???
+		- Grafická uprava !!!
+	SERVER
+		- Schopnost pøíjmu "cachovanych" pozic ze zaøízení 
+		- pøi reportu vydat výstražný e-mail
+		- možnost zmìny NÁZVU zaøízení a možnost pøidání popisku
+		- E-SIM ???
+		-  grafická uprava !!!
+		- funkce pøídaní zony na mapu k zaøízení -> detekce opuštení pøidìlené zony zaøízením -> výstražný e-mail 
+	HARDWARové ZAØÍZENÍ
+		- cachování ? 
+		- možnost zmìnu modu -> odesílání jednotlivých poloh v pravidelných intervalech
+		- NEBO odesílání dávek poloh v intervalu (co 10 pozic 1 odeslání)
+		- lepší responzivita na selhání odeslání -> pøejít do "cache" režimu
+		- registrace zaøízení pomocí pøihlášení // nebude potøebné zadání ID na serveru, (automatické)
+		- guma pro zavøení krabièky
+		- + její samotné složení

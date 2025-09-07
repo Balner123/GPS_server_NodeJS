@@ -4,7 +4,6 @@ const updateEmail = async (req, res) => {
     const { email } = req.body;
     const userId = req.session.user.id;
 
-    // Validace emailu
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!email || !emailRegex.test(email)) {
         req.flash('error', 'Zadejte platný email.');
@@ -12,7 +11,7 @@ const updateEmail = async (req, res) => {
     }
 
     if (email === req.session.user.email) {
-        // No change
+        req.flash('info', 'Zadaný email je stejný jako váš současný.');
         return res.redirect('/settings');
     }
 
@@ -22,25 +21,23 @@ const updateEmail = async (req, res) => {
             req.flash('error', 'Email je již obsazený jiným účtem.');
             return res.redirect('/settings');
         }
-        // Generování ověřovacího kódu
+
         const code = Math.floor(1000 + Math.random() * 9000).toString();
-        const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minut
+        const expires = new Date(Date.now() + 10 * 60 * 1000);
 
-        // Uložení pending_email, kódu a expirace
-        await User.update({ pending_email: email, verification_code: code, verification_expires: expires }, { where: { id: userId } });
+        await User.update(
+            { pending_email: email, verification_code: code, verification_expires: expires },
+            { where: { id: userId } }
+        );
 
-        // Odeslání emailu
-        try {
-            await sendVerificationEmail(email, code);
-        } catch (mailErr) {
-            console.error('Chyba při odesílání emailu:', mailErr);
-            req.flash('error', 'Nepodařilo se odeslat ověřovací email.');
-            return res.redirect('/settings');
-        }
+        await sendVerificationEmail(email, code);
 
-        // Přesměrování na stránku pro zadání kódu
-        req.session.pendingEmailChange = true;
-        return res.redirect('/verify-email-change');
+        req.session.pendingUserId = userId;
+        req.session.pendingEmailChange = true; 
+
+        req.flash('success', 'Na vaši novou emailovou adresu byl odeslán ověřovací kód.');
+        return res.redirect('/verify-email');
+
     } catch (err) {
         console.error("Error updating email:", err);
         req.flash('error', 'Došlo k chybě při změně emailu.');

@@ -20,32 +20,6 @@ sequelize.authenticate()
     console.error('Unable to connect to the database with Sequelize:', err);
   });
 
-const db = {};
-db.Sequelize = Sequelize;
-db.sequelize = sequelize;
-
-// Dynamically load models
-const fs = require('fs');
-const path = require('path');
-
-const basename = path.basename(__filename);
-
-fs
-  .readdirSync(path.join(__dirname, 'models'))
-  .filter(file => {
-    return (file.indexOf('.') !== 0) && (file !== basename) && (file.slice(-3) === '.js');
-  })
-  .forEach(file => {
-    const model = require(path.join(__dirname, 'models', file))(sequelize, Sequelize.DataTypes);
-    db[model.name] = model;
-  });
-
-Object.keys(db).forEach(modelName => {
-  if (db[modelName].associate) {
-    db[modelName].associate(db);
-  }
-});
-
 const User = require('./models/user')(sequelize, Sequelize);
 const Device = require('./models/device')(sequelize, Sequelize);
 const Location = require('./models/location')(sequelize, Sequelize);

@@ -78,15 +78,30 @@
                             <form action="/api/settings/password" method="POST">
                                 <div class="mb-3">
                                     <label for="oldPassword" class="form-label">Old password</label>
-                                    <input type="password" class="form-control" id="oldPassword" name="oldPassword" required>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="oldPassword" name="oldPassword" required>
+                                        <button class="input-group-text border-start-0 bg-white" type="button" id="toggleOldPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
+                                            <i class="fa fa-eye" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="newPassword" class="form-label">New password</label>
-                                    <input type="password" class="form-control" id="newPassword" name="newPassword" required>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="newPassword" name="newPassword" required>
+                                        <button class="input-group-text border-start-0 bg-white" type="button" id="toggleNewPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
+                                            <i class="fa fa-eye" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="confirmPassword" class="form-label">Confirm new password</label>
-                                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                                        <button class="input-group-text border-start-0 bg-white" type="button" id="toggleConfirmPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
+                                            <i class="fa fa-eye" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <button type="submit" class="btn btn-primary">Change password</button>
                             </form>
@@ -98,6 +113,12 @@
     </div>
 
     <%- include('partials/_footer.ejs') %>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            setupHoldToShow('oldPassword', 'toggleOldPassword');
+            setupHoldToShow('newPassword', 'toggleNewPassword');
+            setupHoldToShow('confirmPassword', 'toggleConfirmPassword');
+        });
+    </script>
 </body>
 </html> 

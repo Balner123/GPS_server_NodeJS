@@ -4,6 +4,8 @@ require('dotenv').config();
 const path = require('path');
 const session = require('express-session');
 const flash = require('connect-flash');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swaggerDef');
 
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy
@@ -57,7 +59,7 @@ app.use('/', require('./routes/devices.web'));
 app.use('/', require('./routes/settings.web'));
 app.use('/', require('./routes/administration.web'));
 app.use('/', require('./routes/register-device'));
-app.use('/', require('./routes/verify-email-change'));
+
 
 // API routes (handling data)
 const apiLimiter = rateLimit({
@@ -73,6 +75,9 @@ app.use('/api/devices', require('./routes/devices.api'));
 app.use('/api/settings', require('./routes/settings.api'));
 app.use('/api/admin', require('./routes/administration.api'));
 app.use('/api/apk', require('./routes/apk'));
+
+// --- Swagger UI Setup ---
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Error handling middleware
 app.use((err, res, next) => {

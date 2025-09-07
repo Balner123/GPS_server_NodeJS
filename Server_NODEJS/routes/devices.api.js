@@ -4,12 +4,254 @@ const deviceController = require('../controllers/deviceController');
 const { validateCoordinates, validateSleepInterval } = require('../middleware/validators');
 const { isAuthenticated, isUser } = require('../middleware/authorization');
 
-// API routes for device data and actions
+/**
+ * @swagger
+ * tags:
+ *   name: Devices API
+ *   description: Managing devices and their data
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     DeviceInput:
+ *       type: object
+ *       required:
+ *         - id
+ *         - lon
+ *         - lat
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: The unique ID of the device.
+ *           example: "DEV12345"
+ *         lon:
+ *           type: number
+ *           format: float
+ *           description: Longitude.
+ *           example: 14.42076
+ *         lat:
+ *           type: number
+ *           format: float
+ *           description: Latitude.
+ *           example: 50.08804
+ *         spd:
+ *           type: number
+ *           format: float
+ *           description: Speed in km/h.
+ *           example: 50.5
+ *         acc:
+ *           type: number
+ *           format: float
+ *           description: Accuracy of the location in meters.
+ *           example: 10.2
+ *         alt:
+ *           type: number
+ *           format: float
+ *           description: Altitude in meters.
+ *           example: 200.1
+ *         sats:
+ *           type: integer
+ *           description: Number of satellites.
+ *           example: 8
+ *     DeviceSettingsUpdate:
+ *        type: object
+ *        required:
+ *          - deviceId
+ *          - sleepInterval
+ *        properties:
+ *          deviceId:
+ *            type: string
+ *            description: The ID of the device to update.
+ *            example: "1"
+ *          sleepInterval:
+ *            type: integer
+ *            description: The new sleep interval in seconds.
+ *            example: 300
+ */
+
+/**
+ * @swagger
+ * /api/devices/input:
+ *   post:
+ *     summary: Receive location data from a GPS device
+ *     tags: [Devices API]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DeviceInput'
+ *     responses:
+ *       '200':
+ *         description: Data received successfully. Returns the sleep interval for the device.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sleep_interval:
+ *                   type: integer
+ *                   example: 60
+ *       '400':
+ *         description: Bad request (e.g., invalid coordinates, missing 'id').
+ *       '404':
+ *         description: Device not found.
+ *       '500':
+ *         description: Server error.
+ */
 router.post('/input', validateCoordinates, deviceController.handleDeviceInput);
+
+/**
+ * @swagger
+ * /api/devices/coordinates:
+ *   get:
+ *     summary: Get current coordinates for all of the user's devices
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: An array of device locations.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   device_id:
+ *                     type: string
+ *                     example: "DEV123"
+ *                   name:
+ *                     type: string
+ *                     example: "My Car"
+ *                   latitude:
+ *                     type: number
+ *                     example: 50.08804
+ *                   longitude:
+ *                     type: number
+ *                     example: 14.42076
+ *                   timestamp:
+ *                     type: string
+ *                     format: date-time
+ *       '401':
+ *         description: Unauthorized.
+ *       '500':
+ *         description: Server error.
+ */
 router.get('/coordinates', isAuthenticated, deviceController.getCurrentCoordinates);
+
+/**
+ * @swagger
+ * /api/devices/data:
+ *   get:
+ *     summary: Get historical location data for a specific device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: The database ID of the device.
+ *     responses:
+ *       '200':
+ *         description: An array of location history points.
+ *       '400':
+ *         description: Bad request (missing device ID).
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found or does not belong to the user.
+ *       '500':
+ *         description: Server error.
+ */
 router.get('/data', isAuthenticated, deviceController.getDeviceData);
+
+/**
+ * @swagger
+ * /api/devices/settings/{deviceId}:
+ *   get:
+ *     summary: Get settings for a specific device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: deviceId
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: The database ID of the device.
+ *     responses:
+ *       '200':
+ *         description: Device settings.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found or does not belong to the user.
+ *       '500':
+ *         description: Server error.
+ */
 router.get('/settings/:deviceId', isAuthenticated, isUser, deviceController.getDeviceSettings);
+
+/**
+ * @swagger
+ * /api/devices/settings:
+ *   post:
+ *     summary: Update settings for a device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DeviceSettingsUpdate'
+ *     responses:
+ *       '200':
+ *         description: Settings updated successfully.
+ *       '400':
+ *         description: Bad request (invalid data).
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found or does not belong to the user.
+ *       '500':
+ *         description: Server error.
+ */
 router.post('/settings', isAuthenticated, isUser, validateSleepInterval, deviceController.updateDeviceSettings);
+
+/**
+ * @swagger
+ * /api/devices/delete/{deviceId}:
+ *   post:
+ *     summary: Delete a specific device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: deviceId
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: The database ID of the device to delete.
+ *     responses:
+ *       '200':
+ *         description: Device deleted successfully.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found or does not belong to the user.
+ *       '500':
+ *         description: Server error.
+ */
 router.post('/delete/:deviceId', isAuthenticated, isUser, deviceController.deleteDevice);
 
 module.exports = router;
