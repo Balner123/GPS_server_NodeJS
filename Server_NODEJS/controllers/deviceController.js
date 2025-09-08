@@ -236,6 +236,48 @@ const getDevicesPage = async (req, res) => {
   }
 };
 
+const registerDeviceFromApk = async (req, res) => {
+    const { installationId, deviceName } = req.body;
+    
+    if (!req.session.user || !req.session.user.id) {
+        return res.status(401).json({ success: false, error: 'Uživatel není přihlášen.' });
+    }
+
+    if (!installationId || !deviceName) {
+        return res.status(400).json({ success: false, error: 'Chybí ID zařízení nebo jeho název.' });
+    }
+
+    try {
+        const userId = req.session.user.id;
+
+        const existingDevice = await db.Device.findOne({
+            where: {
+                user_id: userId,
+                device_id: installationId
+            }
+        });
+
+        if (existingDevice) {
+            return res.status(200).json({ success: true, message: 'Zařízení již bylo registrováno.' });
+        }
+
+        await db.Device.create({
+            user_id: userId,
+            device_id: installationId,
+            name: deviceName
+        });
+
+        res.status(201).json({ success: true, message: 'Zařízení úspěšně registrováno.' });
+
+    } catch (error) {
+        console.error('Chyba při registraci zařízení z APK:', error);
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ success: false, error: 'Toto ID zařízení již existuje.' });
+        }
+        res.status(500).json({ success: false, error: 'Interní chyba serveru.' });
+    }
+};
+
 const registerDeviceFromHardware = async (req, res) => {
   const { username, password, deviceId, name } = req.body;
 
