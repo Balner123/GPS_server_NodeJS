@@ -58,7 +58,7 @@ app.use('/', require('./routes/auth.web'));
 app.use('/', require('./routes/devices.web'));
 app.use('/', require('./routes/settings.web'));
 app.use('/', require('./routes/administration.web'));
-app.use('/', require('./routes/register-device'));
+
 
 
 // API routes (handling data)

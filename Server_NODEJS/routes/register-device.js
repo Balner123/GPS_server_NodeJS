@@ -1,1 +1,0 @@
-// This file has been intentionally left blank as the manual device registration feature has been removed.

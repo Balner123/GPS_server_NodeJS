@@ -213,6 +213,33 @@ const deleteDevice = async (req, res) => {
   }
 };
 
+const removeDeviceFromUser = async (req, res) => {
+  const { deviceId } = req.params;
+  try {
+    const device = await db.Device.findOne({ 
+      where: { 
+        device_id: deviceId, 
+        user_id: req.session.user.id 
+      } 
+    });
+
+    if (!device) {
+      req.flash('error', 'Zařízení nebylo nalezeno nebo k němu nemáte oprávnění.');
+      return res.redirect('/devices');
+    }
+
+    await device.destroy();
+
+    req.flash('success', `Registrace pro zařízení "${deviceId}" byla úspěšně zrušena.`);
+    res.redirect('/devices');
+
+  } catch (err) {
+    console.error("Error removing device from user:", err);
+    req.flash('error', 'Došlo k chybě při odebírání zařízení.');
+    res.redirect('/devices');
+  }
+};
+
 const getDevicesPage = async (req, res) => {
   try {
     const userDevices = await db.Device.findAll({
