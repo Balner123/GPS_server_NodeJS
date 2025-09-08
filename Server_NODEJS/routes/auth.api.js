@@ -46,12 +46,16 @@ const authController = require('../controllers/authController');
  *           example: "newuser@example.com"
  *         password:
  *           type: string
- *           description: The user's password (must be at least 6 characters, with one uppercase letter, one number, and one special character).
+ *           description: The user's password. See endpoint description for validation rules.
  *           example: "NewPassword123!"
  *         confirmPassword:
  *           type: string
  *           description: The password confirmation.
  *           example: "NewPassword123!"
+ *         use_weak_password:
+ *           type: boolean
+ *           description: If true, bypasses strict password requirements and only requires a minimum length of 3 characters.
+ *           example: false
  */
 
 /**
@@ -59,6 +63,9 @@ const authController = require('../controllers/authController');
  * /api/auth/login:
  *   post:
  *     summary: Log in a user
+ *     description: |
+ *       Authenticates a user based on username/email and password.
+ *       If the user's account is not yet verified, it sends a new verification code via email and redirects to the verification page.
  *     tags: [Auth API]
  *     requestBody:
  *       required: true
@@ -68,7 +75,10 @@ const authController = require('../controllers/authController');
  *             $ref: '#/components/schemas/UserLogin'
  *     responses:
  *       '302':
- *         description: Redirect to the home page ('/') or administration page ('/administration') on successful login. The session cookie is set.
+ *         description: |
+ *           Redirects based on user status:
+ *           - **Verified User:** Redirects to the home page ('/') or administration page ('/administration'). The session cookie is set.
+ *           - **Unverified User:** Redirects to the email verification page ('/verify-email').
  *       '400':
  *         description: Bad request (e.g., missing fields).
  *       '401':
@@ -83,6 +93,11 @@ router.post('/login', authController.loginUser);
  * /api/auth/register:
  *   post:
  *     summary: Register a new user
+ *     description: |
+ *       Registers a new user and sends a verification email.
+ *       **Password Validation Rules:**
+ *       - By default, a strict policy is enforced: minimum 6 characters, 1 uppercase letter, 1 number, 1 special character.
+ *       - If `use_weak_password` is set to `true` in the request body, the strict policy is bypassed and a minimum length of 3 characters is required.
  *     tags: [Auth API]
  *     requestBody:
  *       required: true
@@ -94,26 +109,12 @@ router.post('/login', authController.loginUser);
  *       '302':
  *         description: Redirect to the email verification page ('/verify-email') on successful registration.
  *       '400':
- *         description: Bad request (e.g., passwords don't match, invalid email).
+ *         description: Bad request (e.g., passwords don't match, invalid email, password policy violation).
  *       '409':
  *         description: Conflict (user with this username or email already exists).
  *       '500':
  *         description: Server error.
  */
 router.post('/register', authController.registerUser);
-
-/**
- * @swagger
- * /api/auth/logout:
- *   get:
- *     summary: Log out the current user
- *     tags: [Auth API]
- *     security:
- *       - cookieAuth: []
- *     responses:
- *       '302':
- *         description: Redirect to the login page ('/login') after destroying the session.
- */
-router.get('/logout', authController.logoutUser);
 
 module.exports = router;

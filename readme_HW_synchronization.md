@@ -1,81 +1,93 @@
-# Plán: Sjednocení registrace HW zařízení
+# Plán Synchronizace a Registrace Hardwaru (v2.0)
 
-Tento dokument popisuje kroky potřebné k úpravě serveru a firmwaru pro `gps_tracker.ino`, aby bylo možné hardwarové zařízení registrovat přímo pomocí uživatelských přihlašovacích údajů, podobně jako mobilní aplikace.
+Tento dokument popisuje nový, bezpečnější a robustnější proces pro první spuštění a registraci hardwarových GPS jednotek. Nahrazuje původní koncept manuální registrace.
 
----
+## Cíle
 
-## Část 1: Úpravy na straně serveru (Node.js)
-
-Cílem je vytvořit nový, bezpečný API endpoint, který zvládne ověření uživatele a registraci zařízení v jednom kroku.
-
-### 1. Vytvoření nového API endpointu
-
-- **Metoda:** `POST`
-- **URL:** `/api/devices/register-by-hardware`
-- **Umístění:** Doporučeno vytvořit nový soubor `routes/api.js` nebo přidat do `routes/devices.js`.
-- **Očekávaný vstup:** JSON objekt v těle požadavku.
-  ```json
-  {
-    "deviceId": "unikátní_id_zařízení_z_mcu",
-    "username": "uzivatelske_jmeno",
-    "password": "uzivatelske_heslo"
-  }
-  ```
-
-### 2. Implementace logiky v controlleru
-
-Vytvoří se nová asynchronní funkce v `controllers/deviceController.js`, například `registerDeviceFromHardware`.
-
-- **Krok 1: Ověření uživatele.**
-  - Funkce převezme `username` a `password` z požadavku.
-  - Zavolá interní logiku pro ověření hesla (podobně jako stávající `login` funkce), aby se zkontrolovala jejich platnost v databázi.
-  - Pokud ověření selže, vrátí chybu `401 Unauthorized`.
-
-- **Krok 2: Registrace zařízení.**
-  - Pokud je uživatel úspěšně ověřen, získá se jeho `userId`.
-  - Převezme se `deviceId` z požadavku.
-  - Zkontroluje se, zda zařízení s tímto `deviceId` již neexistuje. Pokud ano, vrátí chybu `409 Conflict`.
-  - Vytvoří se nový záznam v databázi `devices` a spáruje se `deviceId` s ověřeným `userId`.
-
-- **Krok 3: Odpověď.**
-  - V případě úspěšné registrace vrátí stavový kód `200 OK`.
-  - V případě chyby vrátí odpovídající chybový kód a zprávu.
+1.  **Zvýšit bezpečnost:** Odstranit možnost registrace zařízení pouhým zadáním jeho ID, což brání "krádeži" ID.
+2.  **Zjednodušit proces pro uživatele:** Proces registrace je plně v režii uživatele a hardwaru, bez nutnosti manuálních kroků v administraci serveru.
+3.  **Sjednotit logiku:** Přiblížit proces registrace hardwaru zavedenému procesu pro mobilní aplikaci (APK).
+4.  **Šetřit energii:** Neregistrované zařízení nebude cyklicky odesílat data a vybíjet baterii.
 
 ---
 
-## Část 2: Úpravy firmwaru (gps_tracker.ino)
+## Architektura Řešení
 
-Cílem je upravit konfigurační režim zařízení tak, aby umožnil zadání přihlašovacích údajů a provedl registraci na serveru.
+Proces je rozdělen na dvě hlavní části: chování zařízení v normálním režimu a registrační proces ve speciálním OTA režimu.
 
-### 1. Rozšíření permanentní paměti (EEPROM)
+### Část 1: Chování v Normálním Režimu (Neregistrované Zařízení)
 
-- Do EEPROM se přidá nový příznak (flag) na vyhrazenou adresu, např. `is_registered` (1 byte).
-- Tento příznak bude indikovat, zda zařízení úspěšně prošlo registrací. `0` = neregistrováno, `1` = registrováno.
+Tato část řeší situaci, kdy je zařízení zapnuto, ale ještě nebylo přiřazeno k žádnému uživatelskému účtu.
 
-### 2. Úprava konfiguračního webového serveru
+#### **Kroky na straně serveru:**
 
-- **HTML formulář:** Stránka, kterou zařízení servíruje v režimu nastavení, se rozšíří o dvě nová textová pole: "Uživatelské jméno" a "Heslo".
-- **Obsluha formuláře:**
-  - Vytvoří se nová obslužná funkce `handleRegister`.
-  - Tato funkce se aktivuje po odeslání formuláře.
-  - Načte všechny hodnoty: nastavení sítě (IP serveru, atd.) a přihlašovací údaje (jméno, heslo).
-  - Zavolá novou funkci `performRegistration()` (viz níže).
-  - Podle výsledku zobrazí uživateli ve webovém prohlížeči zprávu o úspěchu nebo neúspěchu.
-  - V případě úspěchu zapíše do EEPROM `is_registered = 1` a restartuje zařízení.
+1.  **Upravit `POST /api/devices/input`:**
+    *   Logika v controlleru `handleDeviceInput` bude upravena.
+    *   Při přijetí dat se provede kontrola, zda `deviceId` existuje v databázi a je přiřazeno uživateli.
+    *   Pokud **není** nalezeno, server odpoví stavovým kódem `403 Forbidden` a JSON zprávou:
+        ```json
+        {
+          "registered": false,
+          "message": "Device is not registered."
+        }
+        ```
 
-### 3. Implementace registrační logiky
+#### **Kroky na straně hardwaru:**
 
-- Vytvoří se nová funkce `bool performRegistration(username, password)`.
-- **Krok 1: Sestavení JSON zprávy.** Vytvoří JSON objekt s `deviceId` (získaným z MAC adresy), `username` a `password`.
-- **Krok 2: Odeslání požadavku.** Pomocí knihovny `HTTPClient` odešle `POST` požadavek s tímto JSONem na nový serverový endpoint `/api/devices/register-by-hardware`.
-- **Krok 3: Zpracování odpovědi.** Zkontroluje stavový kód odpovědi od serveru. Pokud je `200 OK`, funkce vrátí `true`. V opačném případě vrátí `false`.
+1.  **Upravit `sendHTTPPostRequest()`:**
+    *   Po odeslání dat bude firmware analyzovat odpověď ze serveru.
+2.  **Upravit hlavní logiku po probuzení:**
+    *   Pokud odpověď obsahuje `{"registered": false}` (nebo je stavový kód `403`), zařízení pochopí, že není registrováno.
+    *   Vypíše na sériový port zprávu `DEVICE NOT REGISTERED. PLEASE USE OTA MODE TO REGISTER. POWERING DOWN.`
+    *   Zruší se periodický časovač pro probouzení.
+    *   Zařízení se uvede do neomezeného hlubokého spánku (de-facto se vypne), aby se zabránilo další spotřebě energie.
 
-### 4. Úprava hlavní smyčky (`loop()`)
+---
 
-- Na začátku každého cyklu `loop()` se zkontroluje příznak `is_registered` z EEPROM.
-- **Pokud je zařízení neregistrované (`is_registered == 0`):**
-  - Smyčka neprovede nic z původní logiky (nesbírá GPS, neposílá data).
-  - Může signalizovat stav čekání na registraci (např. pomalým blikáním LED).
-  - `return;`
-- **Pokud je zařízení registrované (`is_registered == 1`):**
-  - Smyčka pokračuje normálně, jak fungovala doposud – sbírá data a odesílá je na server.
+### Část 2: Registrační Proces v OTA Režimu
+
+Registrace bude možná **pouze** v tomto režimu, který vyžaduje fyzický přístup k zařízení (přepnutí switche).
+
+#### **Kroky na straně serveru:**
+
+1.  **Vytvořit nový endpoint `POST /api/hw/register-device`:**
+    *   Tento endpoint bude určen výhradně pro registraci hardwaru.
+    *   Bude očekávat `POST` požadavek s JSON tělem:
+        ```json
+        {
+          "username": "uzivatelske_jmeno",
+          "password": "heslo_uzivatele",
+          "deviceId": "unikatni_id_zarizeni",
+          "name": "Volitelny Nazev Zarizeni"
+        }
+        ```
+    *   **Logika Controlleru:**
+        1.  Ověří přihlašovací údaje (`username`, `password`) proti databázi uživatelů.
+        2.  **Pokud přihlášení selže:** Odpoví `401 Unauthorized` s chybovou hláškou.
+        3.  **Pokud přihlášení uspěje:**
+            *   Zkontroluje, zda zařízení s daným `deviceId` již není registrováno jiným uživatelem. Pokud ano, vrátí chybu `409 Conflict`.
+            *   Pokud je vše v pořádku, vytvoří v databázi nový záznam v tabulce `Devices`, kde propojí `deviceId` s ID přihlášeného uživatele.
+            *   Odpoví `201 Created` s potvrzovací zprávou.
+
+2.  **Odstranit starou manuální registraci:**
+    *   Webová stránka `/register-device` a její obslužné routy a funkce v controlleru budou z projektu kompletně odstraněny.
+
+#### **Kroky na straně hardwaru:**
+
+1.  **Rozšířit `startOTAMode()`:**
+    *   Webový server běžící na zařízení bude obsluhovat dvě stránky:
+        1.  Původní stránku pro nahrání nového firmwaru (`/update`).
+        2.  Novou hlavní stránku (`/`), která bude obsahovat:
+            *   Informace o zařízení (jeho ID).
+            *   **Přihlašovací formulář** s poli pro `username` a `password`.
+            *   Odkaz na stránku `/update`.
+2.  **Vytvořit handler pro přihlašovací formulář (např. `POST /register`):**
+    *   Po odeslání formuláře handler na zařízení provede následující kroky:
+        1.  Zapne SIM modul a připojí se k síti GPRS.
+        2.  Získá `username` a `password` z formuláře.
+        3.  Vytvoří JSON tělo s přihlašovacími údaji a vlastním `deviceId`.
+        4.  Odešle `POST` požadavek na serverový endpoint `/api/hw/register-device`.
+        5.  Na základě odpovědi ze serveru zobrazí uživateli na webové stránce výsledek:
+            *   **Úspěch:** "Zařízení úspěšně registrováno k účtu [username]. Restartujte zařízení do normálního režimu."
+            *   **Neúspěch:** "Chyba: Neplatné přihlašovací údaje." nebo jiná relevantní chyba.
+        6.  Po dokončení operace se SIM modul opět vypne.

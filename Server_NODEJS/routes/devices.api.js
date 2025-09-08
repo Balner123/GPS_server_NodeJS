@@ -18,43 +18,56 @@ const { isAuthenticated, isUser } = require('../middleware/authorization');
  *     DeviceInput:
  *       type: object
  *       required:
- *         - id
- *         - lon
- *         - lat
+ *         - device
+ *         - latitude
+ *         - longitude
  *       properties:
- *         id:
+ *         device:
  *           type: string
  *           description: The unique ID of the device.
- *           example: "DEV12345"
- *         lon:
- *           type: number
- *           format: float
- *           description: Longitude.
- *           example: 14.42076
- *         lat:
+ *           example: "AC12345678"
+ *         name:
+ *           type: string
+ *           description: The name of the device. Can be used to update the device name.
+ *           example: "My Car Tracker"
+ *         latitude:
  *           type: number
  *           format: float
  *           description: Latitude.
  *           example: 50.08804
- *         spd:
+ *         longitude:
+ *           type: number
+ *           format: float
+ *           description: Longitude.
+ *           example: 14.42076
+ *         speed:
  *           type: number
  *           format: float
  *           description: Speed in km/h.
  *           example: 50.5
- *         acc:
- *           type: number
- *           format: float
- *           description: Accuracy of the location in meters.
- *           example: 10.2
- *         alt:
+ *         altitude:
  *           type: number
  *           format: float
  *           description: Altitude in meters.
  *           example: 200.1
- *         sats:
+ *         accuracy:
+ *           type: number
+ *           format: float
+ *           description: Accuracy of the location (HDOP value).
+ *           example: 1.2
+ *         satellites:
  *           type: integer
  *           description: Number of satellites.
  *           example: 8
+ *         timestamp:
+ *           type: string
+ *           format: date-time
+ *           description: The UTC timestamp of the reading.
+ *           example: "2025-09-08T12:34:56Z"
+ *         error:
+ *           type: string
+ *           description: An error message if no GPS fix was obtained.
+ *           example: "No GPS fix (External)"
  *     DeviceSettingsUpdate:
  *        type: object
  *        required:
@@ -101,7 +114,7 @@ const { isAuthenticated, isUser } = require('../middleware/authorization');
  *       '500':
  *         description: Server error.
  */
-router.post('/input', validateCoordinates, deviceController.handleDeviceInput);
+router.post('/input', deviceController.handleDeviceInput);
 
 /**
  * @swagger

@@ -131,6 +131,8 @@ uint8_t  gpsHour = 0;
 uint8_t  gpsMinute = 0;
 uint8_t  gpsSecond = 0;
 
+bool isRegistered = true; // Assume registered until told otherwise by the server
+
 // ------------------------- Function Prototypes (External GPS)-----------------------------
 void powerUpGPS();
 void powerDownGPS();
@@ -145,7 +147,7 @@ void startOTAMode();
 // ------------------------- Function Prototypes (Modem A7670E & System) -------------
 bool initializeModem();
 bool connectGPRS();
-void sendHTTPPostRequest();
+void sendGpsData();
 void disconnectGPRS();
 void powerOffModem();
 void enterDeepSleep(uint64_t seconds);
@@ -212,7 +214,7 @@ void setup() {
     if (connectGPRS()) {
       SerialMon.println(F("GPRS Connected."));
       // 5. Send data via HTTPS POST (uses global GPS variables)
-      sendHTTPPostRequest(); 
+      sendGpsData(); 
       // 6. Disconnect GPRS
       disconnectGPRS();
       SerialMon.println(F("GPRS Disconnected."));
@@ -228,9 +230,16 @@ void setup() {
     SerialMon.println(F("--- Powering off Modem A7670E ---"));
     powerOffModem();
 
-    // 8. Enter Deep Sleep
-    SerialMon.print(F("Next update in approx. ")); SerialMon.print(sleepTimeSeconds); SerialMon.println(F(" seconds."));
-    enterDeepSleep(sleepTimeSeconds);
+    // 8. Enter Deep Sleep or Power Down
+    if (isRegistered) {
+      SerialMon.print(F("Device is registered. Next update in approx. ")); SerialMon.print(sleepTimeSeconds); SerialMon.println(F(" seconds."));
+      enterDeepSleep(sleepTimeSeconds);
+    } else {
+      SerialMon.println(F("DEVICE NOT REGISTERED. Powering down permanently."));
+      SerialMon.println(F("Please use OTA mode to register the device."));
+      // Entering deep sleep without a wake-up timer effectively powers down the ESP32 part of the module.
+      esp_deep_sleep_start();
+    }
   }
 }
 
@@ -337,9 +346,55 @@ bool connectGPRS() {
   return true;
 }
 
-void sendHTTPPostRequest() {
-  SerialMon.println(F("Performing HTTPS POST request (A76XX Library Method)..."));
+String sendPostRequest(const char* resource, const String& payload) {
+  SerialMon.print(F("Performing HTTPS POST to: ")); SerialMon.println(resource);
+  SerialMon.print(F("Payload: ")); SerialMon.println(payload);
 
+  String response_body = "";
+
+  if (!modem.https_begin()) {
+    SerialMon.println(F("Failed to begin HTTPS session."));
+    return "";
+  }
+
+  String fullUrl = "https://";
+  fullUrl += server;
+  fullUrl += resource;
+  
+  SerialMon.print(F("Set URL: ")); SerialMon.println(fullUrl);
+  if (!modem.https_set_url(fullUrl)) {
+    SerialMon.println(F("Failed to set URL."));
+    modem.https_end();
+    return "";
+  }
+
+  SerialMon.println(F("Set Content-Type header..."));
+  if (!modem.https_set_content_type("application/json")) {
+    SerialMon.println(F("Failed to set Content-Type."));
+    modem.https_end();
+    return "";
+  }
+
+  SerialMon.println(F("Sending POST request..."));
+  int statusCode = modem.https_post(payload);
+
+  if (statusCode <= 0) {
+    SerialMon.print(F("POST request failed with status code: ")); SerialMon.println(statusCode);
+  } else {
+    SerialMon.print(F("Response Status Code: ")); SerialMon.println(statusCode);
+    SerialMon.println(F("Reading response body..."));
+    response_body = modem.https_body();
+  }
+  
+  SerialMon.println(F("End HTTPS session."));
+  modem.https_end();
+
+  SerialMon.println(F("Response Body:"));
+  SerialMon.println(response_body);
+  return response_body;
+}
+
+void sendGpsData() {
   JsonDocument jsonDoc;
   jsonDoc["device"] = deviceID;
   jsonDoc["name"] = deviceName;
@@ -367,53 +422,10 @@ void sendHTTPPostRequest() {
 
   String jsonData;
   serializeJson(jsonDoc, jsonData);
-  SerialMon.print(F("JSON Payload: ")); SerialMon.println(jsonData);
-
-  // Correct step-by-step method for TinyGSM A76XX fork
-  SerialMon.println(F("Begin HTTPS session..."));
-  if (!modem.https_begin()) {
-    SerialMon.println(F("Failed to begin HTTPS session."));
-    return;
-  }
-
-  String fullUrl = "https://";
-  fullUrl += server;
-  fullUrl += resourcePost;
   
-  SerialMon.print(F("Set URL: ")); SerialMon.println(fullUrl);
-  if (!modem.https_set_url(fullUrl)) {
-    SerialMon.println(F("Failed to set URL."));
-    modem.https_end();
-    return;
-  }
-
-  SerialMon.println(F("Set Content-Type header..."));
-  if (!modem.https_set_content_type("application/json")) {
-    SerialMon.println(F("Failed to set Content-Type."));
-    modem.https_end();
-    return;
-  }
-
-  SerialMon.println(F("Sending POST request..."));
-  int statusCode = modem.https_post(jsonData);
-
-  if (statusCode <= 0) {
-    SerialMon.print(F("POST request failed with status code: ")); SerialMon.println(statusCode);
-    modem.https_end();
-    return;
-  }
-
-  SerialMon.print(F("Response Status Code: ")); SerialMon.println(statusCode);
-
-  SerialMon.println(F("Reading response body..."));
-  String response_body = modem.https_body();
+  String response_body = sendPostRequest(resourcePost, jsonData);
   
-  SerialMon.println(F("End HTTPS session."));
-  modem.https_end();
-
-  SerialMon.println(F("Response Body:"));
-  SerialMon.println(response_body);
-  
+  // --- Process server response ---
   if (response_body.length() > 0) {
     JsonDocument serverResponseDoc;
     DeserializationError error = deserializeJson(serverResponseDoc, response_body);
@@ -422,10 +434,17 @@ void sendHTTPPostRequest() {
       SerialMon.print(F("deserializeJson() for server response failed: "));
       SerialMon.println(error.f_str());
     } else {
+      // Check for registration status first (sent with HTTP 403)
+      if (serverResponseDoc["registered"] == false) {
+        SerialMon.println(F("Server indicated device is not registered."));
+        isRegistered = false;
+      }
+
+      // Check for sleep interval (sent with HTTP 200)
       if (!serverResponseDoc["sleep_interval"].isNull()) {
         if (serverResponseDoc["sleep_interval"].is<unsigned int>()) {
           uint64_t server_sleep = serverResponseDoc["sleep_interval"].as<unsigned int>();
-          if (server_sleep > 0 && server_sleep < (24 * 3600)) {
+          if (server_sleep > 0 && server_sleep < (24 * 3600)) { // Basic sanity check for sleep interval
             sleepTimeSeconds = server_sleep;
             SerialMon.print(F("Server updated sleep interval to: ")); SerialMon.println(sleepTimeSeconds);
           } else {
@@ -434,8 +453,6 @@ void sendHTTPPostRequest() {
         } else {
           SerialMon.println(F("sleep_interval from server is not an unsigned integer, using default."));
         }
-      } else {
-        SerialMon.println(F("Server response does not contain 'sleep_interval' or it is null."));
       }
     }
   } else {
@@ -574,36 +591,145 @@ bool waitForGPSFix(unsigned long timeout) {
   return gpsFixObtained;
 }
 
+// --- Global variable for GPRS connection status in OTA ---
+bool gprsConnectedOTA = false;
+
+// --- HTML for OTA Main Page ---
+const char* ota_main_page_template = R"rawliteral(
+  <html>
+  <head>
+    <title>Device OTA & Registration</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 90vh; text-align: center; }
+      .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
+      h1 { color: #333; }
+      p { color: #555; line-height: 1.5; }
+      .status { padding: 10px; border-radius: 4px; margin: 15px 0; font-weight: bold; }
+      .status.ok { background-color: #d4edda; color: #155724; }
+      .status.fail { background-color: #f8d7da; color: #721c24; }
+      .form-group { margin-bottom: 15px; text-align: left; }
+      label { display: block; margin-bottom: 5px; font-weight: bold; }
+      input[type='text'], input[type='password'] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+      input[type='submit'] { background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; width: 100%; }
+      input[type='submit']:hover { background-color: #218838; }
+      .update-link { margin-top: 20px; }
+      a { color: #007bff; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Device Service Mode</h1>
+      <p><b>Device ID:</b> %id%</p>
+      <p><b>GPRS Status:</b> <span class="status %gprs_status_class%">%gprs_status%</span></p>
+      <hr>
+      <h2>Register Device</h2>
+      <p>If this device is not registered, enter your account details below.</p>
+      <form method='POST' action='/doregister'>
+        <div class="form-group">
+          <label for="username">Username:</label>
+          <input type='text' id="username" name='username' required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <input type='password' id="password" name='password' required>
+        </div>
+        <input type='submit' value='Register Device'>
+      </form>
+      <div class="update-link">
+        <a href="/update">Go to Firmware Update Page &raquo;</a>
+      </div>
+    </div>
+  </body>
+  </html>
+)rawliteral";
+
 // --- OTA Mode Function Implementation ---
 void startOTAMode() {
-  SerialMon.println(F("Starting OTA Mode setup..."));
-  
-  // Disconnect and turn off WiFi if it was somehow on (e.g. from a previous run if not deep sleeping)
+  SerialMon.println(F("--- OTA Service Mode Activated ---"));
+
+  // 1. Initialize and connect modem first
+  SerialMon.println(F("Initializing Modem for OTA mode..."));
+  if (initializeModem()) {
+    SerialMon.println(F("Connecting to GPRS for OTA mode..."));
+    gprsConnectedOTA = connectGPRS();
+  } else {
+    gprsConnectedOTA = false;
+    SerialMon.println(F("Modem initialization failed. Registration will not be possible."));
+  }
+
+  // 2. Start WiFi AP
+  SerialMon.println(F("Starting WiFi AP..."));
   WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
-  delay(100);
-
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(ota_ssid, ota_password); // Password can be NULL for an open network
-
+  WiFi.softAP(ota_ssid, ota_password);
   IPAddress apIP = WiFi.softAPIP();
-  SerialMon.print(F("AP IP address: "));
-  SerialMon.println(apIP);
-  SerialMon.print(F("Connect to Wi-Fi: "));
-  SerialMon.println(ota_ssid);
-  SerialMon.println(F("Open browser to http://<IP_ADDRESS_ABOVE> or http://gps-tracker.local (if mDNS works)"));
+  SerialMon.print(F("AP IP address: ")); SerialMon.println(apIP);
 
+  // 3. Define Web Server Handlers
 
+  // Handler for the main service page
   otaServer.on("/", HTTP_GET, []() {
-    otaServer.sendHeader("Connection", "close");
-    String page_content = String(update_form_page);
-    page_content.replace("%s", ota_ssid);
+    String page_content = String(ota_main_page_template);
     page_content.replace("%id%", deviceID);
+    if (gprsConnectedOTA) {
+      page_content.replace("%gprs_status_class%", "ok");
+      page_content.replace("%gprs_status%", "Connected");
+    } else {
+      page_content.replace("%gprs_status_class%", "fail");
+      page_content.replace("%gprs_status%", "Connection Failed");
+    }
     otaServer.send(200, "text/html", page_content);
   });
 
+  // Handler for the firmware update page
+  otaServer.on("/update", HTTP_GET, []() {
+    String page_content = String(update_form_page);
+    page_content.replace("%id%", deviceID);
+    page_content.replace("%s", ota_ssid);
+    otaServer.send(200, "text/html", page_content);
+  });
+
+  // Handler for the registration form submission
+  otaServer.on("/doregister", HTTP_POST, []() {
+    if (!gprsConnectedOTA) {
+      otaServer.send(503, "text/plain", "GPRS not connected. Cannot process registration.");
+      return;
+    }
+    if (!otaServer.hasArg("username") || !otaServer.hasArg("password")) {
+      otaServer.send(400, "text/plain", "Missing username or password.");
+      return;
+    }
+    String username = otaServer.arg("username");
+    String password = otaServer.arg("password");
+
+    JsonDocument regDoc;
+    regDoc["username"] = username;
+    regDoc["password"] = password;
+    regDoc["deviceId"] = deviceID;
+    regDoc["name"] = deviceName;
+    String registrationPayload;
+    serializeJson(regDoc, registrationPayload);
+
+    String response = sendPostRequest("/api/hw/register-device", registrationPayload);
+
+    JsonDocument serverResponseDoc;
+    DeserializationError error = deserializeJson(serverResponseDoc, response);
+
+    String responsePage = "<h1>Registration Status</h1><p>";
+    if (!error && serverResponseDoc["success"] == true) {
+      responsePage += "Device registered successfully! Please reboot the device into normal mode.";
+    } else {
+      responsePage += "Registration failed. Please check your credentials and try again.";
+      responsePage += "<br><small>Server response: " + response + "</small>";
+    }
+    responsePage += "</p><a href='/'>Go Back</a>";
+    otaServer.send(200, "text/html", responsePage);
+  });
+
+  // Handler for the actual firmware update process (same as before)
   otaServer.on("/update", HTTP_POST, []() {
-    // This is called after the upload is complete
     otaServer.sendHeader("Connection", "close");
     if (Update.hasError()) {
         char errorMsg[128];
@@ -611,40 +737,25 @@ void startOTAMode() {
         String page_content = failure_page_template;
         page_content.replace("%s", errorMsg);
         otaServer.send(500, "text/html", page_content);
-        SerialMon.println(errorMsg);
     } else {
         otaServer.send(200, "text/html", success_page);
-        SerialMon.println(F("OTA Update Successful. Please reboot."));
     }
-    // User will manually restart the device
   }, []() {
-    // This is the upload handler, called during the file upload
     HTTPUpload& upload = otaServer.upload();
     if (upload.status == UPLOAD_FILE_START) {
-      SerialMon.printf("OTA Update Start: %s\n", upload.filename.c_str());
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { // Use UPDATE_SIZE_UNKNOWN for web uploads
-        Update.printError(SerialMon);
-      }
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { Update.printError(SerialMon); }
     } else if (upload.status == UPLOAD_FILE_WRITE) {
-      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-        Update.printError(SerialMon);
-      }
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) { Update.printError(SerialMon); }
     } else if (upload.status == UPLOAD_FILE_END) {
-      if (Update.end(true)) { // true to set the new sketch to boot
-        SerialMon.printf("OTA Update Finished. Total size: %u bytes\n", upload.totalSize);
-      } else {
-        Update.printError(SerialMon);
-      }
-    } else if (upload.status == UPLOAD_FILE_ABORTED) {
-        SerialMon.println(F("OTA Update Aborted by client."));
-        Update.end(false); // Ensure we don't boot a partial update
+      if (!Update.end(true)) { Update.printError(SerialMon); }
     }
   });
 
+  // 4. Start Web Server
   otaServer.begin();
-  SerialMon.println(F("OTA Web Server started. Waiting for connections and uploads..."));
+  SerialMon.println(F("OTA Web Server started. Waiting for connections..."));
 
-  // Loop indefinitely to handle OTA requests
+  // 5. Loop indefinitely to handle OTA requests
   while (true) {
     otaServer.handleClient();
     delay(1);

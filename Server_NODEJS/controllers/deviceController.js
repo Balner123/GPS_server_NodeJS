@@ -1,9 +1,10 @@
 const db = require('../database');
 const { validationResult } = require('express-validator');
+const bcrypt = require('bcryptjs');
 
 const getDeviceSettings = async (req, res) => {
   try {
-    const deviceId = req.params.device;
+    const deviceId = req.params.deviceId;
     const device = await db.Device.findOne({ 
       where: { 
         device_id: deviceId,
@@ -53,43 +54,75 @@ const handleDeviceInput = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    const { device: deviceId, name, longitude, latitude, speed, altitude, accuracy, satellites } = req.body;
+
+    const dataPoints = Array.isArray(req.body) ? req.body : [req.body];
     
+    if (dataPoints.length === 0) {
+        return res.status(400).json({ error: 'Request body cannot be empty.' });
+    }
+
+    const firstPoint = dataPoints[0];
+    const { device: deviceId, name } = firstPoint;
+
+    if (!deviceId) {
+        return res.status(400).json({ error: 'Device ID is missing in the payload.' });
+    }
+
     const device = await db.Device.findOne({ where: { device_id: deviceId } });
 
     if (!device) {
-      return res.status(200).send(); 
+      // Per the new registration flow, if a device is not found in the database,
+      // it is considered "not registered". We return a specific response that the
+      // hardware can understand and act upon.
+      return res.status(403).json({ 
+        registered: false,
+        message: `Device with ID ${deviceId} is not registered.` 
+      });
     }
 
     const t = await db.sequelize.transaction();
     try {
+      const locationsToCreate = dataPoints.map(point => {
+        if (point.latitude === undefined || point.longitude === undefined) {
+            throw new Error('Each data point in the array must have latitude and longitude.');
+        }
+        return {
+          device_id: device.id,
+          latitude: point.latitude,
+          longitude: point.longitude,
+          speed: point.speed,
+          altitude: point.altitude,
+          accuracy: point.accuracy,
+          satellites: point.satellites,
+          timestamp: point.timestamp && new Date(point.timestamp).getTime() > 0 ? new Date(point.timestamp) : new Date()
+        };
+      });
+
+      if (locationsToCreate.length > 0) {
+        await db.Location.bulkCreate(locationsToCreate, { transaction: t, validate: true });
+      }
+
       if (name && device.name !== name) {
         device.name = name;
       }
-
-      const location = await db.Location.create({
-        device_id: device.id,
-        longitude,
-        latitude,
-        speed,
-        altitude,
-        accuracy,
-        satellites
-      }, { transaction: t });
-
       device.last_seen = new Date();
       await device.save({ transaction: t });
       
       await t.commit();
       
       res.status(200).json({ 
-        id: location.id,
+        success: true,
+        message: `${locationsToCreate.length} location(s) recorded.`,
         sleep_interval: device.sleep_interval
       });
+
     } catch (err) {
       await t.rollback();
       console.error("Error in handleDeviceInput transaction:", err);
-      res.status(500).json({ error: err.message });
+      if (err.message.includes('latitude and longitude')) {
+          return res.status(400).json({ error: err.message });
+      }
+      res.status(500).json({ error: 'An error occurred during the database transaction.' });
     }
   } catch (err) {
       console.error("Error in handleDeviceInput:", err);
@@ -203,132 +236,50 @@ const getDevicesPage = async (req, res) => {
   }
 };
 
-const addDeviceToUser = async (req, res) => {
-  const { deviceId } = req.body;
-  if (!deviceId || deviceId.length !== 10) {
-    req.flash('error', 'Je vyžadováno platné 10místné ID zařízení.');
-    return res.redirect('/register-device');
+const registerDeviceFromHardware = async (req, res) => {
+  const { username, password, deviceId, name } = req.body;
+
+  if (!username || !password || !deviceId) {
+    return res.status(400).json({ success: false, error: 'Missing username, password, or deviceId.' });
   }
 
   try {
+    // 1. Authenticate user
+    const user = await db.User.findOne({ where: { username: username } });
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials.' });
+    }
+
+    // 2. Check if device exists
     const existingDevice = await db.Device.findOne({ where: { device_id: deviceId } });
 
     if (existingDevice) {
-      req.flash('error', `Zařízení s ID "${deviceId}" je již registrováno v systému.`);
-      return res.redirect('/register-device');
+      if (existingDevice.user_id === user.id) {
+        return res.status(200).json({ success: true, message: 'Device already registered to your account.' });
+      } else {
+        return res.status(409).json({ success: false, error: 'Device already registered to another user.' });
+      }
     }
 
+    // 3. Register new device
     await db.Device.create({
       device_id: deviceId,
-      user_id: req.session.user.id
+      user_id: user.id,
+      name: name || `Device ${deviceId.slice(0, 6)}` // Default name if not provided
     });
 
-    req.flash('success', `Zařízení "${deviceId}" bylo úspěšně registrováno.`);
-    res.redirect('/devices');
+    res.status(201).json({ success: true, message: 'Device registered successfully.' });
 
-  } catch (err) {
-    console.error("Error adding device to user:", err);
-    if (err.name === 'SequelizeUniqueConstraintError') {
-       req.flash('error', `Zařízení s ID "${deviceId}" je již registrováno v systému.`);
-    } else {
-       req.flash('error', 'Došlo k chybě při registraci zařízení.');
-    }
-    res.redirect('/register-device');
+  } catch (error) {
+    console.error('Error during hardware device registration:', error);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 };
-
-const removeDeviceFromUser = async (req, res) => {
-  const { deviceId } = req.params;
-  try {
-    const device = await db.Device.findOne({ 
-      where: { 
-        device_id: deviceId, 
-        user_id: req.session.user.id 
-      } 
-    });
-
-    if (!device) {
-      req.flash('error', 'Zařízení nebylo nalezeno nebo k němu nemáte oprávnění.');
-      return res.redirect('/devices');
-    }
-
-    await device.destroy();
-
-    req.flash('success', `Registrace pro zařízení "${deviceId}" byla úspěšně zrušena.`);
-    res.redirect('/devices');
-
-  } catch (err) {
-    console.error("Error removing device from user:", err);
-    req.flash('error', 'Došlo k chybě při odebírání zařízení.');
-    res.redirect('/devices');
-  }
-};
-
-const getRegisterDevicePage = async (req, res) => {
-  try {
-    const userDevices = await db.Device.findAll({
-      where: { user_id: req.session.user.id },
-      order: [['created_at', 'DESC']]
-    });
-    res.render('register-device', { 
-      devices: userDevices,
-      error: req.flash('error'),
-      success: req.flash('success'),
-      currentPage: 'register-device'
-    });
-  } catch (err) {
-    console.error("Error fetching devices for register page:", err);
-    res.render('register-device', { 
-      devices: [], 
-      error: ['Došlo k chybě při načítání vašich zařízení.'],
-      success: null,
-      currentPage: 'register-device'
-    });
-  }
-};
-
-const registerDeviceFromApk = async (req, res) => {
-    const { installationId, deviceName } = req.body;
-    
-    if (!req.session.user || !req.session.user.id) {
-        return res.status(401).json({ success: false, error: 'Uživatel není přihlášen.' });
-    }
-
-    if (!installationId || !deviceName) {
-        return res.status(400).json({ success: false, error: 'Chybí ID zařízení nebo jeho název.' });
-    }
-
-    try {
-        const userId = req.session.user.id;
-
-        const existingDevice = await db.Device.findOne({
-            where: {
-                user_id: userId,
-                device_id: installationId
-            }
-        });
-
-        if (existingDevice) {
-            return res.status(200).json({ success: true, message: 'Zařízení již bylo registrováno.' });
-        }
-
-        await db.Device.create({
-            user_id: userId,
-            device_id: installationId,
-            name: deviceName
-        });
-
-        res.status(201).json({ success: true, message: 'Zařízení úspěšně registrováno.' });
-
-    } catch (error) {
-        console.error('Chyba při registraci zařízení z APK:', error);
-        if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(409).json({ success: false, error: 'Toto ID zařízení již existuje.' });
-        }
-        res.status(500).json({ success: false, error: 'Interní chyba serveru.' });
-    }
-};
-
 
 module.exports = {
   getDeviceSettings,
@@ -339,7 +290,6 @@ module.exports = {
   getDeviceData,
   deleteDevice,
   getDevicesPage,
-  getRegisterDevicePage,
-  addDeviceToUser,
   removeDeviceFromUser,
+  registerDeviceFromHardware,
 };

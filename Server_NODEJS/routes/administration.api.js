@@ -15,6 +15,7 @@ const { isAuthenticated, isRoot } = require('../middleware/authorization');
  * /api/admin/delete-user/{userId}:
  *   post:
  *     summary: (Admin) Delete a user and all their associated data
+ *     description: Deletes a user and all of their associated devices and location data. The root user cannot delete themselves.
  *     tags: [Administration API]
  *     security:
  *       - cookieAuth: []
@@ -26,12 +27,10 @@ const { isAuthenticated, isRoot } = require('../middleware/authorization');
  *         required: true
  *         description: The database ID of the user to delete.
  *     responses:
- *       '200':
- *         description: User and their data deleted successfully.
+ *       '302':
+ *         description: Redirects to the /administration page on success, or if the root user attempts to delete themselves.
  *       '401':
- *         description: Unauthorized (user is not a root admin).
- *       '404':
- *         description: User not found.
+ *         description: Unauthorized (user is not a root admin). This is handled by the `isRoot` middleware.
  *       '500':
  *         description: Server error.
  */
@@ -42,6 +41,7 @@ router.post('/delete-user/:userId', isAuthenticated, isRoot, administrationContr
  * /api/admin/delete-device/{deviceId}:
  *   post:
  *     summary: (Admin) Delete a device and all its associated data
+ *     description: Deletes a device and all of its associated location data. This action is irreversible.
  *     tags: [Administration API]
  *     security:
  *       - cookieAuth: []
@@ -49,16 +49,14 @@ router.post('/delete-user/:userId', isAuthenticated, isRoot, administrationContr
  *       - in: path
  *         name: deviceId
  *         schema:
- *           type: integer
+ *           type: string
  *         required: true
- *         description: The database ID of the device to delete.
+ *         description: The unique string ID (device_id) of the device to delete.
  *     responses:
- *       '200':
- *         description: Device and its data deleted successfully.
+ *       '302':
+ *         description: Redirects to the /administration page on success. The redirect happens even if the device was not found.
  *       '401':
- *         description: Unauthorized (user is not a root admin).
- *       '404':
- *         description: Device not found.
+ *         description: Unauthorized (user is not a root admin). This is handled by the `isRoot` middleware.
  *       '500':
  *         description: Server error.
  */
