@@ -55,7 +55,7 @@ const handleDeviceInput = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const dataPoints = Array.isArray(req.body) ? req.body : [req.body];
+    let dataPoints = Array.isArray(req.body) ? req.body : [req.body];
     
     if (dataPoints.length === 0) {
         return res.status(400).json({ error: 'Request body cannot be empty.' });
@@ -90,11 +90,11 @@ const handleDeviceInput = async (req, res) => {
           device_id: device.id,
           latitude: point.latitude,
           longitude: point.longitude,
-          speed: point.speed,
-          altitude: point.altitude,
-          accuracy: point.accuracy,
-          satellites: point.satellites,
-          timestamp: point.timestamp && new Date(point.timestamp).getTime() > 0 ? new Date(point.timestamp) : new Date()
+          speed: point.speed !== undefined ? point.speed : null,
+          altitude: point.altitude !== undefined ? point.altitude : null,
+          accuracy: point.accuracy !== undefined ? point.accuracy : null,
+          satellites: point.satellites !== undefined ? point.satellites : null,
+          timestamp: point.timestamp && new Date(point.timestamp).getTime() > 0 ? new Date(point.timestamp) : new Date() 
         };
       });
 

@@ -32,7 +32,7 @@ const char gprsPass[] = "gprs";                 // Replace with your GPRS passwo
 // --- Server Configuration ---
 const char server[]       = "lotr-system.xyz"; // Your server IP or hostname
 const int  port           = 443;              // Your server port
-const char resourcePost[] = "/device_input";     // Your server endpoint
+const char resourcePost[] = "/api/devices/input";     // Your server endpoint
 
 // --- Device & GPS Configuration ---
 const char* deviceName = "NEO-6M_A7670E"; // Device name for the payload
@@ -53,15 +53,26 @@ WebServer otaServer(80);
 // HTML for OTA upload page
 const char* update_form_page = R"rawliteral(
   <html>
-  <head><title>OTA Update</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 90vh; }
-    .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; }
-    h1 { color: #333; }
-    input[type='file'] { margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 4px; width: calc(100% - 22px); }
-    input[type='submit'] { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
-    input[type='submit']:hover { background-color: #0056b3; }
-  </style>
+  <head>
+    <title>OTA Update</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 90vh; text-align: center; }
+      .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
+      h1 { color: #333; }
+      p { color: #555; line-height: 1.5; }
+      .status { padding: 10px; border-radius: 4px; margin: 15px 0; font-weight: bold; }
+      .status.ok { background-color: #d4edda; color: #155724; }
+      .status.fail { background-color: #f8d7da; color: #721c24; }
+      .form-group { margin-bottom: 15px; text-align: left; }
+      label { display: block; margin-bottom: 5px; font-weight: bold; }
+      input[type='text'], input[type='password'], input[type='file'] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; } /* Added input[type='file'] */
+      input[type='submit'] { background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; width: 100%; } /* Changed color to green */
+      input[type='submit']:hover { background-color: #218838; } /* Changed hover color */
+      .update-link { margin-top: 20px; }
+      a { color: #007bff; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
   </head>
   <body>
     <div class="container">
