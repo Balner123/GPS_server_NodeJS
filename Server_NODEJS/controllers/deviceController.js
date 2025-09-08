@@ -315,7 +315,9 @@ const registerDeviceFromHardware = async (req, res) => {
   try {
     // 1. Authenticate user
     const user = await db.User.findOne({ where: { username: username } });
-    if (!user) {
+
+    // Also check if the user has a password set, to prevent bcrypt from crashing
+    if (!user || !user.password) {
       return res.status(401).json({ success: false, error: 'Invalid credentials.' });
     }
 
@@ -349,6 +351,8 @@ const registerDeviceFromHardware = async (req, res) => {
     res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 };
+
+
 
 module.exports = {
   getDeviceSettings,

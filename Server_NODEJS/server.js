@@ -75,6 +75,7 @@ app.use('/api/devices', require('./routes/devices.api'));
 app.use('/api/settings', require('./routes/settings.api'));
 app.use('/api/admin', require('./routes/administration.api'));
 app.use('/api/apk', require('./routes/apk'));
+app.use('/api/hw', require('./routes/hw.api.js'));
 
 // --- Swagger UI Setup ---
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

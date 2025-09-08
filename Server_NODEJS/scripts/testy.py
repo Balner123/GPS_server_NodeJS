@@ -1,63 +1,100 @@
 import requests
 import json
+import uuid
 
 # --- Konfigurace ---
+# Upravte podle vaší lokální instance serveru
 BASE_URL = "http://localhost:5000"
-# DŮLEŽITÉ: Toto ID zařízení MUSÍ být předem ručně zaregistrováno v systému
-# pod nějakým uživatelským účtem, aby tento test uspěl.
-TEST_DEVICE_ID = "0123456789" # Příklad ID, změňte dle potřeby
-TEST_DEVICE_NAME = "Moje Testovací GPS" # Jméno, které zařízení posílá
 
-def send_gps_data(device_id, device_name, longitude, latitude):
-    """Odešle GPS data vč. jména na server."""
-    endpoint = f"{BASE_URL}/device_input"
-    data = {
-        "device": device_id,
-        "name": device_name,
-        "longitude": longitude,
-        "latitude": latitude
-    }
+# --- Testovací údaje ---
+# Zadejte platné přihlašovací údaje k existujícímu účtu na serveru
+VALID_USERNAME = "lotr"
+VALID_PASSWORD = "lotr"
+
+# Unikátní ID zařízení, které budeme registrovat. UUID zajišťuje, že bude pokaždé jiné.
+# Můžete nahradit i statickým ID pro opakované testování.
+DEVICE_ID_TO_REGISTER = str(uuid.uuid4().hex)[:12].upper()
+DEVICE_NAME = "Testovací Zařízení (Python)"
+
+HEADERS = {
+    'Content-Type': 'application/json'
+}
+
+
+def test_hw_registration(description, payload, expected_status_code):
+    """Otestuje HW registrační endpoint s daným payloadem a očekávaným výsledkem."""
+    endpoint = f"{BASE_URL}/api/hw/register-device"
     
-    print(f"-> Odesílám GPS data pro registrované zařízení: {device_id} (Jméno: '{device_name}')")
-    print(f"   Data: {json.dumps(data)}")
+    print(f"\n--- Test: {description} ---")
+    print(f"-> Endpoint: {endpoint}")
+    print(f"-> Payload: {json.dumps(payload)}")
 
     try:
-        # Použijeme parametr `json` pro automatickou serializaci a nastavení hlavičky
-        response = requests.post(endpoint, json=data)
-        print(f"<- Stavový kód odpovědi: {response.status_code}")
-
-        if response.status_code != 200:
-            print(f"<- Neočekávaný stavový kód: {response.status_code}")
-            print(f"   Tělo odpovědi: {response.text}")
-            return "error"
+        response = requests.post(endpoint, headers=HEADERS, data=json.dumps(payload))
         
-        # Pro úspěšný stavový kód (200) se pokusíme dekódovat JSON
+        print(f"<- Stavový kód: {response.status_code}")
         try:
-            response_json = response.json()
-            print(f"<- Odpověď serveru (JSON): {response_json}")
-            return "json"
+            print(f"<- Odpověď: {response.json()}")
         except json.JSONDecodeError:
-            print(f"<- Odpověď serveru není platný JSON: {response.text}")
-            return "raw"
+            print(f"<- Odpověď (raw): {response.text}")
+
+        if response.status_code == expected_status_code:
+            print(f"[OK] Očekávaný stavový kód ({expected_status_code}) byl přijat.")
+            return True
+        else:
+            print(f"[FAIL] Neočekávaný stavový kód. Očekáváno: {expected_status_code}, Přijato: {response.status_code}")
+            return False
 
     except requests.exceptions.RequestException as e:
-        print(f"!! Chyba při odesílání GPS dat: {e}")
-        return None
+        print(f"!! CHYBA PŘIPOJENÍ: {e}")
+        return False
+
 
 if __name__ == "__main__":
-    print("=== Spouštím test odeslání dat pro REGISTROVANÉ zařízení ===")
-    print("POZNÁMKA: Tento test bude úspěšný pouze pokud je zařízení '{TEST_DEVICE_ID}' již registrováno v databázi.")
+    print("=======================================================")
+    print("  Spouštím testy pro nový HW registrační proces  ")
+    print("=======================================================")
+
+    results = []
+
+    # Test 1: Úspěšná registrace nového zařízení
+    payload_success = {
+        "username": VALID_USERNAME,
+        "password": VALID_PASSWORD,
+        "deviceId": DEVICE_ID_TO_REGISTER,
+        "name": DEVICE_NAME
+    }
+    results.append(test_hw_registration("Úspěšná registrace nového zařízení", payload_success, 201))
+
+    # Test 2: Pokus o opětovnou registraci stejného zařízení ke stejnému účtu
+    results.append(test_hw_registration("Opětovná registrace (již existuje)", payload_success, 200))
+
+    # Test 3: Pokus o registraci se špatným heslem
+    payload_wrong_pass = {
+        "username": VALID_USERNAME,
+        "password": "spatneHeslo123",
+        "deviceId": str(uuid.uuid4().hex)[:12].upper()
+    }
+    results.append(test_hw_registration("Registrace se špatným heslem", payload_wrong_pass, 401))
+
+    # Test 4: Pokus o registraci s chybějícím deviceId
+    payload_missing_id = {
+        "username": VALID_USERNAME,
+        "password": VALID_PASSWORD
+        # chybí deviceId
+    }
+    results.append(test_hw_registration("Registrace s chybějícím deviceId", payload_missing_id, 400))
+
+    print("\n=======================================================")
+    print("                    Souhrn testů                   ")
+    print("=======================================================")
     
-    # Odešleme testovací data vč. jména
-    response_type = send_gps_data(TEST_DEVICE_ID, TEST_DEVICE_NAME, 14.421, 50.089)
+    total_tests = len(results)
+    passed_tests = sum(results)
 
-    # Ověření výsledku
-    if response_type == "json":
-        print("\n[OK] Ověření ÚSPĚŠNÉ: Server přijal data a odpověděl ve formátu JSON, jak se očekávalo.")
+    if passed_tests == total_tests:
+        print(f"[OK] Všechny testy ({passed_tests}/{total_tests}) prošly úspěšně!")
     else:
-        print(f"\n[FAIL] Ověření SELHALO: Očekávala se odpověď JSON, ale byla přijata odpověď typu '{response_type}'.")
-        print("      Možné příčiny: ")
-        print(f"      1. Zařízení s ID '{TEST_DEVICE_ID}' není registrováno v databázi.")
-        print("      2. Server má interní chybu (zkontrolujte logy serveru).")
+        print(f"[FAIL] {total_tests - passed_tests} z {total_tests} testů selhalo.")
 
-    print("\n=== Test dokončen ===")
+    print("=======================================================")
