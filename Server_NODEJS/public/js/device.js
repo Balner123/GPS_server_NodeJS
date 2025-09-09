@@ -186,32 +186,22 @@ async function selectDevice(deviceId) { // Změna parametru z deviceName na devi
         return;
     }
     
-    // Load current sleep interval settings
+    // Load current device settings
     try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/settings/${deviceId}`); // Používáme deviceId
+        const response = await fetch(`${API_BASE_URL}/api/devices/settings/${deviceId}`);
         if (!response.ok) {
-            if (response.status === 404) {
-                 document.getElementById('interval-days').value = 0;
-                 document.getElementById('interval-hours').value = 0;
-                 document.getElementById('interval-minutes').value = 0;
-                 document.getElementById('interval-seconds').value = 0;
-            } else {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-        } else {
-            const settings = await response.json();
-            const dhms = secondsToDhms(settings.sleep_interval === null || settings.sleep_interval === undefined ? 0 : settings.sleep_interval);
-            document.getElementById('interval-days').value = dhms.d;
-            document.getElementById('interval-hours').value = dhms.h;
-            document.getElementById('interval-minutes').value = dhms.m;
-            document.getElementById('interval-seconds').value = dhms.s;
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+        const settings = await response.json();
+        const dhms = secondsToDhms(settings.interval_gps || 0);
+        document.getElementById('interval-gps-days').value = dhms.d;
+        document.getElementById('interval-gps-hours').value = dhms.h;
+        document.getElementById('interval-gps-minutes').value = dhms.m;
+        document.getElementById('interval-gps-seconds').value = dhms.s;
+        document.getElementById('interval-send').value = settings.interval_send || 1;
+
     } catch (error) {
-        document.getElementById('interval-days').value = 0;
-        document.getElementById('interval-hours').value = 0;
-        document.getElementById('interval-minutes').value = 0;
-        document.getElementById('interval-seconds').value = 0;
-        displayAlert(`Error loading settings for ${deviceId}.`, 'danger'); // Používáme deviceId
+        displayAlert(`Error loading settings for ${deviceId}.`, 'danger');
     }
     
     // Initial data load for the selected device
@@ -381,18 +371,19 @@ function formatAccuracy(accuracy) {
     return accuracy !== null ? `${Number(accuracy).toFixed(2)} m` : 'N/A';
 }
 
-async function handleSleepIntervalUpdate(e) {
+async function handleSettingsUpdate(e) {
     e.preventDefault();
     if (!selectedDevice) {
-        displayAlert('Nejprve vyberte zařízení.', 'warning');
+        displayAlert('Please select a device first.', 'warning');
         return;
     }
 
-    const days = document.getElementById('interval-days').value || 0;
-    const hours = document.getElementById('interval-hours').value || 0;
-    const minutes = document.getElementById('interval-minutes').value || 0;
-    const seconds = document.getElementById('interval-seconds').value || 0;
-    const totalSeconds = dhmsToSeconds(days, hours, minutes, seconds);
+    const days = document.getElementById('interval-gps-days').value || 0;
+    const hours = document.getElementById('interval-gps-hours').value || 0;
+    const minutes = document.getElementById('interval-gps-minutes').value || 0;
+    const seconds = document.getElementById('interval-gps-seconds').value || 0;
+    const intervalGps = dhmsToSeconds(days, hours, minutes, seconds);
+    const intervalSend = document.getElementById('interval-send').value || 1;
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/settings`, {
@@ -400,25 +391,27 @@ async function handleSleepIntervalUpdate(e) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ device: selectedDevice, sleep_interval: totalSeconds })
+            body: JSON.stringify({ 
+                deviceId: selectedDevice, 
+                interval_gps: intervalGps,
+                interval_send: parseInt(intervalSend, 10)
+            })
         });
 
         const result = await response.json();
 
         if (!response.ok) {
-            // Použijeme zprávu ze serveru, pokud je k dispozici, jinak obecnou chybu
-             throw new Error(result.message || result.error || 'Došlo k chybě při aktualizaci.');
+             throw new Error(result.message || result.error || 'An error occurred while updating settings.');
         }
 
         if (result.success) {
-            displayAlert(result.message || 'Interval spánku byl úspěšně aktualizován!', 'success');
+            displayAlert(result.message || 'Settings updated successfully!', 'success');
         } else {
-            // Tento blok by se neměl vykonat, pokud je !response.ok správně ošetřeno výše
-            throw new Error(result.message || 'Aktualizace se nezdařila.');
+            throw new Error(result.message || 'Update failed.');
         }
 
     } catch (error) {
-        displayAlert(`Chyba: ${error.message}`, 'danger');
+        displayAlert(`Error: ${error.message}`, 'danger');
     }
 }
 

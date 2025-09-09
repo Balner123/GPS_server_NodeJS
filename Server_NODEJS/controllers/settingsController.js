@@ -88,20 +88,40 @@ const updateUsername = async (req, res) => {
 };
 
 const updatePassword = async (req, res) => {
-    const { oldPassword, newPassword, confirmPassword } = req.body;
+    const { oldPassword, newPassword, confirmPassword, use_weak_password } = req.body;
     const userId = req.session.user.id;
 
     if (!oldPassword || !newPassword || !confirmPassword) {
         req.flash('error', 'Pro změnu hesla musíte vyplnit všechna tři pole.');
         return res.redirect('/settings');
     }
-    if (newPassword.length < 6) {
-        req.flash('error', 'Nové heslo musí mít alespoň 6 znaků.');
-        return res.redirect('/settings');
-    }
+
     if (newPassword !== confirmPassword) {
         req.flash('error', 'Nové heslo a jeho potvrzení se neshodují.');
         return res.redirect('/settings');
+    }
+
+    // --- Password Validation (copied from registerUser) ---
+    if (!use_weak_password) {
+        // Strict password requirements
+        const passwordRequirements = [
+            { regex: /.{6,}/, message: 'Nové heslo musí mít alespoň 6 znaků.' },
+            { regex: /[A-Z]/, message: 'Nové heslo musí obsahovat alespoň jedno velké písmeno.' },
+            { regex: /[0-9]/, message: 'Nové heslo musí obsahovat alespoň jedno číslo.' },
+            { regex: /[^A-Za-z0-9]/, message: 'Nové heslo musí obsahovat alespoň jeden speciální znak.' }
+        ];
+        for (const requirement of passwordRequirements) {
+            if (!requirement.regex.test(newPassword)) {
+                req.flash('error', requirement.message);
+                return res.redirect('/settings');
+            }
+        }
+    } else {
+        // Weak password requirement
+        if (newPassword.length < 3) {
+            req.flash('error', 'Slabé heslo musí mít alespoň 3 znaky.');
+            return res.redirect('/settings');
+        }
     }
 
     try {
@@ -121,7 +141,7 @@ const updatePassword = async (req, res) => {
         console.error("Error changing password:", err);
         req.flash('error', 'Došlo k chybě při změně hesla.');
     }
-     res.redirect('/settings');
+    res.redirect('/settings');
 };
 
 const deleteAccount = async (req, res) => {

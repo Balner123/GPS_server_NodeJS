@@ -10,6 +10,8 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Update.h>
+#include <LittleFS.h>
+#include <Preferences.h>
 
 // --------------------------- Configuration ---------------------------------
 // --- Modem Configuration (A7670E) ---
@@ -34,6 +36,10 @@ const char server[]       = "lotr-system.xyz"; // Your server IP or hostname
 const int  port           = 443;              // Your server port
 const char resourcePost[] = "/api/devices/input";     // Your server endpoint
 
+#define CACHE_FILE "/gps_cache.log"
+#define PREFERENCES_NAMESPACE "gps-tracker"
+#define KEY_BATCH_SIZE "batch_size"
+
 // --- Device & GPS Configuration ---
 const char* deviceName = "NEO-6M_A7670E"; // Device name for the payload
 const char* deviceID = ""; // Device ID for the payload
@@ -49,6 +55,9 @@ const char* ota_ssid = "GPS_Tracker_OTA";
 const char* ota_password = "password"; // Change or set to NULL for an open network
 
 WebServer otaServer(80);
+
+Preferences preferences;
+RTC_DATA_ATTR int cycleCounter = 0; // Counts boot cycles, survives deep sleep
 
 // HTML for OTA upload page
 const char* update_form_page = R"rawliteral(
@@ -108,6 +117,34 @@ String failure_page_template = R"rawliteral(
     <p class="message">Error: %s</p>
     <p><a href="/">Try again</a></p>
   </body></html>
+)rawliteral";
+
+// --- HTML for OTA Response Page ---
+const char* ota_response_page_template = R"rawliteral(
+  <html>
+  <head>
+    <title>Registration Status</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 90vh; text-align: center; }
+      .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
+      h1 { color: #333; }
+      p { color: #555; line-height: 1.5; }
+      .status-message { padding: 10px; border-radius: 4px; margin: 20px 0; font-weight: bold; font-size: 1.1em; }
+      .status-message.ok { background-color: #d4edda; color: #155724; }
+      .status-message.fail { background-color: #f8d7da; color: #721c24; }
+      a { color: #007bff; text-decoration: none; margin-top: 15px; display: inline-block; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Registration Status</h1>
+      <div class="status-message %status_class%">%message%</div>
+      <a href="/">Go Back</a>
+    </div>
+  </body>
+  </html>
 )rawliteral";
 
 // --------------------------- Global Objects --------------------------------
@@ -195,61 +232,75 @@ void setup() {
     startOTAMode(); // This function will loop indefinitely, program will not proceed beyond this.
   } else {
     SerialMon.println(F("GPS Tracker Mode Activated."));
-    SerialMon.println(F("\n--- LilyGO A76XX External GPS Tracker (Optimized Power) ---"));
 
-    // 1. Initialize External GPS & Attempt to get fix
+    // 1. Initialize Filesystem and Preferences
+    if(!LittleFS.begin()){
+        SerialMon.println(F("An Error has occurred while mounting LittleFS"));
+        enterDeepSleep(DEFAULT_SLEEP_SECONDS); // Cannot proceed without FS
+        return;
+    }
+    preferences.begin(PREFERENCES_NAMESPACE, false);
+    uint8_t batchSize = preferences.getUChar(KEY_BATCH_SIZE, 5); // Default batch size is 5
+
+    // 2. Get GPS Data
     SerialMon.println(F("--- Initializing External GPS ---"));
     powerUpGPS();
     initGPSSerial();
-    // gpsFixObtained se globálně nastaví uvnitř waitForGPSFix
     waitForGPSFix(GPS_ACQUISITION_TIMEOUT_MS);
-    
-    // 2. Immediately power down GPS module after fix attempt
-    SerialMon.println(F("--- Powering down External GPS module (post-fix attempt) ---"));
-    closeGPSSerial(); 
-    powerDownGPS(); // GPS se vypne hned zde
+    closeGPSSerial(); // De-initialize serial pins before cutting power
+    powerDownGPS(); // Power down GPS immediately after fix attempt
 
-    // 3. Initialize Modem (A7670E)
-    // Modem se inicializuje až po kompletním zpracování GPS, aby GPS neběželo zbytečně dlouho,
-    // pokud by inicializace modemu trvala.
-    SerialMon.println(F("--- Initializing Modem A7670E ---"));
-    if (!initializeModem()) {
-      SerialMon.println(F("Failed to initialize modem. Entering deep sleep."));
-      // GPS je již vypnuté v tomto bodě
-      enterDeepSleep(DEFAULT_SLEEP_SECONDS);
-      return; 
+    // 3. Cache the data point if a fix was obtained
+    if (gpsFixObtained) {
+      JsonDocument jsonDoc;
+      jsonDoc["device"] = deviceID;
+      jsonDoc["name"] = deviceName;
+      jsonDoc["latitude"] = gpsLat;
+      jsonDoc["longitude"] = gpsLon;
+      jsonDoc["speed"] = gpsSpd;
+      jsonDoc["altitude"] = gpsAlt;
+      jsonDoc["accuracy"] = gpsHdop;
+      jsonDoc["satellites"] = gpsSats;
+      if (gpsYear != 0) {
+        char timestamp[25];
+        sprintf(timestamp, "%04d-%02d-%02dT%02d:%02d:%02dZ", gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+        jsonDoc["timestamp"] = timestamp;
+      }
+      String jsonData;
+      serializeJson(jsonDoc, jsonData);
+      appendToCache(jsonData);
+      cycleCounter++;
+      SerialMon.printf("Cycle %d/%d complete.\n", cycleCounter, batchSize);
     }
-    
-    // 4. Connect to GPRS (only if modem initialized successfully)
-    SerialMon.println(F("--- Connecting to GPRS ---"));
-    if (connectGPRS()) {
-      SerialMon.println(F("GPRS Connected."));
-      // 5. Send data via HTTPS POST (uses global GPS variables)
-      sendGpsData(); 
-      // 6. Disconnect GPRS
-      disconnectGPRS();
-      SerialMon.println(F("GPRS Disconnected."));
+
+    // 4. Decide whether to send data
+    bool shouldSend = (cycleCounter >= batchSize) || (cycleCounter > 0 && LittleFS.exists(CACHE_FILE));
+
+    if (shouldSend) {
+      SerialMon.println(F("Batch size reached or old data exists. Attempting to send."));
+      
+      if (initializeModem() && connectGPRS()) {
+        if (sendCachedData()) {
+          cycleCounter = 0; // Reset counter only on successful send
+        }
+        disconnectGPRS();
+      } else {
+        SerialMon.println(F("Failed to connect to GPRS. Data remains cached."));
+      }
+      powerOffModem();
+
     } else {
-      SerialMon.println(F("Failed to connect to GPRS. Modem will be powered off."));
-      // I když GPRS selže, pokračujeme k vypnutí modemu a spánku
+       SerialMon.println(F("Not sending yet. Going to sleep."));
     }
 
-    // GPS je již vypnuté.
-    // Není potřeba zde znovu volat powerDownGPS().
-
-    // 7. Power off modem (A7670E)
-    SerialMon.println(F("--- Powering off Modem A7670E ---"));
-    powerOffModem();
-
-    // 8. Enter Deep Sleep or Power Down
+    // 5. Go to sleep
     if (isRegistered) {
       SerialMon.print(F("Device is registered. Next update in approx. ")); SerialMon.print(sleepTimeSeconds); SerialMon.println(F(" seconds."));
       enterDeepSleep(sleepTimeSeconds);
     } else {
       SerialMon.println(F("DEVICE NOT REGISTERED. Powering down permanently."));
       SerialMon.println(F("Please use OTA mode to register the device."));
-      // Entering deep sleep without a wake-up timer effectively powers down the ESP32 part of the module.
-      esp_deep_sleep_start();
+      esp_deep_sleep_start(); // Indefinite sleep
     }
   }
 }
@@ -503,6 +554,70 @@ void enterDeepSleep(uint64_t seconds) {
   esp_deep_sleep_start();
 }
 
+// --- Cache Handling Functions ---
+
+// Appends a JSON record to the cache file
+void appendToCache(String jsonRecord) {
+  File file = LittleFS.open(CACHE_FILE, "a"); // a = append
+  if (!file) {
+    SerialMon.println(F("Failed to open cache file for writing."));
+    return;
+  }
+  if (file.println(jsonRecord)) {
+    SerialMon.println(F("GPS data point appended to cache."));
+  } else {
+    SerialMon.println(F("Failed to write to cache file."));
+  }
+  file.close();
+}
+
+// Reads cached data, sends it as a batch, and handles the result
+bool sendCachedData() {
+  File file = LittleFS.open(CACHE_FILE, "r");
+  if (!file) {
+    SerialMon.println(F("Cache file not found. Nothing to send."));
+    return true; // Nothing to send is considered a success
+  }
+
+  if (file.size() == 0) {
+    SerialMon.println(F("Cache file is empty."));
+    file.close();
+    LittleFS.remove(CACHE_FILE);
+    return true;
+  }
+
+  String payload = "[";
+  bool first = true;
+  while (file.available()) {
+    String line = file.readStringUntil('\n');
+    line.trim(); // Remove any whitespace
+    if (line.length() > 0) {
+      if (!first) {
+        payload += ",";
+      }
+      payload += line;
+      first = false;
+    }
+  }
+  payload += "]";
+  file.close();
+
+  String response = sendPostRequest(resourcePost, payload);
+  
+  JsonDocument serverResponseDoc;
+  DeserializationError error = deserializeJson(serverResponseDoc, response);
+
+  if (!error && serverResponseDoc["success"] == true) {
+    SerialMon.println(F("Batch data sent successfully. Deleting cache."));
+    LittleFS.remove(CACHE_FILE);
+    return true;
+  } else {
+    SerialMon.println(F("Failed to send batch data. Cache will be kept."));
+    return false;
+  }
+}
+
+
 // --- FUNCTION IMPLEMENTATIONS (External GPS) ---
 void powerUpGPS() {
   pinMode(GPS_POWER_PIN, OUTPUT);
@@ -725,18 +840,28 @@ void startOTAMode() {
 
     String response = sendPostRequest("/api/hw/register-device", registrationPayload);
 
+    // Prepare styled response page
+    String page_content = String(ota_response_page_template);
+    String message = "";
+    
     JsonDocument serverResponseDoc;
     DeserializationError error = deserializeJson(serverResponseDoc, response);
 
-    String responsePage = "<h1>Registration Status</h1><p>";
     if (!error && serverResponseDoc["success"] == true) {
-      responsePage += "Device registered successfully! Please reboot the device into normal mode.";
+      message = "Device registered successfully! Please reboot the device into normal mode.";
+      page_content.replace("%status_class%", "ok");
     } else {
-      responsePage += "Registration failed. Please check your credentials and try again.";
-      responsePage += "<br><small>Server response: " + response + "</small>";
+      message = "Registration failed. Please check credentials and try again.";
+      // Optionally add more details from the server response if available
+      if (response.length() > 0) {
+        String server_msg = serverResponseDoc["error"].as<String>();
+        message += "<br><small>Reason: " + server_msg + "</small>";
+      }
+      page_content.replace("%status_class%", "fail");
     }
-    responsePage += "</p><a href='/'>Go Back</a>";
-    otaServer.send(200, "text/html", responsePage);
+    
+    page_content.replace("%message%", message);
+    otaServer.send(200, "text/html", page_content);
   });
 
   // Handler for the actual firmware update process (same as before)

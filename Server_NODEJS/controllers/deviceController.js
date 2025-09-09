@@ -14,9 +14,12 @@ const getDeviceSettings = async (req, res) => {
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
-    res.json({ sleep_interval: device.sleep_interval });
+    res.json({
+      interval_gps: device.interval_gps,
+      interval_send: device.interval_send
+    });
   } catch (err) {
-    console.error("Error:", err);
+    console.error("Error getting device settings:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -27,10 +30,10 @@ const updateDeviceSettings = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    const { device: deviceId, sleep_interval } = req.body;
+    const { deviceId, interval_gps, interval_send } = req.body;
     
     const [affectedRows] = await db.Device.update(
-      { sleep_interval, sleep_interval_updated_at: new Date() },
+      { interval_gps, interval_send },
       { where: { 
           device_id: deviceId,
           user_id: req.session.user.id 
@@ -39,11 +42,11 @@ const updateDeviceSettings = async (req, res) => {
     );
 
     if (affectedRows === 0) {
-      return res.status(404).json({ error: 'Device not found' });
+      return res.status(404).json({ error: 'Device not found or no changes made' });
     }
-    res.json({ success: true, message: 'Sleep interval updated successfully', new_sleep_interval_seconds: sleep_interval }); 
+    res.json({ success: true, message: 'Settings updated successfully' }); 
   } catch (err) {
-    console.error("Error in /device_settings:", err);
+    console.error("Error in updateDeviceSettings:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -113,7 +116,8 @@ const handleDeviceInput = async (req, res) => {
       res.status(200).json({ 
         success: true,
         message: `${locationsToCreate.length} location(s) recorded.`,
-        sleep_interval: device.sleep_interval
+        interval_gps: device.interval_gps,
+        interval_send: device.interval_send
       });
 
     } catch (err) {

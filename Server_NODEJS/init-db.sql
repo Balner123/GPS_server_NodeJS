@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS devices (
     name VARCHAR(255),
     status VARCHAR(50) DEFAULT 'active',
     last_seen TIMESTAMP NULL,
-    sleep_interval INT DEFAULT 60,
-    sleep_interval_updated_at TIMESTAMP NULL,
+    interval_gps INT DEFAULT 60, -- Default: 60 seconds between GPS fixes
+    interval_send INT DEFAULT 1, -- Default: Send after every 1 cycle (simple mode)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

@@ -127,122 +127,68 @@ class LocationService : Service() {
     }
 
     private fun sendLocationAndProcessResponse(location: android.location.Location) {
-        Thread {
-            var afterSendRestarted = false
+        // Získání instance DAO
+        val dao = AppDatabase.getDatabase(applicationContext).locationDao()
+
+        // Získání potřebných dat
+        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val deviceId = sharedPrefs.getString("device_id", null)
+
+        if (deviceId == null) {
+            Log.e("LocationService", "Device ID not found, cannot cache location.")
+            broadcastLog("CHYBA: ID zařízení nenalezeno. Data nelze uložit.")
+            return
+        }
+        
+        val satellites = location.extras?.getInt("satellites", 0) ?: 0
+        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+
+        // Vytvoření objektu pro uložení do databáze
+        val cachedLocation = CachedLocation(
+            latitude = location.latitude,
+            longitude = location.longitude,
+            speed = if (location.hasSpeed()) location.speed * 3.6f else 0.0f, // m/s na km/h
+            altitude = if (location.hasAltitude()) location.altitude else 0.0,
+            accuracy = if (location.hasAccuracy()) location.accuracy else -1.0f,
+            satellites = satellites,
+            timestamp = location.time,
+            deviceId = deviceId,
+            deviceName = deviceName
+        )
+
+        // Uložení do databáze na pozadí pomocí coroutine
+        // a naplánování odeslání pomocí WorkManageru
+        CoroutineScope(Dispatchers.IO).launch {
             try {
-                lastConnectionStatusMessage = "Odesílám data na server..."
-                broadcastLog("Pokus o odeslání dat...")
-                broadcastCurrentState()
+                dao.insertLocation(cachedLocation)
+                Log.d("LocationService", "Location cached successfully.")
+                broadcastLog("Nová poloha uložena do cache.")
 
-                val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-                val deviceId = sharedPrefs.getString("device_id", null) // Retrieve device_id
+                // Vytvoření a naplánování jednorázové úlohy pro synchronizaci
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+                
+                val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+                    .setConstraints(constraints)
+                    .build()
+                
+                WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                    "sync_locations",
+                    ExistingWorkPolicy.REPLACE,
+                    syncWorkRequest
+                )
 
-                if (deviceId == null) {
-                    Log.e("LocationService", "Device ID not found in SharedPreferences. Stopping service.")
-                    broadcastLog("CHYBA: ID zařízení nenalezeno. Služba se ukončuje.")
-                    stopSelf()
-                }
-
-                // Formátování timestampu do ISO 8601 UTC, aby odpovídal gps_tracker.ino
-                val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-                sdf.timeZone = TimeZone.getTimeZone("UTC")
-                val timestamp = sdf.format(Date(location.time))
-
-                // Získání počtu satelitů, pokud je k dispozici
-                val satellites = location.extras?.getInt("satellites", 0) ?: 0
-
-                val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
-
-                val jsonPayload = JSONObject().apply {
-                    // Použití klíče "device" a uloženého deviceId
-                    put("device", deviceId) // Use the stored deviceId
-                    put("name", deviceName) // Přidání názvu zařízení
-                    put("latitude", location.latitude)
-                    put("longitude", location.longitude)
-                    put("speed", if (location.hasSpeed()) location.speed * 3.6 else 0.0) // Převod m/s na km/h
-                    put("altitude", if (location.hasAltitude()) location.altitude else 0.0)
-                    // Použití klíče "accuracy" pro shodu s .ino souborem
-                    put("accuracy", if (location.hasAccuracy()) location.accuracy else -1.0)
-                    put("satellites", satellites)
-                    put("timestamp", timestamp)
-                }
-
-                broadcastLog("Odesílaná data:${jsonPayload.toString(2)}")
-
-                // Použít API endpoint, který server skutečně vystavuje
-                val url = URL("https://lotr-system.xyz/api/devices/input")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                connection.doOutput = true
-                connection.connectTimeout = 15000
-                connection.readTimeout = 15000
-
-                // Získání a nastavení session cookie pro tento požadavek (pokud je k dispozici)
-                val sessionCookie = sharedPrefs.getString("session_cookie", null)
-                if (sessionCookie != null) {
-                    connection.setRequestProperty("Cookie", sessionCookie.split(";")[0]) // Posíláme jen název a hodnotu cookie
-                }
-
-                // Odeslání dat
-                connection.outputStream.use { os ->
-                    val input = jsonPayload.toString().toByteArray(Charsets.UTF_8)
-                    os.write(input, 0, input.size)
-                }
-
-                // Zpracování odpovědi ze serveru
-                val responseCode = connection.responseCode
-                Log.d("LocationService", "Odpověď serveru (sendData): $responseCode")
-                broadcastLog("Odpověď serveru: HTTP $responseCode")
-
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    lastConnectionStatusMessage = "Data úspěšně odeslána."
-                    val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
-
-                    if (responseBody.isNullOrBlank()) {
-                        // Server may return empty 200 (e.g. device not registered). Handle gracefully.
-                        broadcastLog("Server vrátil prázdnou odpověď (pravděpodobně zařízení neregistrováno). HTTP 200 bez těla.")
-                    } else {
-                        broadcastLog("Přijatá data:\n$responseBody")
-                        try {
-                            val jsonResponse = JSONObject(responseBody)
-                            // Zkusíme z odpovědi vytáhnout nový interval
-                            val newIntervalSeconds = jsonResponse.optLong("sleep_interval", -1)
-                            if (newIntervalSeconds > 0) {
-                                val newIntervalMillis = TimeUnit.SECONDS.toMillis(newIntervalSeconds)
-                                if (newIntervalMillis != sendIntervalMillis) {
-                                    sendIntervalMillis = newIntervalMillis
-                                    lastStatusMessage = "Server poslal nový interval: $newIntervalSeconds s."
-                                    // Restartujeme sledování s novým intervalem
-                                    stopLocationUpdates()
-                                    startLocationUpdates()
-                                    afterSendRestarted = true // Označíme, že proběhl restart
-                                }
-                            }
-                        } catch (e: Exception) {
-                            // Pokud odpověď není JSON nebo nelze parsovat, jen to zalogujeme a nepřerušujeme službu
-                            broadcastLog("Chyba parsování JSON odpovědi: ${e.message}")
-                        }
-                    }
-                } else {
-                    lastConnectionStatusMessage = "Chyba serveru: Kód $responseCode"
-                }
             } catch (e: Exception) {
-                Log.e("LocationService", "Chyba při síťové komunikaci.", e)
-                lastConnectionStatusMessage = "Chyba sítě: ${e.message?.take(30)}" // Zkrátíme případnou dlouhou chybovou hlášku
-                broadcastLog("CHYBA SÍTĚ: ${e.message}")
-            } finally {
-                // Pokud nebyla služba restartována (běžný případ), musíme ručně
-                // aktualizovat stav a naplánovat další odpočet v UI.
-                if (!afterSendRestarted) {
-                    if (lastStatusMessage.startsWith("Nová poloha:")) { // Nepřepíšeme zprávu o změně intervalu
-                        lastStatusMessage = "Čeká na další odeslání."
-                    }
-                    nextUpdateTimestamp = System.currentTimeMillis() + sendIntervalMillis
-                    broadcastCurrentState()
-                }
+                Log.e("LocationService", "Failed to cache location", e)
+                broadcastLog("CHYBA: Nepodařilo se uložit polohu do cache.")
             }
-        }.start()
+        }
+
+        // Aktualizace UI, aby uživatel věděl, že se čeká na synchronizaci
+        lastStatusMessage = "Čeká na synchronizaci..."
+        nextUpdateTimestamp = System.currentTimeMillis() + sendIntervalMillis
+        broadcastCurrentState()
     }
 
     private fun broadcastStatus(message: String, nextUpdateTimestamp: Long? = null, intervalMillis: Long? = null, isConnectionEvent: Boolean = false) {

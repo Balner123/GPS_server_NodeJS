@@ -30,13 +30,15 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('active', 'inactive'),
       defaultValue: 'active'
     },
-    sleep_interval: {
+    interval_gps: {
       type: DataTypes.INTEGER,
-      defaultValue: 60
+      allowNull: false,
+      defaultValue: 60 // Default: 60 seconds between GPS fixes
     },
-    sleep_interval_updated_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
+    interval_send: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1 // Default: Send after every 1 cycle (simple mode)
     }
   }, {
     timestamps: true,

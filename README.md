@@ -1,16 +1,22 @@
 # Maturitní projekt -> LOTR - Location Tracker
 
-## Popis a cíl projektu : 
+## Popis a cíl projektu
 
-#### Hardware
-  Mělo by se jednat o **GPS Tracker** (sledovač) který dle nastavení jednou za určitou dobu (odmlka odpočítávána v režimu Hibernace) odešle souřadnice pomocí AT-commands
-  : Přejde do aktivního režimu -> zapne modul GPS -> zjistí souřadnice -> zapne SIM/LTE modul -> odešle souřadnice + id zařízení na server --> následně vypne všechny moduly a přejde zět do hibernace
-#### Software
-  Server (NodeJS , Django, nebo jiné...) by data ukládal do databáze (např. souborová SQL lite) + dále zpracovával pro zobrazení na mapě (google-maps API atd.) .
+Projekt LOTR (Location Tracker) je komplexní systém pro GPS sledování, který zahrnuje vlastní hardware, backendový server a webové rozhraní. Cílem je vytvořit robustní a energeticky efektivní řešení pro sledování polohy v reálném čase.
 
-  Server by také fungoval jako server webový pro : prohlížení + konfiguraci jednotlivých zařízení -> to by byla možnost změny časové odmlky mezi odesíláním souřadnic ( zařízení by si tedy muselo od serveru vždy při odesílání také vyžádat informaci zda byla jeho konfigurace změněna a pokud ano tak ji přijmout).
-  
-Hardwarová čast by také mohla být zapozdřena v 3D tisknuté krabičce...
+### Klíčové Funkce
+
+*   **Hardware:** Nízkoenergetické zařízení postavené na desce LilyGO T-Call (ESP32 + A7670E SIM modul), které v periodických intervalech zjišťuje polohu a odesílá ji na server.
+*   **Server:** Backend v Node.js (Express), který přijímá data, ukládá je do MySQL databáze a poskytuje API pro webové rozhraní.
+*   **Webové rozhraní:** Umožňuje vizualizaci aktuální i historické polohy zařízení na mapě a konfiguraci jeho chování.
+
+### Pokročilé Funkce
+
+*   **Bezpečná registrace zařízení:** Zařízení se neregistruje manuálně. Místo toho se v servisním (OTA) režimu pomocí WiFi a webového serveru běžícího přímo na zařízení přihlásí k uživatelskému účtu a tím se bezpečně spáruje.
+*   **Inteligentní odesílání dat:** Zařízení podporuje dva režimy odesílání, které lze konfigurovat:
+    1.  **Simple Mode:** Zjištění polohy a okamžité odeslání.
+    2.  **Batch Mode:** Zařízení nejprve nasbírá určený počet poloh do interní paměti (cachování) a poté je odešle najednou v dávce. Tento režim výrazně šetří baterii snížením počtu síťových připojení.
+*   **Odolnost vůči výpadkům:** Díky cachování zařízení neztratí data, pokud dočasně ztratí připojení k síti. Všechny nasbírané body odešle, jakmile je připojení opět dostupné.
 
 ## Demo serverové části
 první pokusy o serverovou část (Node.js)

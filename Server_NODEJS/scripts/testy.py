@@ -9,7 +9,7 @@ BASE_URL = "http://localhost:5000"
 # --- Testovací údaje ---
 # Zadejte platné přihlašovací údaje k existujícímu účtu na serveru
 VALID_USERNAME = "lotr"
-VALID_PASSWORD = "lotr"
+VALID_PASSWORD = "Opava123*"
 
 # Unikátní ID zařízení, které budeme registrovat. UUID zajišťuje, že bude pokaždé jiné.
 # Můžete nahradit i statickým ID pro opakované testování.
