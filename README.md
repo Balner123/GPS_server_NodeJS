@@ -2,13 +2,14 @@
 
 ## Popis a cíl projektu
 
-Projekt LOTR (Location Tracker) je komplexní systém pro GPS sledování, který zahrnuje vlastní hardware, backendový server a webové rozhraní. Cílem je vytvořit robustní a energeticky efektivní řešení pro sledování polohy v reálném čase.
+Projekt LOTR (Location Tracker) je systém pro GPS sledování, který zahrnuje vlastní hardware, backendový server a webové rozhraní. 
 
 ### Klíčové Funkce
 
 *   **Hardware:** Nízkoenergetické zařízení postavené na desce LilyGO T-Call (ESP32 + A7670E SIM modul), které v periodických intervalech zjišťuje polohu a odesílá ji na server.
 *   **Server:** Backend v Node.js (Express), který přijímá data, ukládá je do MySQL databáze a poskytuje API pro webové rozhraní.
-*   **Webové rozhraní:** Umožňuje vizualizaci aktuální i historické polohy zařízení na mapě a konfiguraci jeho chování.
+*   **Webové rozhraní:** Umožňuje vizualizaci aktuální i historické polohy zařízení na mapě a konfiguraci jeho chování. nastavení dohledu (omezení plochy s výstrahou poopupuštění etc.), uživatelské učty + administrativní vhled do DB
+*   **Aplikace** funkce stejného rázu jako HW zařízení + funkce "Dohledu" , "zamknutí" + "runaway report"
 
 ### Pokročilé Funkce
 
@@ -19,7 +20,7 @@ Projekt LOTR (Location Tracker) je komplexní systém pro GPS sledování, kter�
 *   **Odolnost vůči výpadkům:** Díky cachování zařízení neztratí data, pokud dočasně ztratí připojení k síti. Všechny nasbírané body odešle, jakmile je připojení opět dostupné.
 
 ## Demo serverové části
-první pokusy o serverovou část (Node.js)
+pokusy o serverovou část (Node.js)
 [GPS_server_Node_JS_demo](https://lotr-system.xyz)
 
 heslo=>"lotrlotr" PS: "Heslo neměň, neb stihne tě trest!"
@@ -29,10 +30,10 @@ heslo=>"lotrlotr" PS: "Heslo neměň, neb stihne tě trest!"
 Node.JS -> vybrán pro asynchronost a znalost
   + express -> minimalistiký
   + jakékoliv moduly
-Možnost jakýchkoliv forntend frameworků
+Možnost jakýchkoliv frontend frameworků
 ### Hardware
 
-[lilygo t-call v1.0 A7670E](https://github.com/Balner123/GPS_server_NodeJS/blob/LilyGO-T-A76XX-main/MAIN/gps_tracker.ino) ## nová verze pro trocu jinou desku
+[lilygo t-call v1.0 A7670E](https://github.com/Balner123/GPS_server_NodeJS/blob/LilyGO-T-A76XX-main/MAIN/gps_tracker.ino)
 
 [Multi-GNSS polohovací modul – L76K – GPS, BeiDou (BDS), GLONASS, QZSS – Waveshare 23721](https://botland.cz/gps-moduly/22732-multi-gnss-polohovaci-modul-l76k-gps-beidou-bds-glonass-qzss-waveshare-23721.html)
 
@@ -49,11 +50,12 @@ Možnost jakýchkoliv forntend frameworků
 - definování cílů -> základem byl fyzický Tracker -> server minimáně
 - přechod na t-cal v1.0  místo v1.4 (lepší SIM modul + zkratování původní desky)
 - větší zaměření na serverovou část
-
+- více v "Poznámky k vývoji projektu.pdf" (neaktualizované z data 20.8)
+- PLANY.txt
+- a jakekoliv readme v podadresářích součástí projektu
+- zbylá dokumentace je vedená v "Obsidian" bude exportována průběžně
 
 ----
-navržené schéma : 
-![canvas_gps-tracker-250402_1054](https://github.com/user-attachments/assets/b7b05b27-2b20-41fa-aff2-bb8e206cb694)
 
 
 
