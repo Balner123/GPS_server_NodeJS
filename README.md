@@ -1,27 +1,28 @@
-### LOTR - Location Tracker System
+## LOTR - Location Tracker system
 
 ## Popis a cíl projektu
 
-Projekt LOTR (Location Tracker) je systém pro GPS sledování, který zahrnuje vlastní hardware, backendový server s webovým rozhraním, a APk pro Android (možná i jiné OS). 
+Projekt LOTR (Location Tracker) je systém pro GPS sledování, který zahrnuje vlastní hardware, backendový server s webovým rozhraním, a APK pro Android (možná i jiné OS). 
 
 ### Klíčové Funkce
 
-*   **Hardware:** Nízkoenergetické zařízení postavené na desce LilyGO T-Call (ESP32 + A7670E SIM modul), které v periodických intervalech zjišťuje polohu a odesílá ji na server.
+*   **Hardware:** Nízkoenergetické zařízení postavené na desce LilyGO T-Call (ESP32 + A7670E SIM modul), které v periodických intervalech zjišťuje polohu a odesílá ji na server dle konfigurace.
 *   **Server:** Backend v Node.js (Express), který přijímá data, ukládá je do MySQL databáze a poskytuje API pro webové rozhraní.
 *   **Webové rozhraní:** Umožňuje vizualizaci aktuální i historické polohy zařízení na mapě a konfiguraci jeho chování. nastavení dohledu (omezení plochy s výstrahou poopupuštění etc.), uživatelské učty + administrativní vhled do DB
 *   **Aplikace** funkce stejného rázu jako HW zařízení + funkce "Dohledu" , "zamknutí" + "runaway report"
 
-### Funkce
+### Funkce HW
 
-*   **Bezpečná registrace zařízení:** Zařízení se neregistruje manuálně. Místo toho se v servisním (OTA) režimu pomocí WiFi a webového serveru běžícího přímo na zařízení přihlásí k uživatelskému účtu a tím se bezpečně spáruje.
-*   **Inteligentní odesílání dat:** Zařízení podporuje dva režimy odesílání, které lze konfigurovat:
+*   **registrace zařízení:** v servisním (OTA) režimu pomocí WiFi a webového serveru běžícího přímo na zařízení se uživatel přihlásí k registrovánému účtu a tím se bezpečně spáruje.
+*   **odesílání dat:** Zařízení podporuje více režimů odesílání, které lze konfigurovat:
     1.  **Simple Mode:** Zjištění polohy a okamžité odeslání.
     2.  **Batch Mode:** Zařízení nejprve nasbírá určený počet poloh do interní paměti (cachování) a poté je odešle najednou v dávce. Tento režim výrazně šetří baterii snížením počtu síťových připojení.
 *   **Odolnost vůči výpadkům:** Díky cachování zařízení neztratí data, pokud dočasně ztratí připojení k síti. Všechny nasbírané body odešle, jakmile je připojení opět dostupné.
+*   **další funkce budou přidáné průběžně**
 
 ## Demo serverové části
 pokusy o serverovou část (Node.js)
-[GPS_server_Node_JS_demo](https://lotr-system.xyz)
+[lotr-system.xyz](https://lotr-system.xyz)
 
 ## Technologie a Hardware
 
@@ -50,8 +51,9 @@ Možnost jakýchkoliv frontend frameworků
 ## Postup a vývoj+ milníky
 
 - definování cílů -> základem byl fyzický Tracker -> server minimáně
-- přechod na t-cal v1.0  místo v1.4 (lepší SIM modul + zkratování původní desky)
+- přechod na t-cal v1.4  místo v1.0 (lepší SIM modul + zkratování původní desky)
 - větší zaměření na serverovou část
+
 - více v "Poznámky k vývoji projektu.pdf" (neaktualizované z data 20.8)
 - PLANY.txt
 - a jakekoliv readme v podadresářích součástí projektu
