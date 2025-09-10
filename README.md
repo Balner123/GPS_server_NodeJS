@@ -1,4 +1,4 @@
-# Maturitní projekt -> LOTR - Location Tracker
+### LOTR - Location Tracker systém
 
 ## Popis a cíl projektu
 
