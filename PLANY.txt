@@ -1,24 +1,25 @@
-PLÁNY 
+PLï¿½NY 
 	APK 
-		- zamknutí -> "runaway detection"
-		- odeslání reportu pøi odinstalaci
+		- zamknutï¿½ -> "runaway detection"
+		- odeslï¿½nï¿½ reportu pï¿½i odinstalaci
 		- menu : logout, Lock_device
-		- vìtší adaptivnost : rekce na špatný signál, bez intenetu -> "cachovaní pozic"
-		- mnohostní odesílání po znonabytí spojení 
-		- záloha signálu s SMSkami ???
-		- Grafická uprava !!!
+		- vï¿½tï¿½ï¿½ adaptivnost : rekce na ï¿½patnï¿½ signï¿½l, bez intenetu -> "cachovanï¿½ pozic"
+		- mnohostnï¿½ odesï¿½lï¿½nï¿½ po znonabytï¿½ spojenï¿½ 
+		- zï¿½loha signï¿½lu s SMSkami ???
+		- Grafickï¿½ uprava !!!
 	SERVER
-		- Schopnost pøíjmu "cachovanych" pozic ze zaøízení 
-		- pøi reportu vydat výstražný e-mail
-		- možnost zmìny NÁZVU zaøízení a možnost pøidání popisku
+		- Schopnost pï¿½ï¿½jmu "cachovanych" pozic ze zaï¿½ï¿½zenï¿½ 
+		- pï¿½i reportu vydat vï¿½straï¿½nï¿½ e-mail
+		- moï¿½nost zmï¿½ny Nï¿½ZVU zaï¿½ï¿½zenï¿½ a moï¿½nost pï¿½idï¿½nï¿½ popisku
 		- E-SIM ???
-		-  grafická uprava !!!
-		- funkce pøídaní zony na mapu k zaøízení -> detekce opuštení pøidìlené zony zaøízením -> výstražný e-mail 
-	HARDWARové ZAØÍZENÍ
-		- cachování ? 
-		- možnost zmìnu modu -> odesílání jednotlivých poloh v pravidelných intervalech
-		- NEBO odesílání dávek poloh v intervalu (co 10 pozic 1 odeslání)
-		- lepší responzivita na selhání odeslání -> pøejít do "cache" režimu
-		- registrace zaøízení pomocí pøihlášení // nebude potøebné zadání ID na serveru, (automatické)
-		- guma pro zavøení krabièky
-		- + její samotné složení
+		-  grafickï¿½ uprava !!!
+		- funkce pï¿½ï¿½danï¿½ zony na mapu k zaï¿½ï¿½zenï¿½ -> detekce opuï¿½tenï¿½ pï¿½idï¿½lenï¿½ zony zaï¿½ï¿½zenï¿½m -> vï¿½straï¿½nï¿½ e-mail 
+		- autentufikace a registrace pomocÃ­ externÃ­ch ÃºÄtÅ¯ --> Google, Github
+	HARDWARovï¿½ ZAï¿½ï¿½ZENï¿½
+		- cachovï¿½nï¿½ ? 
+		- moï¿½nost zmï¿½nu modu -> odesï¿½lï¿½nï¿½ jednotlivï¿½ch poloh v pravidelnï¿½ch intervalech
+		- NEBO odesï¿½lï¿½nï¿½ dï¿½vek poloh v intervalu (co 10 pozic 1 odeslï¿½nï¿½)
+		- lepï¿½ï¿½ responzivita na selhï¿½nï¿½ odeslï¿½nï¿½ -> pï¿½ejï¿½t do "cache" reï¿½imu
+		- registrace zaï¿½ï¿½zenï¿½ pomocï¿½ pï¿½ihlï¿½enï¿½ // nebude potï¿½ebnï¿½ zadï¿½nï¿½ ID na serveru, (automatickï¿½)
+		- guma pro zavï¿½enï¿½ krabiï¿½ky
+		- + jejï¿½ samotnï¿½ sloï¿½enï¿½

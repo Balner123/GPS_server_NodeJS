@@ -1,8 +1,8 @@
-### LOTR - Location Tracker systém
+### LOTR - Location Tracker System
 
 ## Popis a cíl projektu
 
-Projekt LOTR (Location Tracker) je systém pro GPS sledování, který zahrnuje vlastní hardware, backendový server a webové rozhraní. 
+Projekt LOTR (Location Tracker) je systém pro GPS sledování, který zahrnuje vlastní hardware, backendový server s webovým rozhraním, a APk pro Android (možná i jiné OS). 
 
 ### Klíčové Funkce
 
@@ -11,7 +11,7 @@ Projekt LOTR (Location Tracker) je systém pro GPS sledování, který zahrnuje 
 *   **Webové rozhraní:** Umožňuje vizualizaci aktuální i historické polohy zařízení na mapě a konfiguraci jeho chování. nastavení dohledu (omezení plochy s výstrahou poopupuštění etc.), uživatelské učty + administrativní vhled do DB
 *   **Aplikace** funkce stejného rázu jako HW zařízení + funkce "Dohledu" , "zamknutí" + "runaway report"
 
-### Pokročilé Funkce
+### Funkce
 
 *   **Bezpečná registrace zařízení:** Zařízení se neregistruje manuálně. Místo toho se v servisním (OTA) režimu pomocí WiFi a webového serveru běžícího přímo na zařízení přihlásí k uživatelskému účtu a tím se bezpečně spáruje.
 *   **Inteligentní odesílání dat:** Zařízení podporuje dva režimy odesílání, které lze konfigurovat:
@@ -23,7 +23,6 @@ Projekt LOTR (Location Tracker) je systém pro GPS sledování, který zahrnuje 
 pokusy o serverovou část (Node.js)
 [GPS_server_Node_JS_demo](https://lotr-system.xyz)
 
-heslo=>"lotrlotr" PS: "Heslo neměň, neb stihne tě trest!"
 ## Technologie a Hardware
 
 ### Software
@@ -31,6 +30,7 @@ Node.JS -> vybrán pro asynchronost a znalost
   + express -> minimalistiký
   + jakékoliv moduly
 Možnost jakýchkoliv frontend frameworků
+
 ### Hardware
 
 [lilygo t-call v1.0 A7670E](https://github.com/Balner123/GPS_server_NodeJS/blob/LilyGO-T-A76XX-main/MAIN/gps_tracker.ino)
@@ -40,6 +40,8 @@ Možnost jakýchkoliv frontend frameworků
 [Li-ion cell charger TP4056 with microUSB protection and STEP-UP booster ](https://www.laskakit.cz/nabijecka-li-ion-clanku-tp4056-boost-mt3608/)
 
 [GeB Li-Ion Battery 1x18650 1S1P 3.7V 3200mAh  | LaskaKit](https://www.laskakit.cz/en/geb-li-ion-baterie-1x18650-1s1p-3-7v-3200mah/)
+
++ knihovny 
 
 ### Další součásti
  APK -> pro android a její vyvěšení na Google play (?)
