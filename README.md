@@ -56,7 +56,7 @@ Možnost jakýchkoliv frontend frameworků
 
 - více v "Poznámky k vývoji projektu.pdf" (neaktualizované z data 20.8)
 - PLANY.txt
-- a jakekoliv readme v podadresářích součástí projektu
+- a jakekoliv readme v podadresářích součástí projektu (analyzy dělané LLM - hlavně gemini)
 - zbylá dokumentace je vedená v "Obsidian" bude exportována průběžně
 
 ----
