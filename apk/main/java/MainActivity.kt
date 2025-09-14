@@ -1,7 +1,5 @@
 package com.example.gpsreporterapp // Zde bude tvůj package name
 
-import androidx.appcompat.app.AlertDialog
-
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -15,7 +13,6 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.View
 import android.view.animation.AnimationUtils
-import android.widget.Button
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -25,6 +22,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -32,8 +31,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusTextView: TextView
     private lateinit var toggleButton: TextView
-
-    // Nové UI prvky
     private lateinit var lastConnectionStatusTextView: TextView
     private lateinit var countdownTextView: TextView
     private lateinit var lastLocationTextView: TextView
@@ -41,79 +38,63 @@ class MainActivity : AppCompatActivity() {
     private lateinit var consoleScrollView: ScrollView
 
     private var countdownTimer: CountDownTimer? = null
-    private var isServiceRunning = false
+    private val gson = Gson()
 
-    // Přijímač zpráv z LocationService
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            intent?.let {
-                if (it.action == LocationService.ACTION_BROADCAST_STATUS) {
-                    // Zpracování logovacích zpráv pro konzoli
-                    if (it.hasExtra(LocationService.EXTRA_CONSOLE_LOG)) {
-                        val logMessage = it.getStringExtra(LocationService.EXTRA_CONSOLE_LOG)
-                        appendToConsole(logMessage)
-                    }
-
-                    // Zpracování běžných stavových zpráv
-                    val statusMessage = it.getStringExtra(LocationService.EXTRA_STATUS_MESSAGE)
-                    val connectionMessage = it.getStringExtra(LocationService.EXTRA_IS_CONNECTION_EVENT) // Nyní posíláme přímo zprávu
-                    
-                    if (statusMessage != null || connectionMessage != null) {
-                        // Zjistíme, jestli služba běží, z jedné ze zpráv
-                        isServiceRunning = statusMessage?.contains("zastavena") == false
-                        updateUiState()
-
-                        lastLocationTextView.text = statusMessage ?: lastLocationTextView.text
-                        lastConnectionStatusTextView.text = connectionMessage ?: lastConnectionStatusTextView.text
-
-                        if (it.hasExtra(LocationService.EXTRA_NEXT_UPDATE_TIMESTAMP)) {
-                            val nextUpdateTime = it.getLongExtra(LocationService.EXTRA_NEXT_UPDATE_TIMESTAMP, 0)
-                            if (nextUpdateTime > 0) {
-                                startCountdown(nextUpdateTime)
-                            } else {
-                                countdownTimer?.cancel()
-                                countdownTextView.text = "-"
-                            }
+            intent?.takeIf { it.action == LocationService.ACTION_BROADCAST_STATUS }?.let {
+                val serviceStateJson = it.getStringExtra(LocationService.EXTRA_SERVICE_STATE)
+                if (serviceStateJson != null) {
+                    try {
+                        val serviceState = gson.fromJson(serviceStateJson, ServiceState::class.java)
+                        // Update UI based on serviceState
+                        serviceState.consoleLog?.let { log ->
+                            appendToConsole(log)
                         }
+
+                        updateUiState(serviceState.isRunning) // Update toggle button and status text
+
+                        lastLocationTextView.text = serviceState.statusMessage
+                        lastConnectionStatusTextView.text = serviceState.connectionStatus
+
+                        if (serviceState.nextUpdateTimestamp > 0) {
+                            startCountdown(serviceState.nextUpdateTimestamp)
+                        } else {
+                            countdownTimer?.cancel()
+                            countdownTextView.text = "-"
+                        }
+
+                    } catch (e: JsonSyntaxException) {
+                        Log.e("MainActivity", "Error parsing ServiceState JSON: ${e.message}")
+                        appendToConsole("ERROR: Failed to parse service state.")
                     }
                 }
             }
         }
     }
 
-    // Moderní způsob, jak zpracovat výsledek žádosti o povolení
-    private val requestPermissionLauncher =
+    private val requestPermissionLauncher = 
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            // Zkontrolujeme, zda bylo uděleno hlavní oprávnění pro polohu na popředí
             if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
-                // Pokud ano, zkusíme znovu zkontrolovat oprávnění.
-                // Tím se buď spustí služba, nebo se vyžádá oprávnění pro běh na pozadí.
                 checkAndRequestPermissions()
             } else {
-                // Uživatel odmítl klíčové povolení.
                 Toast.makeText(this, "Povolení k poloze je nutné pro funkčnost aplikace.", Toast.LENGTH_LONG).show()
             }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Musí být zavoláno před super.onCreate()
         installSplashScreen()
-
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Kontrola přihlášení
         val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        val isAuthenticated = sharedPrefs.getBoolean("isAuthenticated", false)
-
-        if (!isAuthenticated) {
-            val intent = Intent(this, LoginActivity::class.java)
-            startActivity(intent)
-            finish() // Ukončí MainActivity, aby se uživatel nemohl vrátit zpět bez přihlášení
+        if (!sharedPrefs.getBoolean("isAuthenticated", false)) {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
             return
         }
 
-        // Propojení prvků z XML s proměnnými v kódu
+        // Propojení UI prvků
         statusTextView = findViewById(R.id.statusTextView)
         toggleButton = findViewById(R.id.toggleButton)
         lastConnectionStatusTextView = findViewById(R.id.lastConnectionStatusTextView)
@@ -122,11 +103,24 @@ class MainActivity : AppCompatActivity() {
         consoleTextView = findViewById(R.id.consoleTextView)
         consoleScrollView = findViewById(R.id.consoleScrollView)
 
-        // Výchozí stav je vždy "OFF"
-        updateUiState()
+        updateUiState(false) // Nastaví výchozí stav (služba není spuštěna)
 
         toggleButton.setOnClickListener {
             animateButton()
+            // We need to get the current service state to decide whether to stop or start
+            // For now, we'll assume the UI reflects the true state, but this is a potential race condition
+            // A better approach would be to query the service for its current state before toggling
+            val currentServiceStateJson = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString(LocationService.EXTRA_SERVICE_STATE, null)
+            val isServiceRunning = if (currentServiceStateJson != null) {
+                try {
+                    gson.fromJson(currentServiceStateJson, ServiceState::class.java).isRunning
+                } catch (e: JsonSyntaxException) {
+                    false
+                }
+            } else {
+                false
+            }
+
             if (isServiceRunning) {
                 stopLocationService()
             } else {
@@ -134,8 +128,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // DOČASNÉ ŘEŠENÍ: Přidání odhlášení na dlouhé stisknutí hlavního tlačítka.
-        // V produkční verzi by zde mělo být dedikované tlačítko pro odhlášení.
         toggleButton.setOnLongClickListener {
             AlertDialog.Builder(this)
                 .setTitle("Odhlásit se?")
@@ -143,27 +135,20 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton("Ano") { _, _ -> performLogout() }
                 .setNegativeButton("Ne", null)
                 .show()
-            true // Vrátíme true, abychom indikovali, že událost byla zpracována
+            true
         }
     }
 
     private fun performLogout() {
-        // Zastavíme službu, pokud běží
         stopLocationService()
-
-        // Vymažeme citlivá data, ale ponecháme installation_id
         val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         sharedPrefs.edit()
             .remove("session_cookie")
             .putBoolean("isAuthenticated", false)
             .apply()
-
         Toast.makeText(this, "Odhlášení úspěšné.", Toast.LENGTH_SHORT).show()
-
-        // Přesměrujeme na přihlašovací obrazovku
-        val intent = Intent(this, LoginActivity::class.java)
-        startActivity(intent)
-        finish() // Ukončíme MainActivity
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
     }
 
     override fun onResume() {
@@ -171,24 +156,20 @@ class MainActivity : AppCompatActivity() {
         val filter = IntentFilter(LocationService.ACTION_BROADCAST_STATUS)
         LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, filter)
 
-        // Požádáme službu o poslání aktuálního stavu, aby se UI obnovilo
+        // Požádáme službu o poslání aktuálního stavu
         val intent = Intent(this, LocationService::class.java).apply {
             action = LocationService.ACTION_REQUEST_STATUS_UPDATE
         }
-        // Použijeme startService, které jen doručí intent běžící službě
         startService(intent)
-        }
+    }
 
     override fun onPause() {
         super.onPause()
         LocalBroadcastManager.getInstance(this).unregisterReceiver(statusReceiver)
         countdownTimer?.cancel()
-        countdownTextView.text = "-"
-        lastConnectionStatusTextView.text = "-"
-        lastLocationTextView.text = "Služba je zastavena."
     }
 
-    private fun updateUiState() {
+    private fun updateUiState(isServiceRunning: Boolean) {
         if (isServiceRunning) {
             statusTextView.text = "Služba je aktivní"
             toggleButton.text = "ON"
@@ -197,32 +178,24 @@ class MainActivity : AppCompatActivity() {
             statusTextView.text = "Služba je zastavena"
             toggleButton.text = "OFF"
             toggleButton.setBackgroundResource(R.drawable.button_bg_off)
-            countdownTimer?.cancel()
-            countdownTextView.text = "-"
-            lastConnectionStatusTextView.text = "-"
-            lastLocationTextView.text = "Služba je zastavena."
         }
     }
 
     private fun appendToConsole(message: String?) {
         if (message == null) return
 
-        // Udržujeme konzoli v rozumné délce, aby nedošlo k přetečení paměti
         val currentText = consoleTextView.text.toString()
-        val lines = currentText.split("\n")
+        val lines = currentText.split("\n").filter { it.isNotBlank() }
         val textToKeep = if (lines.size > 100) {
-            lines.subList(lines.size - 99, lines.size).joinToString("\n") + "\n"
+            lines.subList(lines.size - 99, lines.size).joinToString("\n")
         } else {
-            currentText + "\n"
+            lines.joinToString("\n")
         }
 
         val timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-        consoleTextView.text = "$textToKeep[$timestamp] $message"
+        consoleTextView.text = if (textToKeep.isEmpty()) "[${timestamp}] $message" else "${textToKeep}\n[${timestamp}] $message"
 
-        // Automatické posunutí na konec
-        consoleScrollView.post {
-            consoleScrollView.fullScroll(View.FOCUS_DOWN)
-        }
+        consoleScrollView.post { consoleScrollView.fullScroll(View.FOCUS_DOWN) }
     }
 
     private fun startCountdown(nextUpdateTimeMillis: Long) {
@@ -235,10 +208,8 @@ class MainActivity : AppCompatActivity() {
 
         countdownTimer = object : CountDownTimer(millisInFuture, 1000) {
             override fun onTick(millisUntilFinished: Long) {
-                val seconds = millisUntilFinished / 1000
-                countdownTextView.text = "za ${seconds}s"
+                countdownTextView.text = "za ${millisUntilFinished / 1000}s"
             }
-
             override fun onFinish() {
                 countdownTextView.text = "Probíhá odeslání..."
             }
@@ -246,68 +217,47 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkAndRequestPermissions() {
-        // Nejprve zkontrolujeme oprávnění pro polohu na popředí
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissionLauncher.launch(
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-            )
+            requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
             return
         }
-
-        // Pokud máme oprávnění pro popředí a běžíme na Android 10+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Zkontrolujeme oprávnění pro běh na pozadí
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                // A pokud ho nemáme, požádáme o něj
                 requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
                 return
             }
         }
-
-        // Pokud máme všechna potřebná oprávnění, spustíme službu
-            startLocationService()
+        startLocationService()
     }
 
     private fun startLocationService() {
         val intent = Intent(this, LocationService::class.java)
-        // Pro Android 8+ musíme použít startForegroundService
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
         } else {
             startService(intent)
         }
-        // UI se aktualizuje po přijetí broadcastu ze služby
     }
 
     private fun stopLocationService() {
-        val intent = Intent(this, LocationService::class.java)
-        stopService(intent)
-        isServiceRunning = false
-        updateUiState()
-        Toast.makeText(this, "Sledování polohy zastaveno.", Toast.LENGTH_SHORT).show()
+        stopService(Intent(this, LocationService::class.java))
     }
 
     private fun runPreFlightChecks() {
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val networkInfo = connectivityManager.activeNetworkInfo
-        val isNetworkConnected = networkInfo != null && networkInfo.isConnected
+        val isNetworkConnected = connectivityManager.activeNetworkInfo?.isConnected == true
 
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val isLocationEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
                 locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
         val errorMessages = mutableListOf<String>()
-        if (!isNetworkConnected) {
-            errorMessages.add("• Připojení k internetu není k dispozici.")
-        }
-        if (!isLocationEnabled) {
-            errorMessages.add("• Služby pro určování polohy jsou vypnuté.")
-        }
+        if (!isNetworkConnected) errorMessages.add("• Připojení k internetu není k dispozici.")
+        if (!isLocationEnabled) errorMessages.add("• Služby pro určování polohy jsou vypnuté.")
 
         if (errorMessages.isNotEmpty()) {
             showErrorDialog("Požadované služby nejsou aktivní", errorMessages.joinToString("\n"))
         } else {
-            // Všechny kontroly prošly, pokračujeme s oprávněními
             checkAndRequestPermissions()
         }
     }
@@ -316,13 +266,22 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(title)
             .setMessage(message)
-            .setPositiveButton("Rozumím") { dialog, _ ->
-                dialog.dismiss()
-            }
+            .setPositiveButton("Rozumím", null)
             .show()
     }
 
     private fun animateButton() {
+        val currentServiceStateJson = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString(LocationService.EXTRA_SERVICE_STATE, null)
+        val isServiceRunning = if (currentServiceStateJson != null) {
+            try {
+                gson.fromJson(currentServiceStateJson, ServiceState::class.java).isRunning
+            } catch (e: JsonSyntaxException) {
+                false
+            }
+        } else {
+            false
+        }
+
         val anim = if (isServiceRunning) {
             AnimationUtils.loadAnimation(this, R.anim.scale_down)
         } else {

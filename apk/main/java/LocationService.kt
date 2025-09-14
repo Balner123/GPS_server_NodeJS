@@ -8,18 +8,20 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.location.Location
 import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.work.*
 import com.google.android.gms.location.*
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.*
+import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class LocationService : Service() {
@@ -27,73 +29,80 @@ class LocationService : Service() {
     companion object {
         const val ACTION_BROADCAST_STATUS = "com.example.gpsreporterapp.BROADCAST_STATUS"
         const val ACTION_REQUEST_STATUS_UPDATE = "com.example.gpsreporterapp.REQUEST_STATUS_UPDATE"
-        const val EXTRA_STATUS_MESSAGE = "extra_status_message"
-        const val EXTRA_IS_CONNECTION_EVENT = "extra_is_connection_event"
-        const val EXTRA_NEXT_UPDATE_TIMESTAMP = "extra_next_update_timestamp"
-        const val EXTRA_INTERVAL_MILLIS = "extra_interval_millis"
-        const val EXTRA_CONSOLE_LOG = "extra_console_log"
+        const val EXTRA_SERVICE_STATE = "extra_service_state"
     }
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private lateinit var locationManager: LocationManager
 
-    // Přijímač pro změnu stavu polohových služeb
+    private var gpsIntervalSeconds: Int = 60 // Default to 60 seconds
+    private var syncIntervalCount: Int = 1 // Default to 1 location before sending
+    private var locationsCachedCount: Int = 0
+
+    private var sendIntervalMillis: Long = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.tolong())
+
+    private var currentServiceState: ServiceState = ServiceState()
+    private val gson = Gson()
+
+    private val NOTIFICATION_CHANNEL_ID = "LocationServiceChannel"
+    private val NOTIFICATION_ID = 12345
+
     private val locationProviderReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (LocationManager.PROVIDERS_CHANGED_ACTION == intent?.action) {
                 val isLocationEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
                         locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
                 if (!isLocationEnabled) {
-                    Log.w("LocationService", "Location providers were disabled. Stopping service.")
-                    broadcastLog("CHYBA: Polohové služby byly vypnuty. Služba se ukončuje.")
-                    lastStatusMessage = "Poloha byla vypnuta. Služba zastavena."
-                    lastConnectionStatusMessage = "Kritická chyba"
-                    stopSelf() // Spustí onDestroy a korektně vše ukončí
+                    Log.w("LocationService", "Location providers were disabled.")
+                    updateAndBroadcastState(
+                        log = "FATAL: Location providers disabled. Service stopping.",
+                        status = "Service stopped (location disabled)",
+                        connectionStatus = "Critical Error",
+                        isRunning = false
+                    )
+                    stopSelf()
                 }
             }
         }
     }
 
-    // Proměnné pro držení stavu služby
-    private var lastStatusMessage: String = "Služba zastavena."
-    private var lastConnectionStatusMessage: String = "-"
-    private var nextUpdateTimestamp: Long = 0L
-
-    // Výchozí interval, pokud server nepošle jiný
-    private var sendIntervalMillis = TimeUnit.MINUTES.toMillis(1)
-
-    private val NOTIFICATION_CHANNEL_ID = "LocationServiceChannel"
-    private val NOTIFICATION_ID = 12345
-
     override fun onCreate() {
+        Log.d("LocationService", "onCreate called.")
         super.onCreate()
-        broadcastLog("Služba vytvářena...")
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-
-        // Registrace přijímače pro sledování změn v poloze
         registerReceiver(locationProviderReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
 
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
-                    Log.d("LocationService", "Nová poloha: ${location.latitude}, ${location.longitude}")
-                    lastStatusMessage = "Nová poloha: ${String.format("%.4f, %.4f", location.latitude, location.longitude)}"
+                    val status = "New location: ${location.latitude}, ${location.longitude}"
+                    Log.d("LocationService", status)
+                    updateAndBroadcastState(status = status, log = "New location received: (lat: ${location.latitude}, lon: ${location.longitude}, acc: ${location.accuracy}m)")
                     sendLocationAndProcessResponse(location)
                 }
             }
         }
+        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
+        syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
+        sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
+
+        updateAndBroadcastState(log = "Service created and ready. GPS Interval: ${gpsIntervalSeconds}s, Sync Every: ${syncIntervalCount} locations.")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d("LocationService", "onStartCommand called with action: ${intent?.action}")
         if (intent?.action == ACTION_REQUEST_STATUS_UPDATE) {
-            // Aktivita si žádá aktuální stav, tak jí ho pošleme
-            broadcastCurrentState()
+            // Send current state immediately
+            val intent = Intent(ACTION_BROADCAST_STATUS).apply {
+                putExtra(EXTRA_SERVICE_STATE, gson.toJson(currentServiceState))
+            }
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         } else {
-            // Běžný start služby
-        startForegroundService()
-        startLocationUpdates()
+            startForegroundService()
+            startLocationUpdates()
         }
         return START_STICKY
     }
@@ -106,150 +115,177 @@ class LocationService : Service() {
 
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
-            val message = "Sledování spuštěno s intervalem ${sendIntervalMillis / 1000}s."
+            val message = "Location tracking started. Interval: ${sendIntervalMillis / 1000}s."
             Log.i("LocationService", message)
-            broadcastLog(message)
-            
-            lastStatusMessage = message
-            nextUpdateTimestamp = System.currentTimeMillis() + sendIntervalMillis
-            broadcastCurrentState()
+            updateAndBroadcastState(
+                log = message,
+                status = "Tracking active",
+                connectionStatus = "Awaiting location fix...",
+                nextUpdate = System.currentTimeMillis() + sendIntervalMillis
+            )
         } catch (e: SecurityException) {
-            Log.e("LocationService", "Chybí oprávnění k poloze.", e)
-            lastConnectionStatusMessage = "Chyba: Chybí oprávnění k poloze."
-            lastStatusMessage = "Služba nemůže běžet."
-            broadcastCurrentState()
+            Log.e("LocationService", "Missing location permission.", e)
+            updateAndBroadcastState(
+                log = "ERROR: Missing location permission.",
+                status = "Service stopped (permission error)",
+                connectionStatus = "Permission Error",
+                isRunning = false
+            )
         }
     }
 
-    private fun stopLocationUpdates() {
-        fusedLocationClient.removeLocationUpdates(locationCallback)
-        Log.i("LocationService", "Sledování polohy zastaveno.")
+    private fun enqueueSyncWorker() {
+        val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+        val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints).build()
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            "sync_locations",
+            ExistingWorkPolicy.REPLACE,
+            syncWorkRequest
+        )
+
+        CoroutineScope(Dispatchers.Main).launch {
+            WorkManager.getInstance(applicationContext).getWorkInfoByIdLiveData(syncWorkRequest.id)
+                .observeForever { workInfo ->
+                    if (workInfo != null) {
+                        when (workInfo.state) {
+                            WorkInfo.State.SUCCEEDED -> {
+                                Log.d("LocationService", "SyncWorker SUCCEEDED.")
+                                updateAndBroadcastState(log = "SyncWorker finished: SUCCESS", connectionStatus = "Synced", isRunning = true)
+                            }
+                            WorkInfo.State.FAILED -> {
+                                Log.e("LocationService", "SyncWorker FAILED.")
+                                updateAndBroadcastState(log = "SyncWorker finished: FAILED", connectionStatus = "Sync Failed", isRunning = true)
+                            }
+                            WorkInfo.State.CANCELLED -> {
+                                Log.w("LocationService", "SyncWorker CANCELLED.")
+                                updateAndBroadcastState(log = "SyncWorker finished: CANCELLED", connectionStatus = "Sync Cancelled", isRunning = true)
+                            }
+                            else -> {
+                                // Do nothing for other states like ENQUEUED, RUNNING, BLOCKED
+                            }
+                        }
+                    }
+                }
+        }
+        updateAndBroadcastState(log = "SyncWorker enqueued.", connectionStatus = "Syncing...", isRunning = true)
     }
 
-    private fun sendLocationAndProcessResponse(location: android.location.Location) {
-        // Získání instance DAO
+    private fun sendLocationAndProcessResponse(location: Location) {
         val dao = AppDatabase.getDatabase(applicationContext).locationDao()
-
-        // Získání potřebných dat
         val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val deviceId = sharedPrefs.getString("device_id", null)
 
         if (deviceId == null) {
             Log.e("LocationService", "Device ID not found, cannot cache location.")
-            broadcastLog("CHYBA: ID zařízení nenalezeno. Data nelze uložit.")
+            updateAndBroadcastState(log = "ERROR: Device ID not found. Cannot cache location.")
             return
         }
-        
-        val satellites = location.extras?.getInt("satellites", 0) ?: 0
-        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
 
-        // Vytvoření objektu pro uložení do databáze
         val cachedLocation = CachedLocation(
             latitude = location.latitude,
             longitude = location.longitude,
-            speed = if (location.hasSpeed()) location.speed * 3.6f else 0.0f, // m/s na km/h
+            speed = if (location.hasSpeed()) location.speed * 3.6f else 0.0f,
             altitude = if (location.hasAltitude()) location.altitude else 0.0,
             accuracy = if (location.hasAccuracy()) location.accuracy else -1.0f,
-            satellites = satellites,
+            satellites = location.extras?.getInt("satellites", 0) ?: 0,
             timestamp = location.time,
             deviceId = deviceId,
-            deviceName = deviceName
+            deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
         )
 
-        // Uložení do databáze na pozadí pomocí coroutine
-        // a naplánování odeslání pomocí WorkManageru
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 dao.insertLocation(cachedLocation)
                 Log.d("LocationService", "Location cached successfully.")
-                broadcastLog("Nová poloha uložena do cache.")
 
-                // Vytvoření a naplánování jednorázové úlohy pro synchronizaci
-                val constraints = Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .build()
-                
-                val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()
-                    .setConstraints(constraints)
-                    .build()
-                
-                WorkManager.getInstance(applicationContext).enqueueUniqueWork(
-                    "sync_locations",
-                    ExistingWorkPolicy.REPLACE,
-                    syncWorkRequest
-                )
+                launch(Dispatchers.Main) {
+                    updateAndBroadcastState(
+                        log = "Location cached. Locations until sync: ${syncIntervalCount - (locationsCachedCount + 1)}",
+                        status = "Location cached",
+                        connectionStatus = "Awaiting sync...",
+                        nextUpdate = System.currentTimeMillis() + sendIntervalMillis,
+                        isRunning = true
+                    )
+                }
+
+                locationsCachedCount++
+
+                if (locationsCachedCount >= syncIntervalCount) {
+                    val currentCachedLocations = dao.getAllCachedLocations()
+                    if (currentCachedLocations.isNotEmpty()) {
+                        enqueueSyncWorker()
+                        locationsCachedCount = 0
+                    } else {
+                        Log.d("LocationService", "No cached locations to sync, skipping SyncWorker enqueue.")
+                        locationsCachedCount = 0 // Reset count even if not enqueuing
+                    }
+                }
 
             } catch (e: Exception) {
                 Log.e("LocationService", "Failed to cache location", e)
-                broadcastLog("CHYBA: Nepodařilo se uložit polohu do cache.")
+                launch(Dispatchers.Main) {
+                    updateAndBroadcastState(log = "ERROR: Failed to cache location: ${e.message}")
+                }
             }
         }
-
-        // Aktualizace UI, aby uživatel věděl, že se čeká na synchronizaci
-        lastStatusMessage = "Čeká na synchronizaci..."
-        nextUpdateTimestamp = System.currentTimeMillis() + sendIntervalMillis
-        broadcastCurrentState()
     }
 
-    private fun broadcastStatus(message: String, nextUpdateTimestamp: Long? = null, intervalMillis: Long? = null, isConnectionEvent: Boolean = false) {
-        val intent = Intent(ACTION_BROADCAST_STATUS).apply {
-            putExtra(EXTRA_STATUS_MESSAGE, message)
-            putExtra(EXTRA_IS_CONNECTION_EVENT, isConnectionEvent)
-            nextUpdateTimestamp?.let { putExtra(EXTRA_NEXT_UPDATE_TIMESTAMP, it) }
-            intervalMillis?.let { putExtra(EXTRA_INTERVAL_MILLIS, it) }
+    private fun updateAndBroadcastState(
+        log: String? = null,
+        status: String? = null,
+        connectionStatus: String? = null,
+        nextUpdate: Long? = null,
+        isRunning: Boolean? = null,
+        resetLocationsCachedCount: Boolean = false
+    ) {
+        if (resetLocationsCachedCount) {
+            locationsCachedCount = 0
         }
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-    }
 
-    private fun broadcastCurrentState() {
-        val intent = Intent(ACTION_BROADCAST_STATUS).apply {
-            putExtra(EXTRA_STATUS_MESSAGE, lastStatusMessage)
-            // Posíláme i specifickou zprávu o stavu spojení
-            putExtra(EXTRA_IS_CONNECTION_EVENT, lastConnectionStatusMessage)
-            putExtra(EXTRA_NEXT_UPDATE_TIMESTAMP, nextUpdateTimestamp)
-        }
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-    }
+        currentServiceState = currentServiceState.copy(
+            isRunning = isRunning ?: currentServiceState.isRunning,
+            statusMessage = status ?: currentServiceState.statusMessage,
+            connectionStatus = connectionStatus ?: currentServiceState.connectionStatus,
+            nextUpdateTimestamp = nextUpdate ?: currentServiceState.nextUpdateTimestamp,
+            consoleLog = log
+        )
 
-    private fun broadcastLog(message: String) {
         val intent = Intent(ACTION_BROADCAST_STATUS).apply {
-            putExtra(EXTRA_CONSOLE_LOG, message)
+            putExtra(EXTRA_SERVICE_STATE, gson.toJson(currentServiceState))
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 
     private fun startForegroundService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Location Service Channel",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
+            val channel = NotificationChannel(NOTIFICATION_CHANNEL_ID, "Location Service Channel", NotificationManager.IMPORTANCE_DEFAULT)
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
-
         val notification: Notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Sledování polohy aktivní")
-            .setContentText("Aplikace zjišťuje vaši polohu na pozadí.")
+            .setContentTitle("Location Tracking Active")
+            .setContentText("The app is tracking your location in the background.")
             .setSmallIcon(R.drawable.ic_gps_pin)
             .build()
-
         startForeground(NOTIFICATION_ID, notification)
     }
 
     override fun onDestroy() {
+        Log.d("LocationService", "onDestroy called.")
         super.onDestroy()
         unregisterReceiver(locationProviderReceiver)
-        broadcastLog("Služba zničena.")
-        stopLocationUpdates()
-        lastStatusMessage = "Služba je zastavena."
-        lastConnectionStatusMessage = "-"
-        nextUpdateTimestamp = 0
-        broadcastCurrentState()
-        Log.d("LocationService", "Služba zastavena.")
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        Log.d("LocationService", "Service destroyed.")
+        updateAndBroadcastState(
+            log = "Service stopped.",
+            status = "Service is stopped.",
+            connectionStatus = "-",
+            nextUpdate = 0,
+            isRunning = false,
+            resetLocationsCachedCount = true
+        )
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
+}nt: Intent?): IBinder? = null
+}ll
 }

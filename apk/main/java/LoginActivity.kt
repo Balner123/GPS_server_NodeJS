@@ -122,8 +122,15 @@ class LoginActivity : AppCompatActivity() {
                         val isDeviceRegistered = jsonResponse.optBoolean("device_is_registered", false)
                         if (isDeviceRegistered) {
                             // Pokud ano, uložíme potřebná data a jdeme na hlavní obrazovku
-                            sharedPrefs.edit().putString("device_id", installationId).apply()
-                            sharedPrefs.edit().putBoolean("isAuthenticated", true).apply()
+                                                        val gpsInterval = jsonResponse.optInt("gps_interval", 60) // Default to 60 seconds
+                            val intervalSend = jsonResponse.optInt("interval_send", 1) // Default to 1 location before sending
+                            sharedPrefs.edit()
+                                .putString("device_id", installationId)
+                                .putBoolean("isAuthenticated", true)
+                                .putInt("gps_interval_seconds", gpsInterval)
+                                .putInt("sync_interval_count", intervalSend)
+                                .apply()
+                            Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
                             runOnUiThread { Toast.makeText(this, "Přihlášení úspěšné!", Toast.LENGTH_SHORT).show() }
                             navigateToMain()
                         } else {
@@ -182,8 +189,15 @@ class LoginActivity : AppCompatActivity() {
                     val jsonResponse = JSONObject(responseString)
                     if (jsonResponse.optBoolean("success", false)) {
                         // Uložíme potřebná data a jdeme na hlavní obrazovku
-                        sharedPrefs.edit().putString("device_id", installationId).apply()
-                        sharedPrefs.edit().putBoolean("isAuthenticated", true).apply()
+                                                val gpsInterval = jsonResponse.optInt("gps_interval", 60) // Default to 60 seconds
+                        val intervalSend = jsonResponse.optInt("interval_send", 1) // Default to 1 location before sending
+                        sharedPrefs.edit()
+                            .putString("device_id", installationId)
+                            .putBoolean("isAuthenticated", true)
+                            .putInt("gps_interval_seconds", gpsInterval)
+                            .putInt("sync_interval_count", intervalSend)
+                            .apply()
+                        Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
                         runOnUiThread { Toast.makeText(this, "Zařízení úspěšně registrováno!", Toast.LENGTH_SHORT).show() }
                         navigateToMain()
                     } else {

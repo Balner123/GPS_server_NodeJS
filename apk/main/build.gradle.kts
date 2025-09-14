@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -58,6 +59,21 @@ dependencies {
 
     // Local Broadcast Manager
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
+
+    // Coroutines for background tasks
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // WorkManager for reliable background jobs
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // Room for local database
+    implementation("androidx.room:room-runtime:2.6.1")
+
+    // Gson for JSON serialization/deserialization
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
