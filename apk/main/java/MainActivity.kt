@@ -13,11 +13,13 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.View
 import android.view.animation.AnimationUtils
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -32,6 +34,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lastConnectionStatusTextView: TextView
     private lateinit var countdownTextView: TextView
     private lateinit var lastLocationTextView: TextView
+    private lateinit var consoleTextView: TextView
+    private lateinit var consoleScrollView: ScrollView
 
     private var countdownTimer: CountDownTimer? = null
     private val gson = Gson()
@@ -44,7 +48,6 @@ class MainActivity : AppCompatActivity() {
                     try {
                         val serviceState = gson.fromJson(serviceStateJson, ServiceState::class.java)
                         // Update UI based on serviceState
-
 
                         updateUiState(serviceState.isRunning) // Update toggle button and status text
 
@@ -93,6 +96,8 @@ class MainActivity : AppCompatActivity() {
         lastConnectionStatusTextView = findViewById(R.id.lastConnectionStatusTextView)
         countdownTextView = findViewById(R.id.countdownTextView)
         lastLocationTextView = findViewById(R.id.lastLocationTextView)
+        consoleTextView = findViewById(R.id.consoleTextView)
+        consoleScrollView = findViewById(R.id.consoleScrollView)
 
         updateUiState(false) // Nastaví výchozí stav (služba není spuštěna)
 
@@ -127,6 +132,22 @@ class MainActivity : AppCompatActivity() {
                 .setNegativeButton("Ne", null)
                 .show()
             true
+        }
+
+        val consoleCard = findViewById<CardView>(R.id.consoleCard)
+        consoleCard.setOnLongClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Vymazat konzoli?")
+                .setMessage("Opravdu chcete vymazat obsah konzole?")
+                .setPositiveButton("Ano") { _, _ -> ConsoleLogger.clear() }
+                .setNegativeButton("Ne", null)
+                .show()
+            true
+        }
+
+        ConsoleLogger.logs.observe(this) { logs ->
+            consoleTextView.text = logs.joinToString("\n")
+            consoleScrollView.post { consoleScrollView.fullScroll(View.FOCUS_DOWN) }
         }
     }
 
@@ -218,15 +239,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun runPreFlightChecks() {
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val isNetworkConnected = connectivityManager.activeNetworkInfo?.isConnected == true
-
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val isLocationEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
                 locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
         val errorMessages = mutableListOf<String>()
-        if (!isNetworkConnected) errorMessages.add("• Připojení k internetu není k dispozici.")
         if (!isLocationEnabled) errorMessages.add("• Služby pro určování polohy jsou vypnuté.")
 
         if (errorMessages.isNotEmpty()) {

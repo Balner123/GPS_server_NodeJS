@@ -19,12 +19,16 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
     private val gson = Gson()
 
     override suspend fun doWork(): Result {
+        ConsoleLogger.log("SyncWorker spuštěn.")
         val dao = AppDatabase.getDatabase(applicationContext).locationDao()
         val cachedLocations = dao.getAllCachedLocations()
 
         if (cachedLocations.isEmpty()) {
+            ConsoleLogger.log("Žádné pozice k synchronizaci.")
             return Result.success()
         }
+
+        ConsoleLogger.log("Nalezeno ${cachedLocations.size} pozic k synchronizaci.")
 
         try {
             val jsonArray = JSONArray()
@@ -59,6 +63,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             }
 
             val payload = jsonArray.toString()
+            ConsoleLogger.log("Odesílám data na server...")
 
             connection.outputStream.use { os ->
                 val input = payload.toByteArray(Charsets.UTF_8)
@@ -70,10 +75,12 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 val reader = BufferedReader(InputStreamReader(if (responseCode < 400) connection.inputStream else connection.errorStream))
                 reader.readText()
             } catch (e: Exception) {
+                ConsoleLogger.log("Chyba při čtení odpovědi od serveru: ${e.message}")
                 return Result.retry()
             }
 
             if (responseCode == HttpURLConnection.HTTP_OK) {
+                ConsoleLogger.log("Odpověď serveru: OK ($responseCode)")
                 try {
                     val serverResponse = gson.fromJson(responseBody, ServerResponse::class.java)
                     if (serverResponse.success) {
@@ -83,16 +90,19 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                             if (sharedPrefs.getInt("gps_interval_seconds", 60) != it) {
                                 editor.putInt("gps_interval_seconds", it)
                                 settingsChanged = true
+                                ConsoleLogger.log("Aktualizován interval GPS na: ${it}s")
                             }
                         }
                         serverResponse.interval_send?.let {
                             if (sharedPrefs.getInt("sync_interval_count", 1) != it) {
                                 editor.putInt("sync_interval_count", it)
                                 settingsChanged = true
+                                ConsoleLogger.log("Aktualizován interval odeslání na: ${it} pozic")
                             }
                         }
                         if (settingsChanged) {
                             editor.apply()
+                            ConsoleLogger.log("Restartuji službu pro aplikaci nového nastavení.")
                             // Restart service to apply new settings
                             val serviceIntent = Intent(applicationContext, LocationService::class.java)
                             applicationContext.stopService(serviceIntent)
@@ -100,17 +110,20 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                         }
                     }
                 } catch (e: JsonSyntaxException) {
-                    // JSON parsing failed, but the request was successful
+                    ConsoleLogger.log("Chyba při parsování odpovědi serveru: ${e.message}")
                 }
 
                 val idsToDelete = cachedLocations.map { it.id }
                 dao.deleteLocationsByIds(idsToDelete)
+                ConsoleLogger.log("Vymazáno ${idsToDelete.size} pozic z mezipaměti.")
                 return Result.success()
             } else {
+                ConsoleLogger.log("Chyba serveru: ($responseCode). Pokus bude opakován.")
                 return Result.retry()
             }
 
         } catch (e: Exception) {
+            ConsoleLogger.log("Kritická chyba v SyncWorker: ${e.message}")
             return Result.retry()
         }
     }

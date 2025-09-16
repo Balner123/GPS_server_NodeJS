@@ -131,7 +131,6 @@
     </androidx.cardview.widget.CardView>
 
     <!-- Konzole -->
-    <!--
     <androidx.cardview.widget.CardView
         android:id="@+id/consoleCard"
         android:layout_width="match_parent"
@@ -173,6 +172,5 @@
             </ScrollView>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
-    -->
 
 </androidx.constraintlayout.widget.ConstraintLayout>
