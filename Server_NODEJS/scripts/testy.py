@@ -1,100 +1,99 @@
 import requests
 import json
-import uuid
+import random
+import time
 
-# --- Konfigurace ---
-# Upravte podle vaší lokální instance serveru
+# --- Configuration ---
 BASE_URL = "http://localhost:5000"
+# Change these credentials to match a user on your server
+TEST_USERNAME = "lotr"
+TEST_PASSWORD = "Opava123*"
+# This can be any unique string to identify the hardware
+DEVICE_ID = "0123456789"
 
-# --- Testovací údaje ---
-# Zadejte platné přihlašovací údaje k existujícímu účtu na serveru
-VALID_USERNAME = "lotr"
-VALID_PASSWORD = "Opava123*"
-
-# Unikátní ID zařízení, které budeme registrovat. UUID zajišťuje, že bude pokaždé jiné.
-# Můžete nahradit i statickým ID pro opakované testování.
-DEVICE_ID_TO_REGISTER = str(uuid.uuid4().hex)[:12].upper()
-DEVICE_NAME = "Testovací Zařízení (Python)"
-
-HEADERS = {
-    'Content-Type': 'application/json'
+# --- Headers ---
+headers = {
+    "Content-Type": "application/json"
 }
 
-
-def test_hw_registration(description, payload, expected_status_code):
-    """Otestuje HW registrační endpoint s daným payloadem a očekávaným výsledkem."""
-    endpoint = f"{BASE_URL}/api/hw/register-device"
+def register_device():
+    """
+    Attempts to register the device with the server using a username and password.
+    """
+    url = f"{BASE_URL}/api/hw/register-device"
+    payload = {
+        "username": TEST_USERNAME,
+        "password": TEST_PASSWORD,
+        "deviceId": DEVICE_ID,
+        "name": "Python Test Device"
+    }
     
-    print(f"\n--- Test: {description} ---")
-    print(f"-> Endpoint: {endpoint}")
-    print(f"-> Payload: {json.dumps(payload)}")
-
+    print(f"--- Attempting to register device {DEVICE_ID} to user {TEST_USERNAME}... ---")
     try:
-        response = requests.post(endpoint, headers=HEADERS, data=json.dumps(payload))
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
         
-        print(f"<- Stavový kód: {response.status_code}")
+        print(f"Status Code: {response.status_code}")
         try:
-            print(f"<- Odpověď: {response.json()}")
+            print("Response JSON:")
+            print(json.dumps(response.json(), indent=2))
         except json.JSONDecodeError:
-            print(f"<- Odpověď (raw): {response.text}")
+            print("Response Body (not JSON):")
+            print(response.text)
+            
+        return response.status_code in [200, 201, 409] # 200: already registered, 201: created, 409: already registered to another user
+        
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred during registration: {e}")
+        return False
 
-        if response.status_code == expected_status_code:
-            print(f"[OK] Očekávaný stavový kód ({expected_status_code}) byl přijat.")
-            return True
-        else:
-            print(f"[FAIL] Neočekávaný stavový kód. Očekáváno: {expected_status_code}, Přijato: {response.status_code}")
-            return False
+def send_location_data():
+    """
+    Sends a batch of simulated GPS location data to the server.
+    """
+    url = f"{BASE_URL}/api/devices/input"
+    
+    # Simulate a batch of 3 data points
+    data_points = []
+    for i in range(3):
+        data_points.append({
+            "device": DEVICE_ID,
+            "latitude": round(50.08804 + (random.uniform(-0.01, 0.01)), 6),
+            "longitude": round(14.42076 + (random.uniform(-0.01, 0.01)), 6),
+            "speed": round(random.uniform(0, 60), 2),
+            "altitude": round(random.uniform(150, 250), 2),
+            "accuracy": round(random.uniform(1, 5), 2),
+            "satellites": random.randint(4, 12),
+            "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        })
+        time.sleep(1) # Wait a second between points
+
+    print(f"\n--- Sending {len(data_points)} location data points for device {DEVICE_ID}... ---")
+    
+    try:
+        # The API can accept a single object or an array of objects
+        response = requests.post(url, headers=headers, data=json.dumps(data_points))
+        
+        print(f"Status Code: {response.status_code}")
+        try:
+            print("Response JSON:")
+            response_json = response.json()
+            print(json.dumps(response_json, indent=2))
+            # The server should respond with the device's sleep intervals
+            if "interval_gps" in response_json:
+                print(f"\nReceived intervals from server: GPS={response_json.get('interval_gps')}s, Send={response_json.get('interval_send')} cycles")
+        except json.JSONDecodeError:
+            print("Response Body (not JSON):")
+            print(response.text)
 
     except requests.exceptions.RequestException as e:
-        print(f"!! CHYBA PŘIPOJENÍ: {e}")
-        return False
+        print(f"An error occurred while sending data: {e}")
 
 
 if __name__ == "__main__":
-    print("=======================================================")
-    print("  Spouštím testy pro nový HW registrační proces  ")
-    print("=======================================================")
-
-    results = []
-
-    # Test 1: Úspěšná registrace nového zařízení
-    payload_success = {
-        "username": VALID_USERNAME,
-        "password": VALID_PASSWORD,
-        "deviceId": DEVICE_ID_TO_REGISTER,
-        "name": DEVICE_NAME
-    }
-    results.append(test_hw_registration("Úspěšná registrace nového zařízení", payload_success, 201))
-
-    # Test 2: Pokus o opětovnou registraci stejného zařízení ke stejnému účtu
-    results.append(test_hw_registration("Opětovná registrace (již existuje)", payload_success, 200))
-
-    # Test 3: Pokus o registraci se špatným heslem
-    payload_wrong_pass = {
-        "username": VALID_USERNAME,
-        "password": "spatneHeslo123",
-        "deviceId": str(uuid.uuid4().hex)[:12].upper()
-    }
-    results.append(test_hw_registration("Registrace se špatným heslem", payload_wrong_pass, 401))
-
-    # Test 4: Pokus o registraci s chybějícím deviceId
-    payload_missing_id = {
-        "username": VALID_USERNAME,
-        "password": VALID_PASSWORD
-        # chybí deviceId
-    }
-    results.append(test_hw_registration("Registrace s chybějícím deviceId", payload_missing_id, 400))
-
-    print("\n=======================================================")
-    print("                    Souhrn testů                   ")
-    print("=======================================================")
-    
-    total_tests = len(results)
-    passed_tests = sum(results)
-
-    if passed_tests == total_tests:
-        print(f"[OK] Všechny testy ({passed_tests}/{total_tests}) prošly úspěšně!")
+    # 1. Try to register the device
+    # If registration is successful (or device is already registered), proceed to send data
+    if register_device():
+        # 2. Send a batch of location data
+        send_location_data()
     else:
-        print(f"[FAIL] {total_tests - passed_tests} z {total_tests} testů selhalo.")
-
-    print("=======================================================")
+        print("\nRegistration failed. Please check the username/password and server status.")

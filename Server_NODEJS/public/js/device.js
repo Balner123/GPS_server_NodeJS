@@ -83,7 +83,20 @@ function initializeApp() {
     const form = document.getElementById('device-settings-form');
     if (form) {
         form.addEventListener('submit', (e) => {
-            handleSleepIntervalUpdate(e);
+            handleSettingsUpdate(e);
+        });
+    }
+
+    const modeSelect = document.getElementById('mode-select');
+    if (modeSelect) {
+        modeSelect.addEventListener('change', (e) => {
+            const batchSettings = document.getElementById('batch-settings');
+            if (e.target.value === 'batch') {
+                batchSettings.style.display = 'block';
+            } else {
+                batchSettings.style.display = 'none';
+                document.getElementById('interval-send').value = 1;
+            }
         });
     }
 
@@ -199,6 +212,16 @@ async function selectDevice(deviceId) { // Změna parametru z deviceName na devi
         document.getElementById('interval-gps-minutes').value = dhms.m;
         document.getElementById('interval-gps-seconds').value = dhms.s;
         document.getElementById('interval-send').value = settings.interval_send || 1;
+
+        const modeSelect = document.getElementById('mode-select');
+        const batchSettings = document.getElementById('batch-settings');
+        if (settings.interval_send > 1) {
+            modeSelect.value = 'batch';
+            batchSettings.style.display = 'block';
+        } else {
+            modeSelect.value = 'simple';
+            batchSettings.style.display = 'none';
+        }
 
     } catch (error) {
         displayAlert(`Error loading settings for ${deviceId}.`, 'danger');
@@ -383,7 +406,12 @@ async function handleSettingsUpdate(e) {
     const minutes = document.getElementById('interval-gps-minutes').value || 0;
     const seconds = document.getElementById('interval-gps-seconds').value || 0;
     const intervalGps = dhmsToSeconds(days, hours, minutes, seconds);
-    const intervalSend = document.getElementById('interval-send').value || 1;
+    
+    const mode = document.getElementById('mode-select').value;
+    let intervalSend = 1;
+    if (mode === 'batch') {
+        intervalSend = document.getElementById('interval-send').value || 1;
+    }
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/settings`, {

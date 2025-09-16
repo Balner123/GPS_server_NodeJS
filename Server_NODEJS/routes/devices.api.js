@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const deviceController = require('../controllers/deviceController');
-const { validateCoordinates, validateSleepInterval } = require('../middleware/validators');
+const { validateCoordinates, validateSettings } = require('../middleware/validators');
 const { isAuthenticated, isUser } = require('../middleware/authorization');
 
 /**
@@ -72,15 +72,20 @@ const { isAuthenticated, isUser } = require('../middleware/authorization');
  *        type: object
  *        required:
  *          - deviceId
- *          - sleepInterval
+ *          - interval_gps
+ *          - interval_send
  *        properties:
  *          deviceId:
  *            type: string
  *            description: The ID of the device to update.
  *            example: "1"
- *          sleepInterval:
+ *          interval_gps:
  *            type: integer
- *            description: The new sleep interval in seconds.
+ *            description: The new GPS interval in seconds.
+ *            example: 60
+ *          interval_send:
+ *            type: integer
+ *            description: The new send interval in seconds.
  *            example: 300
  */
 
@@ -238,7 +243,7 @@ router.get('/settings/:deviceId', isAuthenticated, isUser, deviceController.getD
  *       '500':
  *         description: Server error.
  */
-router.post('/settings', isAuthenticated, isUser, validateSleepInterval, deviceController.updateDeviceSettings);
+router.post('/settings', isAuthenticated, isUser, validateSettings, deviceController.updateDeviceSettings);
 
 /**
  * @swagger
