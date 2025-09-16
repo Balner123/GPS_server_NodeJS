@@ -2,8 +2,6 @@ package com.example.gpsreporterapp
 
 import android.content.Context
 import android.content.Intent
-import android.util.Log
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.gson.Gson
@@ -20,25 +18,13 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
     private val gson = Gson()
 
-    private fun broadcastSyncLog(message: String) {
-        val serviceState = ServiceState(consoleLog = "[SyncWorker] $message")
-        val intent = Intent(LocationService.ACTION_BROADCAST_STATUS).apply {
-            putExtra(LocationService.EXTRA_SERVICE_STATE, gson.toJson(serviceState))
-        }
-        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
-    }
-
     override suspend fun doWork(): Result {
         val dao = AppDatabase.getDatabase(applicationContext).locationDao()
         val cachedLocations = dao.getAllCachedLocations()
 
         if (cachedLocations.isEmpty()) {
-            Log.d("SyncWorker", "No locations to sync.")
-            // Není potřeba logovat do UI, pokud se nic neděje
             return Result.success()
         }
-
-        broadcastSyncLog("Nalezeno ${cachedLocations.size} pozic k synchronizaci.")
 
         try {
             val jsonArray = JSONArray()
@@ -73,7 +59,6 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             }
 
             val payload = jsonArray.toString()
-            broadcastSyncLog("Odesílám POST na $url\nData: ${payload.take(500)}${if (payload.length > 500) "..." else ""}")
 
             connection.outputStream.use { os ->
                 val input = payload.toByteArray(Charsets.UTF_8)
@@ -85,24 +70,47 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 val reader = BufferedReader(InputStreamReader(if (responseCode < 400) connection.inputStream else connection.errorStream))
                 reader.readText()
             } catch (e: Exception) {
-                "Nelze přečíst odpověď: ${e.message}"
+                return Result.retry()
             }
 
-            broadcastSyncLog("Odpověď serveru: Status $responseCode\nOdpověď: ${responseBody.take(500)}${if (responseBody.length > 500) "..." else ""}")
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                try {
+                    val serverResponse = gson.fromJson(responseBody, ServerResponse::class.java)
+                    if (serverResponse.success) {
+                        val editor = sharedPrefs.edit()
+                        var settingsChanged = false
+                        serverResponse.interval_gps?.let {
+                            if (sharedPrefs.getInt("gps_interval_seconds", 60) != it) {
+                                editor.putInt("gps_interval_seconds", it)
+                                settingsChanged = true
+                            }
+                        }
+                        serverResponse.interval_send?.let {
+                            if (sharedPrefs.getInt("sync_interval_count", 1) != it) {
+                                editor.putInt("sync_interval_count", it)
+                                settingsChanged = true
+                            }
+                        }
+                        if (settingsChanged) {
+                            editor.apply()
+                            // Restart service to apply new settings
+                            val serviceIntent = Intent(applicationContext, LocationService::class.java)
+                            applicationContext.stopService(serviceIntent)
+                            applicationContext.startService(serviceIntent)
+                        }
+                    }
+                } catch (e: JsonSyntaxException) {
+                    // JSON parsing failed, but the request was successful
+                }
 
-            return if (responseCode == HttpURLConnection.HTTP_OK) {
-                broadcastSyncLog("Synchronizace úspěšná. Mažu ${cachedLocations.size} pozic z cache.")
                 val idsToDelete = cachedLocations.map { it.id }
                 dao.deleteLocationsByIds(idsToDelete)
-                Result.success()
+                return Result.success()
             } else {
-                broadcastSyncLog("Synchronizace selhala. Pokus bude opakován.")
-                Result.retry()
+                return Result.retry()
             }
 
         } catch (e: Exception) {
-            Log.e("SyncWorker", "Error during sync", e)
-            broadcastSyncLog("Kritická chyba při synchronizaci: ${e.message}")
             return Result.retry()
         }
     }

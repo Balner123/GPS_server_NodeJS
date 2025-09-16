@@ -13,7 +13,6 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.View
 import android.view.animation.AnimationUtils
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,7 +23,6 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
-import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
@@ -34,8 +32,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lastConnectionStatusTextView: TextView
     private lateinit var countdownTextView: TextView
     private lateinit var lastLocationTextView: TextView
-    private lateinit var consoleTextView: TextView
-    private lateinit var consoleScrollView: ScrollView
 
     private var countdownTimer: CountDownTimer? = null
     private val gson = Gson()
@@ -48,9 +44,7 @@ class MainActivity : AppCompatActivity() {
                     try {
                         val serviceState = gson.fromJson(serviceStateJson, ServiceState::class.java)
                         // Update UI based on serviceState
-                        serviceState.consoleLog?.let { log ->
-                            appendToConsole(log)
-                        }
+
 
                         updateUiState(serviceState.isRunning) // Update toggle button and status text
 
@@ -65,8 +59,7 @@ class MainActivity : AppCompatActivity() {
                         }
 
                     } catch (e: JsonSyntaxException) {
-                        Log.e("MainActivity", "Error parsing ServiceState JSON: ${e.message}")
-                        appendToConsole("ERROR: Failed to parse service state.")
+                        // Ignore parsing errors
                     }
                 }
             }
@@ -100,8 +93,6 @@ class MainActivity : AppCompatActivity() {
         lastConnectionStatusTextView = findViewById(R.id.lastConnectionStatusTextView)
         countdownTextView = findViewById(R.id.countdownTextView)
         lastLocationTextView = findViewById(R.id.lastLocationTextView)
-        consoleTextView = findViewById(R.id.consoleTextView)
-        consoleScrollView = findViewById(R.id.consoleScrollView)
 
         updateUiState(false) // Nastaví výchozí stav (služba není spuštěna)
 
@@ -179,23 +170,6 @@ class MainActivity : AppCompatActivity() {
             toggleButton.text = "OFF"
             toggleButton.setBackgroundResource(R.drawable.button_bg_off)
         }
-    }
-
-    private fun appendToConsole(message: String?) {
-        if (message == null) return
-
-        val currentText = consoleTextView.text.toString()
-        val lines = currentText.split("\n").filter { it.isNotBlank() }
-        val textToKeep = if (lines.size > 100) {
-            lines.subList(lines.size - 99, lines.size).joinToString("\n")
-        } else {
-            lines.joinToString("\n")
-        }
-
-        val timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-        consoleTextView.text = if (textToKeep.isEmpty()) "[${timestamp}] $message" else "${textToKeep}\n[${timestamp}] $message"
-
-        consoleScrollView.post { consoleScrollView.fullScroll(View.FOCUS_DOWN) }
     }
 
     private fun startCountdown(nextUpdateTimeMillis: Long) {

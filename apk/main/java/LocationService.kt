@@ -1,4 +1,4 @@
-package com.example.gpsreporterapp // Zde bude tvůj package name
+package com.example.gpsreporterapp
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -13,12 +13,10 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
-import android.util.Log
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.work.*
 import com.google.android.gms.location.*
 import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,7 +38,7 @@ class LocationService : Service() {
     private var syncIntervalCount: Int = 1 // Default to 1 location before sending
     private var locationsCachedCount: Int = 0
 
-    private var sendIntervalMillis: Long = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.tolong())
+    private var sendIntervalMillis: Long = 0
 
     private var currentServiceState: ServiceState = ServiceState()
     private val gson = Gson()
@@ -54,11 +52,9 @@ class LocationService : Service() {
                 val isLocationEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
                         locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
                 if (!isLocationEnabled) {
-                    Log.w("LocationService", "Location providers were disabled.")
                     updateAndBroadcastState(
-                        log = "FATAL: Location providers disabled. Service stopping.",
-                        status = "Service stopped (location disabled)",
-                        connectionStatus = "Critical Error",
+                        status = "Služba zastavena (GPS vypnuto)",
+                        connectionStatus = "Kritická chyba",
                         isRunning = false
                     )
                     stopSelf()
@@ -68,7 +64,6 @@ class LocationService : Service() {
     }
 
     override fun onCreate() {
-        Log.d("LocationService", "onCreate called.")
         super.onCreate()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -77,23 +72,15 @@ class LocationService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
-                    val status = "New location: ${location.latitude}, ${location.longitude}"
-                    Log.d("LocationService", status)
-                    updateAndBroadcastState(status = status, log = "New location received: (lat: ${location.latitude}, lon: ${location.longitude}, acc: ${location.accuracy}m)")
+                    updateAndBroadcastState(status = "Získána nová poloha")
                     sendLocationAndProcessResponse(location)
                 }
             }
         }
-        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
-        syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
-        sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
-
-        updateAndBroadcastState(log = "Service created and ready. GPS Interval: ${gpsIntervalSeconds}s, Sync Every: ${syncIntervalCount} locations.")
+        updateAndBroadcastState()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("LocationService", "onStartCommand called with action: ${intent?.action}")
         if (intent?.action == ACTION_REQUEST_STATUS_UPDATE) {
             // Send current state immediately
             val intent = Intent(ACTION_BROADCAST_STATUS).apply {
@@ -101,6 +88,11 @@ class LocationService : Service() {
             }
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         } else {
+            val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
+            syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
+            sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
+
             startForegroundService()
             startLocationUpdates()
         }
@@ -108,6 +100,8 @@ class LocationService : Service() {
     }
 
     private fun startLocationUpdates() {
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+
         val locationRequest = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
             sendIntervalMillis
@@ -115,20 +109,16 @@ class LocationService : Service() {
 
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
-            val message = "Location tracking started. Interval: ${sendIntervalMillis / 1000}s."
-            Log.i("LocationService", message)
             updateAndBroadcastState(
-                log = message,
-                status = "Tracking active",
-                connectionStatus = "Awaiting location fix...",
-                nextUpdate = System.currentTimeMillis() + sendIntervalMillis
+                status = "Sledování polohy aktivní",
+                connectionStatus = "Čekání na signál GPS",
+                nextUpdate = System.currentTimeMillis() + sendIntervalMillis,
+                isRunning = true
             )
         } catch (e: SecurityException) {
-            Log.e("LocationService", "Missing location permission.", e)
             updateAndBroadcastState(
-                log = "ERROR: Missing location permission.",
-                status = "Service stopped (permission error)",
-                connectionStatus = "Permission Error",
+                status = "Služba zastavena (chyba oprávnění)",
+                connectionStatus = "Chyba oprávnění",
                 isRunning = false
             )
         }
@@ -149,16 +139,13 @@ class LocationService : Service() {
                     if (workInfo != null) {
                         when (workInfo.state) {
                             WorkInfo.State.SUCCEEDED -> {
-                                Log.d("LocationService", "SyncWorker SUCCEEDED.")
-                                updateAndBroadcastState(log = "SyncWorker finished: SUCCESS", connectionStatus = "Synced", isRunning = true)
+                                updateAndBroadcastState(connectionStatus = "Synchronizace úspěšná", isRunning = true)
                             }
                             WorkInfo.State.FAILED -> {
-                                Log.e("LocationService", "SyncWorker FAILED.")
-                                updateAndBroadcastState(log = "SyncWorker finished: FAILED", connectionStatus = "Sync Failed", isRunning = true)
+                                updateAndBroadcastState(connectionStatus = "Chyba synchronizace", isRunning = true)
                             }
                             WorkInfo.State.CANCELLED -> {
-                                Log.w("LocationService", "SyncWorker CANCELLED.")
-                                updateAndBroadcastState(log = "SyncWorker finished: CANCELLED", connectionStatus = "Sync Cancelled", isRunning = true)
+                                updateAndBroadcastState(connectionStatus = "Synchronizace zrušena", isRunning = true)
                             }
                             else -> {
                                 // Do nothing for other states like ENQUEUED, RUNNING, BLOCKED
@@ -167,7 +154,7 @@ class LocationService : Service() {
                     }
                 }
         }
-        updateAndBroadcastState(log = "SyncWorker enqueued.", connectionStatus = "Syncing...", isRunning = true)
+        updateAndBroadcastState(connectionStatus = "Synchronizace s serverem", isRunning = true)
     }
 
     private fun sendLocationAndProcessResponse(location: Location) {
@@ -176,8 +163,7 @@ class LocationService : Service() {
         val deviceId = sharedPrefs.getString("device_id", null)
 
         if (deviceId == null) {
-            Log.e("LocationService", "Device ID not found, cannot cache location.")
-            updateAndBroadcastState(log = "ERROR: Device ID not found. Cannot cache location.")
+            updateAndBroadcastState()
             return
         }
 
@@ -196,13 +182,11 @@ class LocationService : Service() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 dao.insertLocation(cachedLocation)
-                Log.d("LocationService", "Location cached successfully.")
 
                 launch(Dispatchers.Main) {
                     updateAndBroadcastState(
-                        log = "Location cached. Locations until sync: ${syncIntervalCount - (locationsCachedCount + 1)}",
-                        status = "Location cached",
-                        connectionStatus = "Awaiting sync...",
+                        status = "Poloha uložena do mezipaměti",
+                        connectionStatus = "Čekání na synchronizaci",
                         nextUpdate = System.currentTimeMillis() + sendIntervalMillis,
                         isRunning = true
                     )
@@ -216,22 +200,19 @@ class LocationService : Service() {
                         enqueueSyncWorker()
                         locationsCachedCount = 0
                     } else {
-                        Log.d("LocationService", "No cached locations to sync, skipping SyncWorker enqueue.")
                         locationsCachedCount = 0 // Reset count even if not enqueuing
                     }
                 }
 
             } catch (e: Exception) {
-                Log.e("LocationService", "Failed to cache location", e)
                 launch(Dispatchers.Main) {
-                    updateAndBroadcastState(log = "ERROR: Failed to cache location: ${e.message}")
+                    updateAndBroadcastState()
                 }
             }
         }
     }
 
     private fun updateAndBroadcastState(
-        log: String? = null,
         status: String? = null,
         connectionStatus: String? = null,
         nextUpdate: Long? = null,
@@ -246,8 +227,7 @@ class LocationService : Service() {
             isRunning = isRunning ?: currentServiceState.isRunning,
             statusMessage = status ?: currentServiceState.statusMessage,
             connectionStatus = connectionStatus ?: currentServiceState.connectionStatus,
-            nextUpdateTimestamp = nextUpdate ?: currentServiceState.nextUpdateTimestamp,
-            consoleLog = log
+            nextUpdateTimestamp = nextUpdate ?: currentServiceState.nextUpdateTimestamp
         )
 
         val intent = Intent(ACTION_BROADCAST_STATUS).apply {
@@ -262,22 +242,19 @@ class LocationService : Service() {
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
         val notification: Notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Location Tracking Active")
-            .setContentText("The app is tracking your location in the background.")
+            .setContentTitle("Sledování polohy aktivní")
+            .setContentText("Aplikace sleduje vaši polohu na pozadí.")
             .setSmallIcon(R.drawable.ic_gps_pin)
             .build()
         startForeground(NOTIFICATION_ID, notification)
     }
 
     override fun onDestroy() {
-        Log.d("LocationService", "onDestroy called.")
         super.onDestroy()
         unregisterReceiver(locationProviderReceiver)
         fusedLocationClient.removeLocationUpdates(locationCallback)
-        Log.d("LocationService", "Service destroyed.")
         updateAndBroadcastState(
-            log = "Service stopped.",
-            status = "Service is stopped.",
+            status = "Služba zastavena",
             connectionStatus = "-",
             nextUpdate = 0,
             isRunning = false,
@@ -286,6 +263,4 @@ class LocationService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
-}nt: Intent?): IBinder? = null
-}ll
 }

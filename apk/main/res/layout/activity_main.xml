@@ -78,7 +78,7 @@
                     android:id="@+id/label_connection"
                     android:layout_width="120dp"
                     android:layout_height="wrap_content"
-                    android:text="Stav spojení:"
+                    android:text="Stav synchronizace:"
                     android:textStyle="bold" />
 
                 <TextView
@@ -118,7 +118,7 @@
                     android:id="@+id/label_last_info"
                     android:layout_width="120dp"
                     android:layout_height="wrap_content"
-                    android:text="Poslední info:"
+                    android:text="Stav služby:"
                     android:textStyle="bold" />
 
                 <TextView
@@ -131,6 +131,7 @@
     </androidx.cardview.widget.CardView>
 
     <!-- Konzole -->
+    <!--
     <androidx.cardview.widget.CardView
         android:id="@+id/consoleCard"
         android:layout_width="match_parent"
@@ -139,7 +140,7 @@
         app:cardCornerRadius="12dp"
         app:cardElevation="4dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/infoCard">
+        app:layout_constraintTop_toBottomOf="@+id/infoCard">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -172,5 +173,6 @@
             </ScrollView>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
+    -->
 
 </androidx.constraintlayout.widget.ConstraintLayout>
