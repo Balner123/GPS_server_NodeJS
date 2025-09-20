@@ -52,6 +52,18 @@
                         </form>
                     </div>
                 </div>
+
+                <div class="card mt-4" id="device-info-card" style="display: none;">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Device Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-4">Device ID</dt>
+                            <dd class="col-sm-8" id="info-device-id"></dd>
+                        </dl>
+                    </div>
+                </div>
             </div>
             <div class="col-md-8">
                 <div class="card">
@@ -59,7 +71,13 @@
                         <h5 class="card-title mb-0">Live Map</h5>
                     </div>
                     <div class="card-body">
-                        <div id="history-map" style="height: 400px;"></div>
+                        <div id="history-map" style="height: 400px; position: relative;">
+                            <div id="map-tool-menu" class="leaflet-bar leaflet-control leaflet-control-custom">
+                                <a id="toggle-draw-mode" href="#" title="Create/Edit Geofence"><i class="fas fa-draw-polygon"></i></a>
+                                <a id="save-geofence-btn" href="#" title="Save Geofence"><i class="fas fa-save"></i></a>
+                                <a id="delete-geofence-btn" href="#" title="Delete Geofence"><i class="fas fa-trash"></i></a>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="card mt-4">
@@ -94,6 +112,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/js/common.js"></script>
     <script src="/js/device.js"></script>
 </body>

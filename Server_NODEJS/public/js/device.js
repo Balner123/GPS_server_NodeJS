@@ -7,18 +7,16 @@ let completeDeviceHistory = [];
 let isShowingAllHistory = false;
 const HISTORY_ROW_LIMIT = 5;
 
+let drawnItems, drawControl;
+
 // Configuration
 const API_BASE_URL = window.location.origin;
 const UPDATE_INTERVAL = 5000; // 5 seconds
 
 // --- Helper functions for time conversion (Client-side) ---
-
-// Converts total seconds to an object {d, h, m, s}
 function secondsToDhms(totalSeconds) {
     totalSeconds = Number(totalSeconds);
-    if (isNaN(totalSeconds) || totalSeconds < 0) {
-        return { d: 0, h: 0, m: 0, s: 0 };
-    }
+    if (isNaN(totalSeconds) || totalSeconds < 0) return { d: 0, h: 0, m: 0, s: 0 };
     const d = Math.floor(totalSeconds / (3600 * 24));
     const h = Math.floor((totalSeconds % (3600 * 24)) / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
@@ -26,60 +24,132 @@ function secondsToDhms(totalSeconds) {
     return { d, h, m, s };
 }
 
-// Helper function to ensure two-digit format with leading zero
 function pad(num) {
     return String(num).padStart(2, '0');
 }
 
-// Helper function to convert DHMS to seconds
 function dhmsToSeconds(d, h, m, s) {
-     return Number(d) * 24 * 3600 + Number(h) * 3600 + Number(m) * 60 + Number(s);
+    return Number(d) * 24 * 3600 + Number(h) * 3600 + Number(m) * 60 + Number(s);
 }
 
 // --- End of helper functions ---
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if we are on the device detail page by looking for a specific element
     if (document.getElementById('history-map')) {
         initializeApp();
     }
 });
 
 function initializeApp() {
-    // Initialize map
     map = L.map('history-map').setView([50.0755, 14.4378], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Load device list
+    // --- Leaflet.draw Initialization ---
+    drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    drawControl = new L.Control.Draw({
+        position: 'topright',
+        edit: {
+            featureGroup: drawnItems,
+            remove: false // Disable the default remove button
+        },
+        draw: {
+            polygon: { allowIntersection: false, showArea: true },
+            circle: {},
+            polyline: false,
+            rectangle: false,
+            marker: false,
+            circlemarker: false
+        }
+    });
+
+    // When a shape is created, replace the old one in the drawnItems layer
+    map.on(L.Draw.Event.CREATED, (e) => {
+        drawnItems.clearLayers();
+        drawnItems.addLayer(e.layer);
+    });
+
+    // --- Manual Geofence Control Listeners ---
+    document.getElementById('toggle-draw-mode').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (!selectedDevice) {
+            displayAlert('Please select a device first.', 'warning');
+            return;
+        }
+        // Toggle the draw control on the map
+        if (document.querySelector('.leaflet-draw')) {
+             map.removeControl(drawControl);
+        } else {
+             map.addControl(drawControl);
+        }
+    });
+
+    document.getElementById('save-geofence-btn').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (!selectedDevice) {
+            displayAlert('Please select a device first.', 'warning');
+            return;
+        }
+        const layers = drawnItems.getLayers();
+        if (layers.length === 0) {
+            displayAlert('No geofence drawn to save.', 'info');
+            return;
+        }
+        
+        const layer = layers[0];
+        let geofenceData;
+
+        if (layer instanceof L.Circle) {
+            const latlng = layer.getLatLng();
+            geofenceData = {
+                type: 'circle',
+                lat: latlng.lat,
+                lng: latlng.lng,
+                radius: layer.getRadius()
+            };
+        } else {
+            geofenceData = layer.toGeoJSON();
+        }
+
+        sendGeofenceToBackend(geofenceData);
+    });
+
+    document.getElementById('delete-geofence-btn').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (!selectedDevice) {
+            displayAlert('Please select a device first.', 'warning');
+            return;
+        }
+        drawnItems.clearLayers();
+        sendGeofenceToBackend(null); // Send null to delete on backend
+    });
+    // --- End Leaflet.draw ---
+
     loadDevices();
 
-    // Check for device name in URL and pre-select it
     const urlParams = new URLSearchParams(window.location.search);
-    const deviceIdFromUrl = urlParams.get('id'); // Změna z 'name' na 'id'
+    const deviceIdFromUrl = urlParams.get('id');
     if (deviceIdFromUrl) {
         selectDevice(decodeURIComponent(deviceIdFromUrl));
     }
 
-    // Set up automatic update
     setInterval(() => {
         if (selectedDevice) {
-           loadDeviceData(); // Periodically check for new data for the selected device
+           loadDeviceData();
         }
     }, UPDATE_INTERVAL);
 
-    // Handle browser back/forward navigation
     window.addEventListener('popstate', (event) => {
         const urlParams = new URLSearchParams(window.location.search);
-        const deviceIdFromUrl = urlParams.get('id'); // Změna z 'name' na 'id'
+        const deviceIdFromUrl = urlParams.get('id');
         if (deviceIdFromUrl && deviceIdFromUrl !== selectedDevice) {
             selectDevice(decodeURIComponent(deviceIdFromUrl));
         }
     });
 
-    // Set up sleep interval form
     const form = document.getElementById('device-settings-form');
     if (form) {
         form.addEventListener('submit', (e) => {
@@ -104,19 +174,19 @@ function initializeApp() {
         isShowingAllHistory = !isShowingAllHistory;
         renderPositionTable();
     });
-}
 
+    // Start polling for alerts
+    setInterval(checkForAlerts, 15000); // Check for new alerts every 15 seconds
+}
 
 async function loadDevices() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`); 
-        if (!response.ok) {
-             throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const devices = await response.json();
         
         const devicesList = document.getElementById('devices-list');
-        devicesList.innerHTML = ''; 
+        devicesList.innerHTML = '';
         
         if (devices.length === 0) {
             devicesList.innerHTML = '<p class="text-muted">No active devices found.</p>';
@@ -134,78 +204,100 @@ async function loadDevices() {
     }
 }
 
-
 function createDeviceElement(device) {
     const div = document.createElement('div');
-    div.className = 'list-group-item list-group-item-action device-item d-flex justify-content-between align-items-center'; 
-    div.dataset.deviceId = device.device; // Používáme ID pro data atribut
-    
-    // Použijeme jméno zařízení, pokud existuje, jinak ID jako fallback.
+    div.className = 'list-group-item list-group-item-action device-item d-flex justify-content-between align-items-center';
+    div.dataset.deviceId = device.device;
+
     const displayName = device.name || device.device;
-    
+
     const deviceInfo = document.createElement('div');
+    deviceInfo.style.flexGrow = '1';
+    deviceInfo.style.cursor = 'pointer';
+    deviceInfo.addEventListener('click', () => selectDevice(device.device));
+
+    const alertIcon = device.has_unread_alerts ? '<i class="fas fa-exclamation-triangle text-danger ms-2"></i>' : '';
+
     deviceInfo.innerHTML = `
         <div class="d-flex w-100 justify-content-between">
-            <h6 class="mb-1"><strong>${displayName}</strong></h6>
+            <h6 class="mb-1"><strong>${displayName}</strong>${alertIcon}</h6>
             <small class="text-muted">${formatTimestamp(device.timestamp)}</small>
         </div>
         <small class="text-muted">Last position: ${formatCoordinate(device.latitude)}, ${formatCoordinate(device.longitude)}</small>
     `;
-    deviceInfo.style.flexGrow = '1';
-    // Kliknutí na prvek vybere zařízení podle jeho unikátního ID
-    deviceInfo.addEventListener('click', () => selectDevice(device.device));
+
+    const buttonGroup = document.createElement('div');
+    buttonGroup.className = 'd-flex align-items-center';
+
+    if (device.has_unread_alerts) {
+        const clearAlertsButton = document.createElement('button');
+        clearAlertsButton.className = 'btn btn-warning btn-sm ms-2';
+        clearAlertsButton.innerHTML = '<i class="fas fa-bell-slash"></i>';
+        clearAlertsButton.title = `Clear all alerts for ${displayName}`;
+        clearAlertsButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleClearDeviceAlerts(device.device);
+        });
+        buttonGroup.appendChild(clearAlertsButton);
+    }
+
+    const renameButton = document.createElement('button');
+    renameButton.className = 'btn btn-primary btn-sm ms-2';
+    renameButton.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+    renameButton.title = `Rename device ${displayName}`;
+    renameButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleRenameDevice(device.device, displayName);
+    });
 
     const deleteButton = document.createElement('button');
-    deleteButton.className = 'btn btn-danger btn-sm ms-3';
+    deleteButton.className = 'btn btn-danger btn-sm ms-2';
     deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
-    // Titulek tlačítka zobrazuje displayName pro lepší čitelnost
     deleteButton.title = `Delete device ${displayName}`;
     deleteButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        // Mazání se vždy provádí přes unikátní ID
         handleDeleteDevice(device.device);
     });
 
+    buttonGroup.appendChild(renameButton);
+    buttonGroup.appendChild(deleteButton);
+
     div.appendChild(deviceInfo);
-    div.appendChild(deleteButton);
-    
+    div.appendChild(buttonGroup);
+
     return div;
 }
 
-// Select device
-async function selectDevice(deviceId) { // Změna parametru z deviceName na deviceId
-    if (selectedDevice === deviceId) return; // Do nothing if the same device is clicked again
+async function selectDevice(deviceId) {
+    if (selectedDevice === deviceId) return;
 
-    // Update the browser's URL without reloading the page
-    const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?id=${encodeURIComponent(deviceId)}`; // Změna z 'name' na 'id'
+    const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?id=${encodeURIComponent(deviceId)}`;
     window.history.pushState({path: newUrl}, '', newUrl);
 
-    selectedDevice = deviceId; // Ukládáme si ID
-    isShowingAllHistory = false; // Reset view
-    clearMapAndData(); // Clear everything for the new device
+    selectedDevice = deviceId;
+    isShowingAllHistory = false;
+    clearMapAndData();
     
-    // Update active state in the list
     document.querySelectorAll('.device-item').forEach(item => {
         item.classList.remove('active');
-        if (item.dataset.deviceId === deviceId) { // Porovnáváme s data-device-id
+        if (item.dataset.deviceId === deviceId) {
             item.classList.add('active');
         }
     });
     
     const settingsCard = document.getElementById('device-settings-card');
-    if (settingsCard) {
+    const infoCard = document.getElementById('device-info-card');
+    if (settingsCard && infoCard) {
         settingsCard.style.display = 'block';
-    } else {
-        return;
+        infoCard.style.display = 'block';
+        document.getElementById('info-device-id').textContent = deviceId;
     }
     
-    // Load current device settings
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/settings/${deviceId}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const settings = await response.json();
+        
         const dhms = secondsToDhms(settings.interval_gps || 0);
         document.getElementById('interval-gps-days').value = dhms.d;
         document.getElementById('interval-gps-hours').value = dhms.h;
@@ -223,39 +315,48 @@ async function selectDevice(deviceId) { // Změna parametru z deviceName na devi
             batchSettings.style.display = 'none';
         }
 
+        if (settings.geofence) {
+            // Handle custom circle format
+            if (settings.geofence.type === 'circle') {
+                const circle = L.circle([settings.geofence.lat, settings.geofence.lng], { 
+                    radius: settings.geofence.radius,
+                    color: '#ff7800',
+                    weight: 2
+                }).addTo(drawnItems);
+                map.fitBounds(circle.getBounds());
+            } 
+            // Handle standard GeoJSON format for polygons
+            else if (settings.geofence.type === 'Feature') {
+                const geofenceLayer = L.geoJSON(settings.geofence, {
+                    style: { color: '#ff7800', weight: 2 }
+                }).addTo(drawnItems);
+                map.fitBounds(geofenceLayer.getBounds());
+            }
+        }
+
     } catch (error) {
         displayAlert(`Error loading settings for ${deviceId}.`, 'danger');
     }
     
-    // Initial data load for the selected device
     await loadDeviceData(true);
 }
 
-// Load device data (position history)
 async function loadDeviceData(isInitialLoad = false) {
     if (!selectedDevice) return;
-
     try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`); // Změna z 'name' na 'id'
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const response = await fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const allData = await response.json();
         let dataToRender;
 
         if (isInitialLoad) {
             dataToRender = allData;
-            if (allData.length > 0) {
-                lastTimestamp = allData.reduce((max, p) => p.timestamp > max ? p.timestamp : max, allData[0].timestamp);
-            }
         } else {
             dataToRender = allData.filter(p => !lastTimestamp || (new Date(p.timestamp) > new Date(lastTimestamp)));
-            if (dataToRender.length > 0) {
-                lastTimestamp = dataToRender.reduce((max, p) => p.timestamp > max ? p.timestamp : max, dataToRender[0].timestamp);
-            }
         }
 
         if (dataToRender.length > 0) {
+            lastTimestamp = dataToRender.reduce((max, p) => p.timestamp > max ? p.timestamp : max, dataToRender[0].timestamp);
             updateMap(dataToRender, isInitialLoad);
         }
         
@@ -268,35 +369,23 @@ async function loadDeviceData(isInitialLoad = false) {
 }
 
 function clearMapAndData() {
-    if (polyline) {
-        map.removeLayer(polyline);
-        polyline = null;
-    }
+    if (polyline) map.removeLayer(polyline);
+    polyline = null;
+    drawnItems.clearLayers();
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
     lastTimestamp = null;
     completeDeviceHistory = [];
     document.getElementById('positions-table').innerHTML = '';
     const toggleBtn = document.getElementById('toggle-history-btn');
-    if (toggleBtn) {
-        toggleBtn.style.display = 'none';
-    }
+    if (toggleBtn) toggleBtn.style.display = 'none';
 }
 
-// Update map
 function updateMap(data, isFullUpdate) {
-    if (!data || data.length === 0) {
-         return;
-    }
+    if (!data || data.length === 0) return;
 
-    const coordinates = data.map(point => [
-        Number(point.latitude),
-        Number(point.longitude)
-    ]).filter(coord => !isNaN(coord[0]) && !isNaN(coord[1]));
-
-    if (coordinates.length === 0) {
-        return;
-    }
+    const coordinates = data.map(p => [Number(p.latitude), Number(p.longitude)]).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
+    if (coordinates.length === 0) return;
 
     if (isFullUpdate && coordinates.length > 0) {
         polyline = L.polyline(coordinates, { color: 'blue' }).addTo(map);
@@ -306,25 +395,18 @@ function updateMap(data, isFullUpdate) {
     }
 
     data.forEach((point) => {
-         if (isNaN(Number(point.latitude)) || isNaN(Number(point.longitude))) return;
-
-        const marker = L.marker([
-            Number(point.latitude),
-            Number(point.longitude)
-        ])
+        if (isNaN(Number(point.latitude)) || isNaN(Number(point.longitude))) return;
+        const marker = L.marker([Number(point.latitude), Number(point.longitude)])
             .bindPopup(createDevicePopup(point))
             .addTo(map);
         markers.push(marker);
     });
 
-    map.fitBounds(coordinates, { padding: [50, 50] });
+    if (!isFullUpdate) map.fitBounds(coordinates, { padding: [50, 50] });
 }
 
 function renderPositionTable() {
-    const dataToRender = isShowingAllHistory 
-        ? completeDeviceHistory 
-        : completeDeviceHistory.slice(0, HISTORY_ROW_LIMIT);
-
+    const dataToRender = isShowingAllHistory ? completeDeviceHistory : completeDeviceHistory.slice(0, HISTORY_ROW_LIMIT);
     updateTable(dataToRender);
     updateToggleButton();
 }
@@ -335,26 +417,20 @@ function updateToggleButton() {
 
     if (completeDeviceHistory.length > HISTORY_ROW_LIMIT) {
         toggleBtn.style.display = 'block';
-        toggleBtn.textContent = isShowingAllHistory 
-            ? 'Zobrazit méně' 
-            : `Zobrazit vše (${completeDeviceHistory.length})`;
+        toggleBtn.textContent = isShowingAllHistory ? 'Zobrazit méně' : `Zobrazit vše (${completeDeviceHistory.length})`;
     } else {
         toggleBtn.style.display = 'none';
     }
 }
 
-// Update table
 function updateTable(data) {
     const tbody = document.getElementById('positions-table');
     tbody.innerHTML = '';
-    
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No position history available for this device.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No position history available.</td></tr>';
         return;
     }
-
     const sortedData = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
     sortedData.forEach(point => {
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -371,35 +447,17 @@ function updateTable(data) {
 }
 
 function createDevicePopup(point) {
-    return `
-        <strong>Time:</strong> ${formatTimestamp(point.timestamp)}<br>
-        <strong>Speed:</strong> ${formatSpeed(point.speed)}<br>
-        <strong>Altitude:</strong> ${formatAltitude(point.altitude)}
-    `;
+    return `<strong>Time:</strong> ${formatTimestamp(point.timestamp)}<br><strong>Speed:</strong> ${formatSpeed(point.speed)}<br><strong>Altitude:</strong> ${formatAltitude(point.altitude)}`;
 }
 
-function formatCoordinate(coord) {
-    return coord !== null ? Number(coord).toFixed(6) : 'N/A';
-}
-
-function formatSpeed(speed) {
-    return speed !== null ? `${Number(speed).toFixed(2)} km/h` : 'N/A';
-}
-
-function formatAltitude(altitude) {
-    return altitude !== null ? `${Number(altitude).toFixed(2)} m` : 'N/A';
-}
-
-function formatAccuracy(accuracy) {
-    return accuracy !== null ? `${Number(accuracy).toFixed(2)} m` : 'N/A';
-}
+function formatCoordinate(coord) { return coord !== null ? Number(coord).toFixed(6) : 'N/A'; }
+function formatSpeed(speed) { return speed !== null ? `${Number(speed).toFixed(2)} km/h` : 'N/A'; }
+function formatAltitude(altitude) { return altitude !== null ? `${Number(altitude).toFixed(2)} m` : 'N/A'; }
+function formatAccuracy(accuracy) { return accuracy !== null ? `${Number(accuracy).toFixed(2)} m` : 'N/A'; }
 
 async function handleSettingsUpdate(e) {
     e.preventDefault();
-    if (!selectedDevice) {
-        displayAlert('Please select a device first.', 'warning');
-        return;
-    }
+    if (!selectedDevice) return displayAlert('Please select a device first.', 'warning');
 
     const days = document.getElementById('interval-gps-days').value || 0;
     const hours = document.getElementById('interval-gps-hours').value || 0;
@@ -408,134 +466,140 @@ async function handleSettingsUpdate(e) {
     const intervalGps = dhmsToSeconds(days, hours, minutes, seconds);
     
     const mode = document.getElementById('mode-select').value;
-    let intervalSend = 1;
-    if (mode === 'batch') {
-        intervalSend = document.getElementById('interval-send').value || 1;
-    }
+    let intervalSend = (mode === 'batch') ? (document.getElementById('interval-send').value || 1) : 1;
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/settings`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 deviceId: selectedDevice, 
                 interval_gps: intervalGps,
                 interval_send: parseInt(intervalSend, 10)
             })
         });
-
         const result = await response.json();
-
-        if (!response.ok) {
-             throw new Error(result.message || result.error || 'An error occurred while updating settings.');
-        }
-
-        if (result.success) {
-            displayAlert(result.message || 'Settings updated successfully!', 'success');
-        } else {
-            throw new Error(result.message || 'Update failed.');
-        }
-
+        if (!response.ok) throw new Error(result.error || 'Failed to update settings.');
+        displayAlert(result.message || 'Settings updated successfully!', 'success');
     } catch (error) {
         displayAlert(`Error: ${error.message}`, 'danger');
+    }
+}
+
+async function handleRenameDevice(deviceId, currentName) {
+    const newName = prompt("Enter the new name for the device:", currentName);
+    if (!newName || newName.trim() === '' || newName === currentName) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/devices/name`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId: deviceId, newName: newName.trim() })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.error || 'Failed to rename device.');
+        displayAlert(result.message || 'Device renamed successfully!', 'success');
+        const el = document.querySelector(`.device-item[data-device-id='${deviceId}'] strong`);
+        if (el) el.textContent = newName.trim();
+    } catch (error) {
+        displayAlert(`Error: ${error.message}`, 'danger');
+    }
+}
+
+async function handleDeleteDevice(deviceId) {
+    const el = document.querySelector(`.device-item[data-device-id='${deviceId}']`);
+    const name = el ? (el.querySelector('strong').textContent) : deviceId;
+    if (!confirm(`Are you sure you want to delete '${name}'? This is permanent.`)) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/devices/delete/${deviceId}`, { method: 'POST' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to delete device.');
+        displayAlert(result.message, 'success');
+        if (selectedDevice === deviceId) {
+            selectedDevice = null;
+            clearMapAndData();
+            document.getElementById('device-settings-card').style.display = 'none';
+            window.history.pushState({path: window.location.pathname}, '', window.location.pathname);
+        }
+        if (el) el.remove();
+        if (document.getElementById('devices-list').children.length === 0) {
+            document.getElementById('devices-list').innerHTML = '<p class="text-muted">No active devices found.</p>';
+        }
+    } catch (error) {
+        displayAlert(`Error: ${error.message}`, 'danger');
+    }
+}
+
+async function handleClearDeviceAlerts(deviceId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/alerts/read-all/${deviceId}`, { method: 'POST' });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.error || 'Failed to clear alerts.');
+        displayAlert(result.message, 'success');
+        // Refresh the device list to remove the alert icon and button
+        loadDevices();
+    } catch (error) {
+        displayAlert(`Error: ${error.message}`, 'danger');
+    }
+}
+
+async function sendGeofenceToBackend(geofenceData) {
+    if (!selectedDevice) return displayAlert('Cannot save geofence. No device selected.', 'danger');
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/devices/geofence`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId: selectedDevice, geofence: geofenceData })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to save geofence.');
+        displayAlert(result.message || 'Geofence saved successfully!', 'success');
+    } catch (error) {
+        displayAlert(`Error: ${error.message}`, 'danger');
+    }
+}
+
+async function checkForAlerts() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/alerts`);
+        if (!response.ok) {
+            console.error('Failed to fetch alerts:', response.status);
+            return;
+        }
+        const alerts = await response.json();
+        if (alerts && alerts.length > 0) {
+            const alertIds = alerts.map(alert => alert.id);
+            alerts.forEach(alert => {
+                displayAlert(alert.message, 'danger');
+            });
+            await fetch(`${API_BASE_URL}/api/alerts/read`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ alertIds })
+            });
+        }
+    } catch (error) {
+        console.error('Error polling for alerts:', error);
     }
 }
 
 function displayAlert(message, type = 'info') {
     const toastContainer = document.querySelector('.toast-container');
-    if (!toastContainer) {
-        console.error('Toast container not found!');
-        return;
-    }
-
+    if (!toastContainer) return console.error('Toast container not found!');
     const toastId = `toast-${Date.now()}`;
-    // Map Bootstrap alert types to background color classes
-    const bgClass = {
-        'success': 'bg-success',
-        'danger': 'bg-danger',
-        'warning': 'bg-warning',
-        'info': 'bg-info'
-    }[type] || 'bg-secondary';
-
+    const bgClass = { 'success': 'bg-success', 'danger': 'bg-danger', 'warning': 'bg-warning', 'info': 'bg-info' }[type] || 'bg-secondary';
     const toastHTML = `
         <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="d-flex">
-                <div class="toast-body">
-                    ${message}
-                </div>
+                <div class="toast-body">${message}</div>
                 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
         </div>
     `;
-
     toastContainer.insertAdjacentHTML('beforeend', toastHTML);
-    
-    const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement, {
-        delay: 5000 // Auto-hide after 5 seconds
-    });
-    
+    const toast = new bootstrap.Toast(document.getElementById(toastId), { delay: 5000 });
     toast.show();
-
-    // Remove the toast from DOM after it's hidden
-    toastElement.addEventListener('hidden.bs.toast', () => {
-        toastElement.remove();
-    });
-}
-
-async function handleDeleteDevice(deviceId) { // Změna z deviceName na deviceId
-    const deviceElement = document.querySelector(`.device-item[data-device-id='${deviceId}']`);
-    const displayName = deviceElement ? (deviceElement.querySelector('strong').textContent) : deviceId;
-
-    if (!confirm(`Are you sure you want to permanently delete device '${displayName}' and all its associated data? This action cannot be undone.`)) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/delete/${deviceId}`, { // Používáme deviceId
-            method: 'POST',
-        });
-
-            if (!response.ok) {
-            const result = await response.json();
-            throw new Error(result.error || 'Failed to delete device.');
-        }
-
-        const result = await response.json();
-            displayAlert(result.message, 'success');
-                
-        // If the deleted device was the selected one, clear the details view
-        if (selectedDevice === deviceId) { // Porovnáváme ID
-                selectedDevice = null;
-                clearMapAndData();
-            document.getElementById('device-settings-card').style.display = 'none';
-            const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-            window.history.pushState({ path: newUrl }, '', newUrl);
-        }
-
-        // Remove the device from the list
-        if (deviceElement) {
-            deviceElement.remove();
-        }
-
-        // Check if the list is now empty
-        const devicesList = document.getElementById('devices-list');
-        if (devicesList && devicesList.children.length === 0) {
-            devicesList.innerHTML = '<p class="text-muted">No active devices found.</p>';
-        }
-
-    } catch (error) {
-        console.error('Error deleting device:', error);
-        displayAlert(`Error: ${error.message}`, 'danger');
-    }
-}
-
-function formatTimestamp(timestamp) {
-    if (!timestamp) {
-        return 'N/A';
-    }
-    const date = new Date(timestamp);
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    document.getElementById(toastId).addEventListener('hidden.bs.toast', (e) => e.target.remove());
 }

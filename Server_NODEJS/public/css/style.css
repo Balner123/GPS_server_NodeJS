@@ -151,3 +151,28 @@ body {
     width: 100%;
     max-width: 400px;
 }
+
+/* --- Geofence Map Tool Menu --- */
+#map-tool-menu {
+    position: absolute;
+    top: 90px; /* Moved further down to avoid overlapping */
+    left: 10px;
+    z-index: 1000; /* Ensure it's above other controls */
+}
+
+#map-tool-menu a {
+    background-color: white;
+    border-radius: 4px;
+    border: 2px solid rgba(0,0,0,0.2);
+    width: 38px; /* Wider for bigger icon */
+    height: 38px; /* Taller for bigger icon */
+    line-height: 34px; /* Adjusted for vertical centering */
+    font-size: 1.25em; /* Enlarged as requested */
+    text-align: center;
+    display: block;
+    color: black;
+}
+
+#map-tool-menu a:hover {
+    background-color: #f4f4f4;
+}

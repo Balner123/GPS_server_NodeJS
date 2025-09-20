@@ -1,4 +1,6 @@
 const { Sequelize } = require('sequelize');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const sequelize = new Sequelize(
@@ -20,21 +22,24 @@ sequelize.authenticate()
     console.error('Unable to connect to the database with Sequelize:', err);
   });
 
-const User = require('./models/user')(sequelize, Sequelize);
-const Device = require('./models/device')(sequelize, Sequelize);
-const Location = require('./models/location')(sequelize, Sequelize);
+const db = {};
 
-// Definice asociací
-User.hasMany(Device, { foreignKey: 'user_id', as: 'devices', onDelete: 'CASCADE' });
-Device.belongsTo(User, { foreignKey: 'user_id' });
+// Read all model files from the models directory
+fs.readdirSync(path.join(__dirname, 'models'))
+  .filter(file => file.indexOf('.') !== 0 && file.slice(-3) === '.js')
+  .forEach(file => {
+    const model = require(path.join(__dirname, 'models', file))(sequelize, Sequelize.DataTypes);
+    db[model.name] = model;
+  });
 
-Device.hasMany(Location, { foreignKey: 'device_id', onDelete: 'CASCADE' });
-Location.belongsTo(Device, { foreignKey: 'device_id' });
+// Associate models if they have an 'associate' method
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
+});
 
-module.exports = {
-  sequelize,
-  Sequelize,
-  User,
-  Device,
-  Location,
-};
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
+
+module.exports = db;

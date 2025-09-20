@@ -247,6 +247,46 @@ router.post('/settings', isAuthenticated, isUser, validateSettings, deviceContro
 
 /**
  * @swagger
+ * /api/devices/name:
+ *   post:
+ *     summary: Update the name for a device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - deviceId
+ *               - newName
+ *             properties:
+ *               deviceId:
+ *                 type: string
+ *                 description: The hardware ID of the device to update.
+ *                 example: "AABBCCDDEEFF"
+ *               newName:
+ *                 type: string
+ *                 description: The new desired name for the device.
+ *                 example: "My Favorite Tracker"
+ *     responses:
+ *       '200':
+ *         description: Device name updated successfully.
+ *       '400':
+ *         description: Bad request (e.g., missing fields, invalid name).
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found or does not belong to the user.
+ *       '500':
+ *         description: Server error.
+ */
+router.post('/name', isAuthenticated, isUser, deviceController.updateDeviceName);
+
+/**
+ * @swagger
  * /api/devices/delete/{deviceId}:
  *   post:
  *     summary: Delete a specific device
@@ -271,5 +311,120 @@ router.post('/settings', isAuthenticated, isUser, validateSettings, deviceContro
  *         description: Server error.
  */
 router.post('/delete/:deviceId', isAuthenticated, isUser, deviceController.deleteDevice);
+
+/**
+ * @swagger
+ * /api/devices/geofence:
+ *   post:
+ *     summary: Save or update a geofence for a device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - deviceId
+ *               - geofence
+ *             properties:
+ *               deviceId:
+ *                 type: string
+ *                 description: The hardware ID of the device.
+ *               geofence:
+ *                 type: object
+ *                 description: A GeoJSON object representing the geofence polygon or circle.
+ *     responses:
+ *       '200':
+ *         description: Geofence saved successfully.
+ *       '400':
+ *         description: Bad request (e.g., missing fields).
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found.
+ *       '500':
+ *         description: Server error.
+ */
+router.post('/geofence', isAuthenticated, isUser, deviceController.updateGeofence);
+
+/**
+ * @swagger
+ * /api/alerts:
+ *   get:
+ *     summary: Get all unread alerts for the current user
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: An array of unread alert objects.
+ *       '401':
+ *         description: Unauthorized.
+ *       '500':
+ *         description: Server error.
+ */
+router.get('/alerts', isAuthenticated, isUser, deviceController.getUnreadAlerts);
+
+/**
+ * @swagger
+ * /api/alerts/read:
+ *   post:
+ *     summary: Mark alerts as read
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               alertIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: An array of alert IDs to mark as read.
+ *     responses:
+ *       '200':
+ *         description: Alerts marked as read successfully.
+ *       '400':
+ *         description: Bad request.
+ *       '401':
+ *         description: Unauthorized.
+ *       '500':
+ *         description: Server error.
+ */
+router.post('/alerts/read', isAuthenticated, isUser, deviceController.markAlertsAsRead);
+
+/**
+ * @swagger
+ * /api/alerts/read-all/{deviceId}:
+ *   post:
+ *     summary: Mark all unread alerts for a specific device as read
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: deviceId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The hardware ID of the device.
+ *     responses:
+ *       '200':
+ *         description: Alerts marked as read successfully.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found.
+ *       '500':
+ *         description: Server error.
+ */
+router.post('/alerts/read-all/:deviceId', isAuthenticated, isUser, deviceController.markDeviceAlertsAsRead);
 
 module.exports = router;

@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS devices (
     last_seen TIMESTAMP NULL,
     interval_gps INT DEFAULT 60, -- Default: 60 seconds between GPS fixes
     interval_send INT DEFAULT 1, -- Default: Send after every 1 cycle (simple mode)
+    geofence JSON NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -45,6 +46,16 @@ CREATE TABLE IF NOT EXISTS locations (
 CREATE INDEX idx_device_id ON locations(device_id);
 CREATE INDEX idx_timestamp ON locations(timestamp);
 CREATE INDEX idx_device_status ON devices(status);
+
+CREATE TABLE IF NOT EXISTS alerts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    device_id INT NOT NULL,
+    type VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+);
 
 -- Vložení administrátorského účtu
 INSERT INTO users (username, email, is_verified, password) VALUES ('root', 'root', 1, '$2b$10$5JGpNVbNnSSbqs/hn9OW1OqdvhT5gCXh1n984mlPF46k5GHfZ/HwW');

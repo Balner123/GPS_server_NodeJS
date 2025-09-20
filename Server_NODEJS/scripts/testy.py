@@ -22,10 +22,10 @@ def register_device():
     """
     url = f"{BASE_URL}/api/hw/register-device"
     payload = {
-        "username": TEST_USERNAME,
-        "password": TEST_PASSWORD,
-        "deviceId": DEVICE_ID,
-        "name": "Python Test Device"
+        "username": "lotr",
+        "password": "lotr",
+        "deviceId": "0123456789",
+        "name": "Test Device"
     }
     
     print(f"--- Attempting to register device {DEVICE_ID} to user {TEST_USERNAME}... ---")

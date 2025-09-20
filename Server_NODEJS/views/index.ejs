@@ -28,6 +28,29 @@
                             <div id="devices-list"></div>
                         </div>
                     </div>
+
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Active Alerts</h5>
+                        </div>
+                        <div class="card-body">
+                            <% if (typeof alerts !== 'undefined' && alerts.length > 0) { %>
+                                <ul class="list-group list-group-flush">
+                                    <% alerts.forEach(alert => { %>
+                                        <li class="list-group-item list-group-item-danger">
+                                            <a href="/devices?id=<%= alert.Device.device_id %>" class="text-decoration-none text-dark">
+                                                <strong><%= alert.Device.name || alert.Device.device_id %>:</strong>
+                                                <p class="mb-1"><%= alert.message %></p>
+                                                <small class="text-muted"><%= new Date(alert.created_at).toLocaleString() %></small>
+                                            </a>
+                                        </li>
+                                    <% }); %>
+                                </ul>
+                            <% } else { %>
+                                <p class="text-muted">No active alerts.</p>
+                            <% } %>
+                        </div>
+                    </div>
                     
                     
                 </div>

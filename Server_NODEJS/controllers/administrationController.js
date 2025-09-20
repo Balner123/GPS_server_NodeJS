@@ -1,29 +1,29 @@
 
-const { User, Device, Location, sequelize } = require('../database');
+const db = require('../database');
 
 const getAdminPage = async (req, res) => {
     try {
-        const users = await User.findAll({
+        const users = await db.User.findAll({
             include: [{
-                model: Device,
-                as: 'devices' // Sequelize by měl toto nastavit automaticky, ale explicitnost neuškodí
+                model: db.Device,
+                as: 'devices'
             }],
             order: [['created_at', 'DESC']]
         });
         
-        const devices = await Device.findAll({
+        const devices = await db.Device.findAll({
             include: [
-                { model: User, attributes: ['username'] },
-                { model: Location, limit: 1, order: [['timestamp', 'DESC']] } // Jen poslední lokace pro přehled
+                { model: db.User, attributes: ['username'] },
+                { model: db.Location, limit: 1, order: [['timestamp', 'DESC']] }
             ],
             order: [['created_at', 'DESC']]
         });
 
-        const locations = await Location.findAll({
+        const locations = await db.Location.findAll({
             limit: 50, // Omezíme na posledních 50 záznamů, aby stránka nebyla přetížená
             order: [['timestamp', 'DESC']],
             include: [{
-                model: Device,
+                model: db.Device,
                 attributes: ['device_id', 'name']
             }]
         });

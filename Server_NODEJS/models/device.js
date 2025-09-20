@@ -39,6 +39,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 1 // Default: Send after every 1 cycle (simple mode)
+    },
+    geofence: {
+      type: DataTypes.JSON,
+      allowNull: true
     }
   }, {
     timestamps: true,
@@ -49,6 +53,10 @@ module.exports = (sequelize, DataTypes) => {
 
   Device.associate = models => {
     Device.hasMany(models.Location, {
+      foreignKey: 'device_id',
+      onDelete: 'CASCADE'
+    });
+    Device.hasMany(models.Alert, {
       foreignKey: 'device_id',
       onDelete: 'CASCADE'
     });

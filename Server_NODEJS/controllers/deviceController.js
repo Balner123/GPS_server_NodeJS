@@ -1,6 +1,78 @@
 const db = require('../database');
 const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
+const { sendGeofenceAlertEmail } = require('../utils/emailSender');
+
+// --- Geofencing Helper Functions ---
+
+/**
+ * Checks if a GPS point is inside a polygon.
+ * @param {object} point - The point to check, with 'latitude' and 'longitude'.
+ * @param {Array<Array<number>>} polygon - An array of [longitude, latitude] pairs.
+ * @returns {boolean} - True if the point is inside, false otherwise.
+ */
+function isPointInPolygon(point, polygon) {
+    const x = point.longitude, y = point.latitude;
+    let isInside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0], yi = polygon[i][1];
+        const xj = polygon[j][0], yj = polygon[j][1];
+        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) isInside = !isInside;
+    }
+    return isInside;
+}
+
+/**
+ * Checks if a GPS point is inside a circle.
+ * @param {object} point - The point to check, with 'latitude' and 'longitude'.
+ * @param {object} circle - The circle object with 'center' ([lng, lat]) and 'radius' in meters.
+ * @returns {boolean} - True if the point is inside, false otherwise.
+ */
+function isPointInCircle(point, circle) {
+    const { center, radius } = circle;
+    const R = 6371e3; // Earth's radius in meters
+    const lat1 = point.latitude * Math.PI / 180;
+    const lat2 = center[1] * Math.PI / 180;
+    const deltaLat = (center[1] - point.latitude) * Math.PI / 180;
+    const deltaLng = (center[0] - point.longitude) * Math.PI / 180;
+
+    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+              Math.cos(lat1) * Math.cos(lat2) *
+              Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    const distance = R * c; // Distance in meters
+    return distance <= radius;
+}
+
+/**
+ * Triggers a geofence alert.
+ * @param {object} device - The Sequelize device object.
+ * @param {object} location - The location object that triggered the alert.
+ */
+async function triggerGeofenceAlert(device, location) {
+    console.log(`Geofence alert for device: ${device.name || device.device_id}`);
+    try {
+        // 1. Save alert to the database
+        await db.Alert.create({
+            device_id: device.id,
+            type: 'geofence',
+            message: `Device '${device.name || device.device_id}' has left the defined geofence area.`
+        });
+
+        // 2. Send email to the user
+        const user = await device.getUser();
+        if (user && user.email) {
+            await sendGeofenceAlertEmail(user.email, device, location);
+        }
+    } catch (error) {
+        console.error('Failed to trigger geofence alert:', error);
+    }
+}
+
+// --- End Geofencing Helpers ---
+
 
 const getDeviceSettings = async (req, res) => {
   try {
@@ -16,7 +88,8 @@ const getDeviceSettings = async (req, res) => {
     }
     res.json({
       interval_gps: device.interval_gps,
-      interval_send: device.interval_send
+      interval_send: device.interval_send,
+      geofence: device.geofence
     });
   } catch (err) {
     console.error("Error getting device settings:", err);
@@ -74,9 +147,6 @@ const handleDeviceInput = async (req, res) => {
     const device = await db.Device.findOne({ where: { device_id: deviceId } });
 
     if (!device) {
-      // Per the new registration flow, if a device is not found in the database,
-      // it is considered "not registered". We return a specific response that the
-      // hardware can understand and act upon.
       return res.status(403).json({ 
         registered: false,
         message: `Device with ID ${deviceId} is not registered.` 
@@ -84,6 +154,7 @@ const handleDeviceInput = async (req, res) => {
     }
 
     const t = await db.sequelize.transaction();
+    let lastLocation;
     try {
       const locationsToCreate = dataPoints.map(point => {
         if (point.latitude === undefined || point.longitude === undefined) {
@@ -103,16 +174,32 @@ const handleDeviceInput = async (req, res) => {
 
       if (locationsToCreate.length > 0) {
         await db.Location.bulkCreate(locationsToCreate, { transaction: t, validate: true });
+        lastLocation = locationsToCreate[locationsToCreate.length - 1];
       }
 
-      if (name && device.name !== name) {
-        device.name = name;
-      }
       device.last_seen = new Date();
       await device.save({ transaction: t });
       
       await t.commit();
       
+      // --- Geofence Check ---
+      if (lastLocation && device.geofence) {
+        const geofence = device.geofence;
+        let isInside = false;
+
+        if (geofence.type === 'circle') {
+            const circle = { center: [geofence.lng, geofence.lat], radius: geofence.radius };
+            isInside = isPointInCircle(lastLocation, circle);
+        } else if (geofence.type === 'Feature') { // GeoJSON for polygon
+            isInside = isPointInPolygon(lastLocation, geofence.geometry.coordinates[0]);
+        }
+
+        if (!isInside) {
+            triggerGeofenceAlert(device, lastLocation);
+        }
+      }
+      // --- End Geofence Check ---
+
       res.status(200).json({ 
         success: true,
         message: `${locationsToCreate.length} location(s) recorded.`,
@@ -141,15 +228,22 @@ const getCurrentCoordinates = async (req, res) => {
         status: 'active',
         user_id: req.session.user.id
       },
-      include: {
-        model: db.Location,
-        where: {
-          id: {
-            [db.Sequelize.Op.in]: db.sequelize.literal(`(SELECT MAX(id) FROM locations GROUP BY device_id)`)
-          }
+      include: [
+        {
+          model: db.Location,
+          where: {
+            id: {
+              [db.Sequelize.Op.in]: db.sequelize.literal(`(SELECT MAX(id) FROM locations GROUP BY device_id)`)
+            }
+          },
+          required: true
         },
-        required: true
-      }
+        {
+          model: db.Alert,
+          where: { is_read: false },
+          required: false // Use a LEFT JOIN to include devices without alerts
+        }
+      ]
     });
 
     const coordinates = devices.map(d => {
@@ -160,6 +254,7 @@ const getCurrentCoordinates = async (req, res) => {
         longitude: latestLocation.longitude,
         latitude: latestLocation.latitude,
         timestamp: latestLocation.timestamp,
+        has_unread_alerts: d.Alerts && d.Alerts.length > 0
       };
     });
 
@@ -358,9 +453,175 @@ const registerDeviceFromHardware = async (req, res) => {
 
 
 
+const updateDeviceName = async (req, res) => {
+  const { deviceId, newName } = req.body;
+  const userId = req.session.user.id;
+
+  if (!deviceId || !newName) {
+    return res.status(400).json({ success: false, error: 'Device ID and new name are required.' });
+  }
+
+  if (typeof newName !== 'string' || newName.trim().length === 0 || newName.length > 255) {
+      return res.status(400).json({ success: false, error: 'Invalid name provided.' });
+  }
+
+  try {
+    const [affectedRows] = await db.Device.update(
+      { name: newName.trim() },
+      { 
+        where: { 
+          device_id: deviceId,
+          user_id: userId 
+        } 
+      }
+    );
+
+    if (affectedRows === 0) {
+      return res.status(404).json({ success: false, error: 'Device not found or you do not have permission to edit it.' });
+    }
+
+    res.json({ success: true, message: 'Device name updated successfully.' });
+
+  } catch (err) {
+    console.error("Error updating device name:", err);
+    res.status(500).json({ success: false, error: 'An internal server error occurred.' });
+  }
+};
+
+const updateGeofence = async (req, res) => {
+  const { deviceId, geofence } = req.body;
+  const userId = req.session.user.id;
+
+  if (!deviceId) {
+    return res.status(400).json({ success: false, error: 'Device ID is required.' });
+  }
+
+  // New, flexible validation
+  if (geofence) { // Only validate if a geofence object is present
+    if (typeof geofence !== 'object' || !geofence.type) {
+        return res.status(400).json({ success: false, error: 'Invalid geofence data: missing type property.' });
+    }
+    // Validation for GeoJSON polygons
+    if (geofence.type === 'Feature' && !geofence.geometry) {
+        return res.status(400).json({ success: false, error: 'Invalid GeoJSON Feature: missing geometry property.' });
+    }
+    // Validation for custom circles
+    if (geofence.type === 'circle' && (geofence.lat === undefined || geofence.lng === undefined || geofence.radius === undefined)) {
+        return res.status(400).json({ success: false, error: 'Invalid circle object: missing lat, lng, or radius.' });
+    }
+  }
+
+  try {
+    const [affectedRows] = await db.Device.update(
+      { geofence: geofence }, // geofence can be an object or null
+      { 
+        where: { 
+          device_id: deviceId,
+          user_id: userId
+        } 
+      }
+    );
+
+    if (affectedRows === 0) {
+      return res.status(404).json({ success: false, error: 'Device not found or you do not have permission to edit it.' });
+    }
+
+    res.json({ success: true, message: 'Geofence updated successfully.' });
+
+  } catch (err) {
+    console.error("Error updating geofence:", err);
+    res.status(500).json({ success: false, error: 'An internal server error occurred.' });
+  }
+};
+
+const getUnreadAlerts = async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const devices = await db.Device.findAll({ where: { user_id: userId }, attributes: ['id'] });
+    const deviceIds = devices.map(d => d.id);
+
+    const alerts = await db.Alert.findAll({
+      where: {
+        device_id: deviceIds,
+        is_read: false
+      },
+      order: [['created_at', 'DESC']]
+    });
+
+    res.json(alerts);
+
+  } catch (err) {
+    console.error("Error fetching unread alerts:", err);
+    res.status(500).json({ success: false, error: 'An internal server error occurred.' });
+  }
+};
+
+const markAlertsAsRead = async (req, res) => {
+  try {
+    const { alertIds } = req.body;
+    const userId = req.session.user.id;
+
+    if (!alertIds || !Array.isArray(alertIds) || alertIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'Alert IDs must be a non-empty array.' });
+    }
+
+    // Security: Ensure the user can only mark their own alerts as read
+    const devices = await db.Device.findAll({ where: { user_id: userId }, attributes: ['id'] });
+    const userDeviceIds = devices.map(d => d.id);
+
+    await db.Alert.update(
+      { is_read: true },
+      {
+        where: {
+          id: alertIds,
+          device_id: userDeviceIds // Only update alerts belonging to the user's devices
+        }
+      }
+    );
+
+    res.json({ success: true, message: 'Alerts marked as read.' });
+
+  } catch (err) {
+    console.error("Error marking alerts as read:", err);
+    res.status(500).json({ success: false, error: 'An internal server error occurred.' });
+  }
+};
+
+const markDeviceAlertsAsRead = async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const userId = req.session.user.id;
+
+    const device = await db.Device.findOne({ 
+      where: { device_id: deviceId, user_id: userId },
+      attributes: ['id']
+    });
+
+    if (!device) {
+      return res.status(404).json({ success: false, error: 'Device not found.' });
+    }
+
+    await db.Alert.update(
+      { is_read: true },
+      { where: { device_id: device.id, is_read: false } }
+    );
+
+    res.json({ success: true, message: `Alerts for device ${deviceId} marked as read.` });
+
+  } catch (err) {
+    console.error("Error marking device alerts as read:", err);
+    res.status(500).json({ success: false, error: 'An internal server error occurred.' });
+  }
+};
+
 module.exports = {
   getDeviceSettings,
   updateDeviceSettings,
+  updateDeviceName,
+  updateGeofence,
+  getUnreadAlerts,
+  markAlertsAsRead,
+  markDeviceAlertsAsRead,
   registerDeviceFromApk,
   handleDeviceInput,
   getCurrentCoordinates,
