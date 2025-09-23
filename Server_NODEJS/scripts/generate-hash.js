@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
-const password = 'root'; // Change to your actual password
-const saltRounds = 10; // Recommended number of salt rounds
+const password = 'root';
+const saltRounds = 10;
 
 bcrypt.hash(password, saltRounds, function(err, hash) {
   if (err) {

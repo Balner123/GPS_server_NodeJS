@@ -3,7 +3,18 @@ const router = express.Router();
 const indexController = require('../controllers/indexController');
 const { isUser } = require('../middleware/authorization');
 
-// Zajistíme, že na hlavní stránku má přístup pouze běžný uživatel
+/**
+ * @swagger
+ * /:
+ *   get:
+ *     summary: Retrieve the home page
+ *     description: This endpoint returns the home page of the application.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the home page.
+ *       401:
+ *         description: Unauthorized access.
+ */
 router.get('/', isUser, indexController.getHomePage);
 
 module.exports = router; 

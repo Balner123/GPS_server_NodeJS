@@ -241,7 +241,7 @@ const getCurrentCoordinates = async (req, res) => {
         {
           model: db.Alert,
           where: { is_read: false },
-          required: false // Use a LEFT JOIN to include devices without alerts
+          required: false
         }
       ]
     });
@@ -323,18 +323,18 @@ const removeDeviceFromUser = async (req, res) => {
     });
 
     if (!device) {
-      req.flash('error', 'Zařízení nebylo nalezeno nebo k němu nemáte oprávnění.');
+      req.flash('error', 'Device not found or you do not have permission to remove it.');
       return res.redirect('/devices');
     }
 
     await device.destroy();
 
-    req.flash('success', `Registrace pro zařízení "${deviceId}" byla úspěšně zrušena.`);
+    req.flash('success', `Registration for device "${deviceId}" has been successfully canceled.`);
     res.redirect('/devices');
 
   } catch (err) {
     console.error("Error removing device from user:", err);
-    req.flash('error', 'Došlo k chybě při odebírání zařízení.');
+    req.flash('error', 'Error during device removal.');
     res.redirect('/devices');
   }
 };
@@ -355,7 +355,7 @@ const getDevicesPage = async (req, res) => {
     console.error("Error fetching devices for management page:", err);
     res.status(500).render('manage-devices', { 
       devices: [], 
-      error: ['Došlo k chybě při načítání vašich zařízení.'],
+      error: ['Error loading your devices.'],
       success: null,
       currentPage: 'devices'
     });
@@ -366,11 +366,11 @@ const registerDeviceFromApk = async (req, res) => {
     const { installationId, deviceName } = req.body;
     
     if (!req.session.user || !req.session.user.id) {
-        return res.status(401).json({ success: false, error: 'Uživatel není přihlášen.' });
+        return res.status(401).json({ success: false, error: 'User is not logged in.' });
     }
 
     if (!installationId || !deviceName) {
-        return res.status(400).json({ success: false, error: 'Chybí ID zařízení nebo jeho název.' });
+        return res.status(400).json({ success: false, error: 'Missing device ID or name.' });
     }
 
     try {
@@ -384,7 +384,7 @@ const registerDeviceFromApk = async (req, res) => {
         });
 
         if (existingDevice) {
-            return res.status(200).json({ success: true, message: 'Zařízení již bylo registrováno.' });
+            return res.status(200).json({ success: true, message: 'Device is already registered.' });
         }
 
         await db.Device.create({
@@ -393,14 +393,14 @@ const registerDeviceFromApk = async (req, res) => {
             name: deviceName
         });
 
-        res.status(201).json({ success: true, message: 'Zařízení úspěšně registrováno.' });
+        res.status(201).json({ success: true, message: 'Device registered successfully.' });
 
     } catch (error) {
-        console.error('Chyba při registraci zařízení z APK:', error);
+        console.error('Error during device registration from APK:', error);
         if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(409).json({ success: false, error: 'Toto ID zařízení již existuje.' });
+            return res.status(409).json({ success: false, error: 'This device ID already exists.' });
         }
-        res.status(500).json({ success: false, error: 'Interní chyba serveru.' });
+        res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 };
 
@@ -496,7 +496,6 @@ const updateGeofence = async (req, res) => {
     return res.status(400).json({ success: false, error: 'Device ID is required.' });
   }
 
-  // New, flexible validation
   if (geofence) { // Only validate if a geofence object is present
     if (typeof geofence !== 'object' || !geofence.type) {
         return res.status(400).json({ success: false, error: 'Invalid geofence data: missing type property.' });
@@ -513,7 +512,7 @@ const updateGeofence = async (req, res) => {
 
   try {
     const [affectedRows] = await db.Device.update(
-      { geofence: geofence }, // geofence can be an object or null
+      { geofence: geofence },
       { 
         where: { 
           device_id: deviceId,
@@ -565,7 +564,6 @@ const markAlertsAsRead = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Alert IDs must be a non-empty array.' });
     }
 
-    // Security: Ensure the user can only mark their own alerts as read
     const devices = await db.Device.findAll({ where: { user_id: userId }, attributes: ['id'] });
     const userDeviceIds = devices.map(d => d.id);
 
@@ -574,7 +572,7 @@ const markAlertsAsRead = async (req, res) => {
       {
         where: {
           id: alertIds,
-          device_id: userDeviceIds // Only update alerts belonging to the user's devices
+          device_id: userDeviceIds
         }
       }
     );
@@ -592,7 +590,7 @@ const markDeviceAlertsAsRead = async (req, res) => {
     const { deviceId } = req.params;
     const userId = req.session.user.id;
 
-    const device = await db.Device.findOne({ 
+    const device = await db.Device.findOne({
       where: { device_id: deviceId, user_id: userId },
       attributes: ['id']
     });
@@ -601,10 +599,17 @@ const markDeviceAlertsAsRead = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Device not found.' });
     }
 
-    await db.Alert.update(
-      { is_read: true },
-      { where: { device_id: device.id, is_read: false } }
-    );
+    const unreadAlerts = await db.Alert.findAll({
+      where: {
+        device_id: device.id,
+        is_read: false
+      }
+    });
+
+    for (const alert of unreadAlerts) {
+      alert.is_read = true;
+      await alert.save({ timestamps: false });
+    }
 
     res.json({ success: true, message: `Alerts for device ${deviceId} marked as read.` });
 

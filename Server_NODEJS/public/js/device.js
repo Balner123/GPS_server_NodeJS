@@ -13,7 +13,6 @@ let drawnItems, drawControl;
 const API_BASE_URL = window.location.origin;
 const UPDATE_INTERVAL = 5000; // 5 seconds
 
-// --- Helper functions for time conversion (Client-side) ---
 function secondsToDhms(totalSeconds) {
     totalSeconds = Number(totalSeconds);
     if (isNaN(totalSeconds) || totalSeconds < 0) return { d: 0, h: 0, m: 0, s: 0 };
@@ -31,8 +30,6 @@ function pad(num) {
 function dhmsToSeconds(d, h, m, s) {
     return Number(d) * 24 * 3600 + Number(h) * 3600 + Number(m) * 60 + Number(s);
 }
-
-// --- End of helper functions ---
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('history-map')) {
@@ -54,7 +51,7 @@ function initializeApp() {
         position: 'topright',
         edit: {
             featureGroup: drawnItems,
-            remove: false // Disable the default remove button
+            remove: false
         },
         draw: {
             polygon: { allowIntersection: false, showArea: true },
@@ -66,13 +63,11 @@ function initializeApp() {
         }
     });
 
-    // When a shape is created, replace the old one in the drawnItems layer
     map.on(L.Draw.Event.CREATED, (e) => {
         drawnItems.clearLayers();
         drawnItems.addLayer(e.layer);
     });
 
-    // --- Manual Geofence Control Listeners ---
     document.getElementById('toggle-draw-mode').addEventListener('click', function(e) {
         e.preventDefault();
         if (!selectedDevice) {
@@ -124,7 +119,7 @@ function initializeApp() {
             return;
         }
         drawnItems.clearLayers();
-        sendGeofenceToBackend(null); // Send null to delete on backend
+        sendGeofenceToBackend(null);
     });
     // --- End Leaflet.draw ---
 
@@ -175,7 +170,6 @@ function initializeApp() {
         renderPositionTable();
     });
 
-    // Start polling for alerts
     setInterval(checkForAlerts, 15000); // Check for new alerts every 15 seconds
 }
 

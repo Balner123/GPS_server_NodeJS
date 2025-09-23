@@ -40,7 +40,6 @@ const getAdminPage = async (req, res) => {
     }
 };
 
-// Smazání uživatele a všech jeho dat
 const deleteUserAndData = async (req, res) => {
     const userId = req.params.userId;
     if (req.session.user && String(req.session.user.id) === String(userId)) {
@@ -48,36 +47,27 @@ const deleteUserAndData = async (req, res) => {
         return res.redirect('/administration');
     }
     try {
-        // Sequelize je nakonfigurováno tak, že User má asociaci s Device.
-        // Při smazání uživatele by se měla (pokud je tak nastaveno v modelu) kaskádově smazat i jeho zařízení.
-        // A díky ON DELETE CASCADE u modelu Device se smažou i všechny jejich lokace.
-        // Tímto jediným příkazem smažeme uživatele a všechna jeho související data.
         await User.destroy({ where: { id: userId } });
         res.redirect('/administration');
     } catch (err) {
         console.error("Error deleting user and data:", err);
-        res.status(500).send("Chyba při mazání uživatele a jeho dat.");
+        res.status(500).send("Error deleting user and data.");
     }
 };
 
-// Smazání zařízení a jeho dat
 const deleteDeviceAndData = async (req, res) => {
     const deviceId = req.params.deviceId;
     try {
-        // Najdeme zařízení podle jeho unikátního device_id
         const device = await Device.findOne({ where: { device_id: deviceId } });
 
         if (device) {
-            // Zavoláme destroy() na instanci modelu.
-            // Díky nastavení 'ON DELETE CASCADE' v asociaci modelu
-            // se automaticky smažou i všechny související záznamy v tabulce 'locations'.
             await device.destroy();
         }
         
         res.redirect('/administration');
     } catch (err) {
         console.error("Error deleting device and data:", err);
-        res.status(500).send("Chyba při mazání zařízení a jeho dat.");
+        res.status(500).send("Error deleting device and data.");
     }
 };
 

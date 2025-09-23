@@ -25,7 +25,7 @@
         <h2 class="mb-4">Database Administration</h2>
 
         <div class="row">
-    <!-- Uživatelé -->
+    <!-- Users -->
     <div class="card mb-4 admin-table-container">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5>Users</h5>
@@ -62,7 +62,7 @@
                                         <td><%= new Date(user.created_at).toLocaleString() %></td>
                                         <td>
                                             <% if (user.username !== 'root') { %>
-                                                <form action="/api/admin/delete-user/<%= user.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Opravdu chcete smazat tohoto uživatele a všechna jeho data?');">
+                                                <form action="/api/admin/delete-user/<%= user.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Do you really want to delete this user and all their data?');">
                                                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                                                 </form>
                                             <% } %>

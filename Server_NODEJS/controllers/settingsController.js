@@ -6,19 +6,19 @@ const updateEmail = async (req, res) => {
 
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!email || !emailRegex.test(email)) {
-        req.flash('error', 'Zadejte platný email.');
+        req.flash('error', 'Enter a valid email address.');
         return res.redirect('/settings');
     }
 
     if (email === req.session.user.email) {
-        req.flash('info', 'Zadaný email je stejný jako váš současný.');
+        req.flash('info', 'The entered email is the same as your current one.');
         return res.redirect('/settings');
     }
 
     try {
         const existingUser = await User.findOne({ where: { email: email } });
         if (existingUser) {
-            req.flash('error', 'Email je již obsazený jiným účtem.');
+            req.flash('error', 'This email is already taken by another account.');
             return res.redirect('/settings');
         }
 
@@ -35,12 +35,12 @@ const updateEmail = async (req, res) => {
         req.session.pendingUserId = userId;
         req.session.pendingEmailChange = true; 
 
-        req.flash('success', 'Na vaši novou emailovou adresu byl odeslán ověřovací kód.');
+        req.flash('success', 'A verification code has been sent to your new email address.');
         return res.redirect('/verify-email');
 
     } catch (err) {
         console.error("Error updating email:", err);
-        req.flash('error', 'Došlo k chybě při změně emailu.');
+        req.flash('error', 'An error occurred while changing the email.');
         return res.redirect('/settings');
     }
 };
@@ -62,7 +62,7 @@ const updateUsername = async (req, res) => {
     const userId = req.session.user.id;
 
     if (!username || username.trim().length === 0) {
-        req.flash('error', 'Uživatelské jméno nesmí být prázdné.');
+        req.flash('error', 'Username cannot be empty.');
         return res.redirect('/settings');
     }
 
@@ -74,15 +74,15 @@ const updateUsername = async (req, res) => {
     try {
         const existingUser = await User.findOne({ where: { username: username } });
         if (existingUser) {
-            req.flash('error', 'Uživatelské jméno je již obsazené.');
+            req.flash('error', 'This username is already taken.');
             return res.redirect('/settings');
         }
         await User.update({ username: username }, { where: { id: userId } });
         req.session.user.username = username; // Update username in session
-        req.flash('success', 'Uživatelské jméno bylo úspěšně změněno.');
+        req.flash('success', 'Username has been successfully changed.');
     } catch (err) {
         console.error("Error updating username:", err);
-        req.flash('error', 'Došlo k chybě při změně jména.');
+        req.flash('error', 'An error occurred while changing the username.');
     }
     res.redirect('/settings');
 };
@@ -92,12 +92,12 @@ const updatePassword = async (req, res) => {
     const userId = req.session.user.id;
 
     if (!oldPassword || !newPassword || !confirmPassword) {
-        req.flash('error', 'Pro změnu hesla musíte vyplnit všechna tři pole.');
+        req.flash('error', 'To change your password, you must fill in all three fields.');
         return res.redirect('/settings');
     }
 
     if (newPassword !== confirmPassword) {
-        req.flash('error', 'Nové heslo a jeho potvrzení se neshodují.');
+        req.flash('error', 'New password and confirmation do not match.');
         return res.redirect('/settings');
     }
 
@@ -105,10 +105,10 @@ const updatePassword = async (req, res) => {
     if (!use_weak_password) {
         // Strict password requirements
         const passwordRequirements = [
-            { regex: /.{6,}/, message: 'Nové heslo musí mít alespoň 6 znaků.' },
-            { regex: /[A-Z]/, message: 'Nové heslo musí obsahovat alespoň jedno velké písmeno.' },
-            { regex: /[0-9]/, message: 'Nové heslo musí obsahovat alespoň jedno číslo.' },
-            { regex: /[^A-Za-z0-9]/, message: 'Nové heslo musí obsahovat alespoň jeden speciální znak.' }
+            { regex: /.{6,}/, message: 'New password must be at least 6 characters long.' },
+            { regex: /[A-Z]/, message: 'New password must contain at least one uppercase letter.' },
+            { regex: /[0-9]/, message: 'New password must contain at least one number.' },
+            { regex: /[^A-Za-z0-9]/, message: 'New password must contain at least one special character.' }
         ];
         for (const requirement of passwordRequirements) {
             if (!requirement.regex.test(newPassword)) {
@@ -119,7 +119,7 @@ const updatePassword = async (req, res) => {
     } else {
         // Weak password requirement
         if (newPassword.length < 3) {
-            req.flash('error', 'Slabé heslo musí mít alespoň 3 znaky.');
+            req.flash('error', 'Weak password must be at least 3 characters long.');
             return res.redirect('/settings');
         }
     }
@@ -129,17 +129,17 @@ const updatePassword = async (req, res) => {
         const isMatch = await bcrypt.compare(oldPassword, user.password);
 
         if (!isMatch) {
-            req.flash('error', 'Staré heslo není správné.');
+            req.flash('error', 'Old password is incorrect.');
             return res.redirect('/settings');
         }
 
         const newHash = await bcrypt.hash(newPassword, 10);
         await user.update({ password: newHash });
-        req.flash('success', 'Heslo bylo úspěšně změněno.');
+        req.flash('success', 'Password has been successfully changed.');
 
     } catch (err) {
         console.error("Error changing password:", err);
-        req.flash('error', 'Došlo k chybě při změně hesla.');
+        req.flash('error', 'An error occurred while changing the password.');
     }
     res.redirect('/settings');
 };
@@ -158,7 +158,7 @@ const deleteAccount = async (req, res) => {
         });
     } catch (err) {
         console.error("Error deleting account:", err);
-        req.flash('error', 'Došlo k chybě při mazání účtu.');
+        req.flash('error', 'An error occurred while deleting the account.');
         res.redirect('/settings');
     }
 };

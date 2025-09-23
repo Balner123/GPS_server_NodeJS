@@ -16,14 +16,14 @@ function fetchCoordinatesAndUpdateMap() {
     .then(response => response.json())
     .then(data => {
       const tableBody = document.querySelector("#coordinatesTable tbody");
-      tableBody.innerHTML = "";  // Clear existing data
+      tableBody.innerHTML = "";
 
       // Remove existing markers from the map
       markers.forEach(marker => marker.setMap(null));
-      markers = []; // Clear the markers array
+      markers = [];
 
       data.forEach(row => {
-        if (row) { // Check if row is not null
+        if (row) {
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${row.device}</td>

@@ -9,13 +9,13 @@
     <div class="main-container">
         <div class="card login-card">
             <div class="card-body">
-                <h3 class="card-title text-center mb-4">Registrace</h3>
+                <h3 class="card-title text-center mb-4">Registration</h3>
                 <% if (error) { %>
                     <div class="alert alert-danger"><%= error %></div>
                 <% } %>
                 <form action="/api/auth/register" method="POST">
                     <div class="mb-3">
-                        <label for="username" class="form-label">Uživatelské jméno</label>
+                        <label for="username" class="form-label">Username</label>
                         <input type="text" class="form-control" id="username" name="username" value="<%= input.username || '' %>" required>
                     </div>
                     <div class="mb-3">
@@ -23,7 +23,7 @@
                         <input type="email" class="form-control" id="email" name="email" value="<%= input.email || '' %>" required>
                     </div>
                     <div class="mb-3">
-                        <label for="password" class="form-label">Heslo</label>
+                        <label for="password" class="form-label">Password</label>
                         <div class="input-group">
                             <input type="password" class="form-control" id="password" name="password" required>
                             <button class="input-group-text border-start-0 bg-white" type="button" id="togglePassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
@@ -31,11 +31,11 @@
                             </button>
                         </div>
                         <small class="form-text text-muted">
-                            Heslo musí mít alespoň 6 znaků, obsahovat alespoň jedno velké písmeno, jedno číslo a jeden speciální znak.
+                            Password must be at least 6 characters long and contain at least one uppercase letter, one number, and one special character.
                         </small>
                     </div>
                     <div class="mb-3">
-                        <label for="confirmPassword" class="form-label">Potvrzení hesla</label>
+                        <label for="confirmPassword" class="form-label">Confirm Password</label>
                         <div class="input-group">
                             <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
                             <button class="input-group-text border-start-0 bg-white" type="button" id="toggleConfirmPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
@@ -45,7 +45,7 @@
                     </div>
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="use_weak_password" name="use_weak_password">
-                        <label class="form-check-label" for="use_weak_password">Použít slabé heslo (min. 3 znaky)</label>
+                        <label class="form-check-label" for="use_weak_password">Use weak password (min. 3 characters)</label>
                     </div>
 
                     <div class="d-grid">
@@ -53,7 +53,7 @@
                     </div>
                 </form>
                 <div class="text-center mt-3">
-                    <p>Máte již účet? <a href="/login">Přihlaste se</a></p>
+                    <p>Do you already have an account? <a href="/login">Login</a></p>
                 </div>
             </div>
         </div>
@@ -74,10 +74,10 @@
             const submitButton = form.querySelector('button[type="submit"]');
 
             const passwordRequirements = [
-                { regex: /.{6,}/, message: 'Alespoň 6 znaků.' },
-                { regex: /[A-Z]/, message: 'Alespoň jedno velké písmeno.' },
-                { regex: /[0-9]/, message: 'Alespoň jedno číslo.' },
-                { regex: /[^A-Za-z0-9]/, message: 'Alespoň jeden speciální znak.' }
+                { regex: /.{6,}/, message: 'At least 6 characters.' },
+                { regex: /[A-Z]/, message: 'At least one uppercase letter.' },
+                { regex: /[0-9]/, message: 'At least one number.' },
+                { regex: /[^A-Za-z0-9]/, message: 'At least one special character.' }
             ];
 
             function createFeedbackElement(field) {
@@ -100,25 +100,25 @@
 
                 const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                 if (!emailRegex.test(email.value)) {
-                    errors.push({ field: email, feedback: emailFeedback, message: 'Zadejte platný email.' });
+                    errors.push({ field: email, feedback: emailFeedback, message: 'Enter a valid email.' });
                 } else {
                     email.classList.remove('is-invalid');
                 }
 
                 if (useWeakPassword.checked) {
                     if (password.value.length < 3) {
-                        errors.push({ field: password, feedback: passwordFeedback, message: 'Slabé heslo musí mít alespoň 3 znaky.' });
+                        errors.push({ field: password, feedback: passwordFeedback, message: 'Weak password must be at least 3 characters long.' });
                     }
                 } else {
                     const unmetReqs = passwordRequirements.filter(req => !req.regex.test(password.value));
                     if (unmetReqs.length > 0) {
                         const message = unmetReqs.map(r => r.message).join(' ');
-                        errors.push({ field: password, feedback: passwordFeedback, message: `Heslo nesplňuje: ${message}` });
+                        errors.push({ field: password, feedback: passwordFeedback, message: `Password does not meet requirements: ${message}` });
                     }
                 }
 
                 if (password.value !== confirmPassword.value) {
-                    errors.push({ field: confirmPassword, feedback: confirmPasswordFeedback, message: 'Hesla se neshodují.' });
+                    errors.push({ field: confirmPassword, feedback: confirmPasswordFeedback, message: 'Passwords do not match.' });
                 } 
 
                 [email, password, confirmPassword].forEach(f => f.classList.remove('is-invalid'));

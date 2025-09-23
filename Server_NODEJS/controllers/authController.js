@@ -12,7 +12,7 @@ const loginUser = async (req, res) => {
   const { identifier, password } = req.body;
 
   if (!identifier || !password) {
-    return res.status(400).render('login', { error: 'Prosím, zadejte uživatelské jméno nebo email a heslo.', currentPage: 'login' });
+    return res.status(400).render('login', { error: 'Please enter your username or email and password.', currentPage: 'login' });
   }
 
   try {
@@ -26,14 +26,13 @@ const loginUser = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(401).render('login', { error: 'Neplatné přihlašovací údaje.', currentPage: 'login' });
+      return res.status(401).render('login', { error: 'Invalid login credentials.', currentPage: 'login' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (isMatch) {
       if (!user.is_verified) {
-        // User is not verified, generate and send a new code
         const code = Math.floor(1000 + Math.random() * 9000).toString();
         const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
@@ -45,13 +44,13 @@ const loginUser = async (req, res) => {
         try {
           await sendVerificationEmail(user.email, code);
         } catch (mailErr) {
-          console.error('Chyba při odesílání emailu:', mailErr);
-          req.flash('error', 'Nepodařilo se odeslat ověřovací email. Zkuste to prosím znovu.');
+          console.error('Error sending email:', mailErr);
+          req.flash('error', 'Failed to send verification email. Please try again.');
           return res.redirect('/login');
         }
 
         req.session.pendingUserId = user.id;
-        req.flash('error', 'Váš účet není ověřen. Na váš e-mail byl zaslán nový ověřovací kód.');
+        req.flash('error', 'Your account is not verified. A new verification code has been sent to your email.');
         return res.redirect('/verify-email');
       }
 
@@ -66,11 +65,11 @@ const loginUser = async (req, res) => {
       }
       res.redirect('/');
     } else {
-      return res.status(401).render('login', { error: 'Neplatné přihlašovací údaje.', currentPage: 'login' });
+      return res.status(401).render('login', { error: 'Invalid login credentials.', currentPage: 'login' });
     }
   } catch (err) {
     console.error("Error during login:", err);
-    res.status(500).render('login', { error: 'Došlo k chybě serveru. Zkuste to prosím později.', currentPage: 'login' });
+    res.status(500).render('login', { error: 'Server error occurred. Please try again later.', currentPage: 'login' });
   }
 };
 
@@ -97,26 +96,26 @@ const registerUser = async (req, res) => {
   const input = req.body;
 
   if (!username || !email || !password || !confirmPassword) {
-    return res.status(400).render('register', { error: 'Všechna pole jsou povinná.', currentPage: 'register', input });
+    return res.status(400).render('register', { error: 'All fields are required.', currentPage: 'register', input });
   }
 
   const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   if (!emailRegex.test(email)) {
-    return res.status(400).render('register', { error: 'Zadejte platný email.', currentPage: 'register', input });
+    return res.status(400).render('register', { error: 'Please enter a valid email.', currentPage: 'register', input });
   }
 
   if (password !== confirmPassword) {
-    return res.status(400).render('register', { error: 'Hesla se neshodují.', currentPage: 'register', input });
+    return res.status(400).render('register', { error: 'Passwords do not match.', currentPage: 'register', input });
   }
 
   // --- Password Validation ---
   if (!use_weak_password) {
     // Strict password requirements
     const passwordRequirements = [
-      { regex: /.{6,}/, message: 'Heslo musí mít alespoň 6 znaků.' },
-      { regex: /[A-Z]/, message: 'Heslo musí obsahovat alespoň jedno velké písmeno.' },
-      { regex: /[0-9]/, message: 'Heslo musí obsahovat alespoň jedno číslo.' },
-      { regex: /[^A-Za-z0-9]/, message: 'Heslo musí obsahovat alespoň jeden speciální znak.' }
+      { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
+      { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
+      { regex: /[0-9]/, message: 'Password must contain at least one number.' },
+      { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
     ];
     for (const req of passwordRequirements) {
       if (!req.regex.test(password)) {
@@ -126,7 +125,7 @@ const registerUser = async (req, res) => {
   } else {
     // Weak password requirement
     if (password.length < 3) {
-      return res.status(400).render('register', { error: 'Slabé heslo musí mít alespoň 3 znaky.', currentPage: 'register', input });
+      return res.status(400).render('register', { error: 'Weak password must be at least 3 characters long.', currentPage: 'register', input });
     }
   }
 
@@ -140,7 +139,7 @@ const registerUser = async (req, res) => {
       }
     });
     if (existingUser) {
-      return res.status(409).render('register', { error: 'Uživatel s tímto jménem nebo emailem již existuje.', currentPage: 'register', input });
+      return res.status(409).render('register', { error: 'User with this username or email already exists.', currentPage: 'register', input });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -162,8 +161,8 @@ const registerUser = async (req, res) => {
     try {
       await sendVerificationEmail(email, code);
     } catch (mailErr) {
-      console.error('Chyba při odesílání emailu:', mailErr);
-      req.flash('error', 'Nepodařilo se odeslat ověřovací email.');
+      console.error('Error sending verification email:', mailErr);
+      req.flash('error', 'Failed to send verification email.');
       return res.redirect('/register');
     }
 
@@ -172,7 +171,7 @@ const registerUser = async (req, res) => {
 
   } catch (err) {
     console.error("Registration error:", err);
-    res.status(500).render('register', { error: 'Došlo k chybě serveru při registraci.', currentPage: 'register', input });
+    res.status(500).render('register', { error: 'Server error occurred during registration.', currentPage: 'register', input });
   }
 };
 
@@ -192,7 +191,7 @@ const verifyEmailCode = async (req, res) => {
   const userId = req.session.pendingUserId;
 
   if (!userId) {
-    req.flash('error', 'Platnost relace vypršela. Prosím, zkuste to znovu.');
+    req.flash('error', 'Session expired. Please try again.');
     return res.redirect(req.session.pendingEmailChange ? '/settings' : '/login');
   }
 
@@ -210,13 +209,13 @@ const verifyEmailCode = async (req, res) => {
 
     // Check for code expiration
     if (!user.verification_code || !user.verification_expires || new Date() > user.verification_expires) {
-      req.flash('error', 'Ověřovací kód vypršel. Zkuste to znovu a bude vám zaslán nový kód.');
+      req.flash('error', 'Verification code has expired. Please request a new one.');
       return res.redirect(req.session.pendingEmailChange ? '/settings' : '/login');
     }
 
     // Check if code matches
     if (user.verification_code !== code) {
-      req.flash('error', 'Zadaný kód není správný.');
+      req.flash('error', 'The provided code is incorrect.');
       return res.redirect('/verify-email');
     }
 
@@ -239,7 +238,7 @@ const verifyEmailCode = async (req, res) => {
       delete req.session.pendingUserId;
       delete req.session.pendingEmailChange;
 
-      req.flash('success', 'Email byl úspěšně změněn.');
+      req.flash('success', 'Email has been successfully changed.');
       return res.redirect('/settings');
     }
 
@@ -262,8 +261,8 @@ const verifyEmailCode = async (req, res) => {
     return res.redirect('/login');
 
   } catch (err) {
-    console.error('Chyba při ověřování emailu:', err);
-    return res.render('verify-email', { error: 'Došlo k chybě serveru.', currentPage: 'verify-email' });
+    console.error('Error verifying email:', err);
+    return res.render('verify-email', { error: 'Server error occurred.', currentPage: 'verify-email' });
   }
 };
 
@@ -271,19 +270,19 @@ const verifyEmailCode = async (req, res) => {
 
 
 const loginApk = async (req, res) => {
-    // Krok 1: Získání všech potřebných dat z těla požadavku
+
     const { identifier, password, installationId } = req.body;
 
     if (!identifier || !password) {
-        return res.status(400).json({ success: false, error: 'Chybí uživatelské jméno nebo heslo.' });
+        return res.status(400).json({ success: false, error: 'Missing username or password.' });
     }
-    // Kontrola, zda klient poslal ID instalace
+    // Check if the client sent the installation ID
     if (!installationId) {
-        return res.status(400).json({ success: false, error: 'Chybí identifikační kód instalace (installationId).' });
+        return res.status(400).json({ success: false, error: 'Missing installation ID (installationId).' });
     }
 
     try {
-        // Krok 2: Ověření uživatele pomocí Sequelize
+        // Step 2: Verify user using Sequelize
         const user = await db.User.findOne({
             where: {
                 [db.Sequelize.Op.or]: [{ username: identifier }, { email: identifier }]
@@ -300,30 +299,30 @@ const loginApk = async (req, res) => {
             return res.status(401).json({ success: false, error: 'Nesprávné heslo.' });
         }
 
-        // Krok 3: Vytvoření session
-        req.session.isAuthenticated = true; // Důležité pro autorizaci dalších požadavků
+        // Step 3: Create session
+        req.session.isAuthenticated = true; // Important for authorizing further requests
         req.session.user = {
             id: user.id,
             username: user.username,
-            role: user.role // Přidáno pro konzistenci
+            role: user.role // Added for consistency
         };
 
-        // Krok 4: Kontrola, zda je zařízení již registrováno (pomocí Sequelize)
-        const device = await db.Device.findOne({ // Předpokládám, že model se jmenuje 'Device'
+        // Step 4: Check if the device is already registered (using Sequelize)
+        const device = await db.Device.findOne({ // Assuming the model is named 'Device'
             where: {
                 user_id: user.id,
-                device_id: installationId // Používám název sloupce z init-db.sql
+                device_id: installationId // Using the column name from init-db.sql
             }
         });
 
-        const device_is_registered = !!device; // Převod na boolean (true pokud device není null)
+        const device_is_registered = !!device; // Convert to boolean (true if device is not null)
 
-        // Krok 5: Odeslání odpovědi s novým flagem
+        // Step 5: Send response with new flag
         res.status(200).json({ success: true, device_is_registered: device_is_registered });
 
     } catch (error) {
-        console.error('Chyba při přihlašování přes APK:', error);
-        res.status(500).json({ success: false, error: 'Interní chyba serveru.' });
+        console.error('Error during APK login:', error);
+        res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 };
 
@@ -331,17 +330,17 @@ const logoutApk = (req, res) => {
       req.session.destroy(err => {
         if (err) {
           console.error("API Logout error:", err);
-          return res.status(500).json({ success: false, error: 'Chyba při odhlašování.' });
+          return res.status(500).json({ success: false, error: 'Error during logout.' });
         }
         res.clearCookie('connect.sid');
-        res.status(200).json({ success: true, message: 'Odhlášení úspěšné.' });
+        res.status(200).json({ success: true, message: 'Logout successful.' });
       });
     };
 
 const resendVerificationCodeFromPage = async (req, res) => {
   const userId = req.session.pendingUserId;
   if (!userId) {
-    req.flash('error', 'Relace vypršela, zkuste to prosím znovu.');
+    req.flash('error', 'Relation expired. Please log in again.');
     return res.redirect('/login');
   }
 
@@ -355,7 +354,7 @@ const resendVerificationCodeFromPage = async (req, res) => {
 
     // Don't resend if account is already verified AND it's not an email change
     if (user.is_verified && !isEmailChange) {
-        req.flash('error', 'Tento účet je již ověřen.');
+        req.flash('error', 'This account is already verified.');
         return res.redirect('/login');
     }
 
@@ -370,11 +369,11 @@ const resendVerificationCodeFromPage = async (req, res) => {
     const { sendVerificationEmail } = require('../utils/emailSender');
     await sendVerificationEmail(targetEmail, code);
 
-    req.flash('success', 'Nový ověřovací kód byl odeslán na váš email.');
+    req.flash('success', 'New verification code sent to your email.');
     res.redirect('/verify-email');
   } catch (err) {
     console.error("Error during resend from page:", err);
-    req.flash('error', 'Došlo k chybě serveru.');
+    req.flash('error', 'Error during server.');
     res.redirect('/verify-email');
   }
 };

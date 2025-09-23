@@ -1,33 +1,33 @@
-# Rozšířená Analýza a Dokumentace Serveru
+# Server Documentation
 
 Tento dokument poskytuje hloubkovou technickou analýzu a dokumentaci k serverové části aplikace pro sledování GPS. Popisuje architekturu, datový model, API endpointy a klíčové funkcionality systému.
 
-## 1. Přehled
+## 1. Overview
 
 Server je postaven na platformě **Node.js** s využitím frameworku **Express.js**. Jeho primárním úkolem je sloužit jako backend pro GPS sledovací systém. Zajišťuje příjem a zpracování dat z GPS zařízení, správu uživatelských účtů a zařízení, a poskytuje rozhraní pro vizualizaci a management dat.
 
-### 1.1. Technologický Stack
+### 1.1. Technology Stack
 
 - **Backend:** Node.js, Express.js
-- **Databáze:** MySQL
+- **Database:** MySQL
 - **ORM (Object-Relational Mapping):** Sequelize
-- **Šablonovací systém:** EJS (Embedded JavaScript templates)
-- **Autentizace:** Express Session, bcryptjs pro hashování hesel
-- **Validace:** express-validator
-- **Odesílání e-mailů:** Nodemailer
-- **Vývojové prostředí:** Nodemon pro automatické restartování serveru
+- **Template Engine:** EJS (Embedded JavaScript templates)
+- **Authentication:** Express Session, bcryptjs for password hashing
+- **Validation:** express-validator
+- **Emailing:** Nodemailer
+- **Development:** Nodemon for automatic server restarts
 
-## 2. Architektura a Tok Dat
+## 2. Architecture and Data Flow
 
 Aplikace dodržuje osvědčený vzor Model-View-Controller (MVC), který odděluje datovou logiku, prezentační vrstvu a řídící logiku.
 
-### 2.1. Diagram Architektury
+### 2.1. Architecture Diagram
 
 ```mermaid
 graph TD
-    subgraph "Klienti"
-        Client_Browser["Uživatel (Webový Prohlížeč)"]
-        Client_Device["GPS Zařízení"]
+    subgraph "Clients"
+        Client_Browser["User (Web Browser)"]
+        Client_Device["GPS Hardware"]
     end
 
     subgraph "Backend Server (Node.js / Express.js)"
@@ -35,7 +35,7 @@ graph TD
         Middleware["Middleware (.middleware/)"]
         Controller["Controller (.controllers/)"]
         Model["Model (.models/Sequelize)"]
-        Database["((Databáze MySQL))"]
+        Database["((Database MySQL))"]
         View["View (.views/EJS)"]
 
         Router --> Middleware
@@ -45,19 +45,19 @@ graph TD
         Controller --> View
     end
 
-    subgraph "Tok Dat"
-        Client_Browser -- "HTTP/S Požadavek" --> Router
-        Client_Device -- "HTTP POST Požadavek" --> Router
+    subgraph "Data Flow"
+        Client_Browser -- "HTTP/S Request" --> Router
+        Client_Device -- "HTTP POST Request" --> Router
         
-        View -- "Odpověď: Renderované HTML" --> Client_Browser
-        Controller -- "Odpověď: JSON" --> Client_Browser
-        Controller -- "Odpověď: JSON" --> Client_Device
+        View -- "Response: Rendered HTML" --> Client_Browser
+        Controller -- "Response: JSON" --> Client_Browser
+        Controller -- "Response: JSON" --> Client_Device
     end
 
     style Database fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
-## 3. Databázové Schéma
+## 3. Database Schema
 
 ```mermaid
 erDiagram
@@ -95,100 +95,88 @@ erDiagram
         int satellites
     }
 
-    users ||--o{ devices : "vlastní"
-    devices ||--o{ locations : "zaznamenává"
+    users ||--o{ devices : "owns"
+    devices ||--o{ locations : "records"
 ```
 
-- **Vztahy:**
-  - `users` 1--N `devices`: Jeden uživatel může vlastnit více zařízení.
-  - `devices` 1--N `locations`: Jedno zařízení může mít mnoho záznamů o poloze.
-- **Kaskádové mazání:** Díky `ON DELETE CASCADE` se při smazání uživatele automaticky smažou všechna jeho zařízení a jejich polohová data.
+- **Relationships:**
+  - `users` 1--N `devices`: One user can own multiple devices.
+  - `devices` 1--N `locations`: One device can have many location records.
+- **Cascade Deletion:** Thanks to `ON DELETE CASCADE`, deleting a user automatically deletes all their devices and associated location data.
 
-## 4. Detailní Popis Modulů
+## 4. Module Descriptions
 
-- **`controllers/`**: Obsahuje aplikační logiku pro autentizaci, správu zařízení, uživatelská nastavení, administraci a hlavní stránku.
-- **`middleware/`**: Zajišťuje autorizaci (`isAuthenticated`, `isUser`, `isRoot`) a validaci vstupních dat.
-- **`routes/`**: Definuje všechny dostupné endpointy a přiřazuje je k příslušným controllerům.
-- **`utils/`**: Pomocné moduly, jako je `emailSender.js` pro odesílání e-mailů.
+- **`controllers/`**: Contains application logic for authentication, device management, user settings, administration, and the main page.
+- **`middleware/`**: Handles authorization (`isAuthenticated`, `isUser`, `isRoot`) and input data validation.
+- **`routes/`**: Defines all available endpoints and maps them to the corresponding controllers.
+- **`utils/`**: Utility modules, such as `emailSender.js` for sending emails.
 
-## 5. API Endpointy
+## 5. API Endpoints
 
-### 5.1. API Routy (`/api/...`)
+### 5.1. Web Routes
 
-| Metoda | Endpoint | Popis | Oprávnění |
+| Method | Endpoint | Description | Permissions |
 | :--- | :--- | :--- | :--- |
-| POST | `/api/auth/login` | Přihlášení uživatele. | Veřejné |
-| POST | `/api/auth/register` | Registrace nového uživatele. | Veřejné |
-| GET | `/api/auth/logout` | Odhlášení uživatele. | `isAuthenticated` |
-| POST | `/api/devices/input` | Příjem dat z GPS zařízení. | Veřejné |
-| GET | `/api/devices/coordinates`| Získá poslední souřadnice zařízení uživatele.| `isUser` |
-| GET | `/api/devices/data?id=<deviceId>`| Získá historii polohy pro zařízení. | `isUser` |
-| GET | `/api/devices/settings/:deviceId`| Získá nastavení pro zařízení. | `isUser` |
-| POST | `/api/devices/settings` | Aktualizuje `sleep_interval` pro zařízení. | `isUser` |
-| POST | `/api/devices/delete/:deviceId`| Smaže specifické zařízení. | `isUser` |
-| POST | `/api/settings/username` | Změna uživatelského jména. | `isUser` |
-| POST | `/api/settings/password` | Změna hesla. | `isUser` |
-| POST | `/api/settings/email` | Zahájení procesu změny e-mailu. | `isUser` |
-| POST | `/api/settings/delete-account`| Smaže účet přihlášeného uživatele. | `isUser` |
-| POST | `/api/admin/delete-user/:userId`| Smaže uživatele a jeho data. | `isRoot` |
-| POST | `/api/admin/delete-device/:deviceId`| Smaže zařízení a jeho data. | `isRoot` |
-| POST | `/api/apk/login` | Přihlášení pro mobilní aplikaci. | Veřejné |
-| POST | `/api/apk/logout` | Odhlášení z mobilní aplikace. | `isAuthenticated` |
-| POST | `/api/apk/register-device` | Registrace zařízení z mobilní aplikace. | `isAuthenticated` |
+| GET | `/` | Main page with the map. | `isAuthenticated` |
+| GET | `/login` | Login page. | Public |
+| GET | `/register` | Registration page. | Public |
+| GET | `/devices` | Device management page. | `isUser` |
+| GET | `/settings` | Account settings page. | `isUser` |
+| GET | `/administration` | Administration page. | `isRoot` |
 
-### 5.2. Webové Routy
+### 5.2. General API Routes (`/api/...`)
 
-| Metoda | Endpoint | Popis | Oprávnění |
+| Method | Endpoint | Description | Permissions |
 | :--- | :--- | :--- | :--- |
-| GET | `/` | Hlavní stránka s mapou. | `isAuthenticated` |
-| GET | `/login` | Přihlašovací stránka. | Veřejné |
-| GET | `/register` | Registrační stránka. | Veřejné |
-| GET | `/verify-email` | Stránka pro zadání ověřovacího kódu. | Veřejné |
-| POST | `/verify-email` | Zpracování ověřovacího kódu. | Veřejné |
-| GET | `/devices` | Stránka pro správu zařízení. | `isUser` |
-| GET | `/register-device` | Stránka pro registraci nového zařízení. | `isUser` |
-| POST | `/register-device` | Zpracování formuláře pro registraci zařízení.| `isUser` |
-| GET | `/settings` | Stránka s nastavením účtu. | `isUser` |
-| GET | `/verify-email-change` | Stránka pro ověření změny e-mailu. | `isAuthenticated` |
-| POST | `/verify-email-change` | Zpracování kódu pro změnu e-mailu. | `isAuthenticated` |
-| GET | `/administration` | Administrátorská stránka. | `isRoot` |
+| POST | `/api/auth/login` | Logs in a user. | Public |
+| POST | `/api/auth/register` | Registers a new user. | Public |
+| GET | `/api/auth/logout` | Logs out a user. | `isAuthenticated` |
+| POST | `/api/devices/input` | Receives data from a GPS device (HW or App). | Public |
+| GET | `/api/devices/coordinates`| Gets the last coordinates for the user's devices.| `isUser` |
+| GET | `/api/devices/data?id=<deviceId>`| Gets the location history for a device. | `isUser` |
+| POST | `/api/devices/settings` | Updates the `sleep_interval` for a device. | `isUser` |
+| POST | `/api/settings/username` | Changes the username. | `isUser` |
+| POST | `/api/settings/password` | Changes the password. | `isUser` |
 
-## 6. Spuštění a Nasazení
+### 5.3. Hardware API Routes (`/api/hw/...`)
 
-### 6.1. Nastavení Prostředí
+| Method | Endpoint | Description | Permissions |
+| :--- | :--- | :--- | :--- |
+| POST | `/api/hw/register-device` | Registers a hardware device to a user account. | Public |
 
-Před spuštěním serveru je nutné vytvořit v kořenovém adresáři soubor `.env` a nastavit v něm následující proměnné:
+## 6. Deployment
 
-```
-# Databázové připojení
-DB_HOST=localhost
-DB_USER=vas_uzivatel
-DB_PASSWORD=vase_heslo
-DB_NAME=gps_tracking
+### 6.1. Environment Variables
 
-# Nastavení serveru
-PORT=5000
-SESSION_SECRET=super_tajny_klic_pro_session
+The application is configured via environment variables, typically set within the `docker-compose.yml` file.
 
-# Rate Limiting (volitelné)
-RATE_LIMIT_MAX=300
-RATE_LIMIT_MAX_API=100
-```
-**Poznámka k e-mailu:** Přihlašovací údaje pro odesílání e-mailů jsou aktuálně nastaveny přímo v `utils/emailSender.js`. V produkčním prostředí by měly být přesunuty do proměnných prostředí (`EMAIL_USER`, `EMAIL_PASS`).
+| Variable | Description | Example from `docker-compose.yml` |
+| :--- | :--- | :--- |
+| `PORT` | The port on which the Node.js application will run. | `5000` |
+| `DB_HOST` | Hostname of the MySQL database service. | `mysql` |
+| `DB_USER` | Database user. | `root` |
+| `DB_PASSWORD` | Database user's password. | `root` |
+| `DB_NAME` | The name of the database to use. | `gps_tracking` |
+| `SESSION_SECRET` | A secret key for signing the session ID cookie. **Should be changed to a long, random string in production.** | `super_tajny_klic_pro_session` |
+| `EMAIL_USER` | Username for the email sending service (e.g., Gmail). | *(Not set)* |
+| `EMAIL_PASS` | Password for the email sending service. | *(Not set)* |
+| `CORS_ORIGIN` | CORS origin policy. | `*` |
 
-### 6.2. Instalace a Spuštění
+**Note on Email:** Email credentials (`EMAIL_USER`, `EMAIL_PASS`) are currently hard-coded in `utils/emailSender.js`. For production, they must be moved to environment variables.
+
+### 6.2. Installation and Launch
+
+The project is designed to be run with Docker.
 
 ```bash
-# 1. Instalace závislostí
-npm install
+# 1. Build and run the services in detached mode
+docker-compose up --build -d
 
-# 2. Spuštění v development módu (s automatickým restartem)
-npm run dev
+# 2. View logs
+docker-compose logs -f app
 
-# 3. Spuštění v produkčním módu
-npm start
+# 3. Stop services
+docker-compose down
 ```
-
-Pro produkční nasazení je připraven `Dockerfile` a `docker-compose.yml`, které umožňují snadné spuštění aplikace v kontejneru.
 
 ---

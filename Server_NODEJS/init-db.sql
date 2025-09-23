@@ -57,5 +57,5 @@ CREATE TABLE IF NOT EXISTS alerts (
     FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
 );
 
--- Vložení administrátorského účtu
+-- Root user for Admin purposes (testing)
 INSERT INTO users (username, email, is_verified, password) VALUES ('root', 'root', 1, '$2b$10$5JGpNVbNnSSbqs/hn9OW1OqdvhT5gCXh1n984mlPF46k5GHfZ/HwW');

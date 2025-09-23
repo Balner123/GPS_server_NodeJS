@@ -14,15 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Load data and set initial map view
     loadCurrentCoordinates(true); 
-
-    // Set up automatic update without changing the view
     setInterval(() => loadCurrentCoordinates(false), UPDATE_INTERVAL);
 });
 
-// Load device list (this function can remain for other potential uses,
-// but for the main list update, we now rely on loadCurrentCoordinates)
+// Load devices and populate sidebar
 async function loadDevices() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
@@ -44,15 +40,13 @@ async function loadDevices() {
 function createDeviceElement(device) {
     const div = document.createElement('div');
     div.className = 'device-item';
-    // Použijeme jméno zařízení, pokud existuje, jinak ID jako fallback.
     const displayName = device.name || device.device;
     div.innerHTML = `
-        <span class="class="device-status active""></span>
+        <span class="device-status active"></span>
         <strong>${displayName}</strong>
         <div class="timestamp">Last update: ${formatTimestamp(device.timestamp)}</div>
     `;
     
-    // Odkaz pro kliknutí stále používá unikátní ID zařízení a vede na správnou stránku /devices
     div.addEventListener('click', () => {
         window.location.href = `/devices?id=${encodeURIComponent(device.device)}`;
     });
@@ -72,22 +66,21 @@ async function loadCurrentCoordinates(isInitialLoad = false) {
         // --- Update device list (sidebar) ---
         const devicesList = document.getElementById('devices-list');
         if (devicesList) {
-            devicesList.innerHTML = ''; // Clear existing list
+            devicesList.innerHTML = '';
 
             if (devices.length === 0) {
                 devicesList.innerHTML = '<p class="text-muted p-2">No active devices found.</p>';
             } else {
                 devices.forEach(device => {
-                    const deviceElement = createDeviceElement(device); // Use existing function
+                    const deviceElement = createDeviceElement(device);
                     devicesList.appendChild(deviceElement);
                 });
             }
         } else {
             console.error('Element #devices-list not found.');
         }
-        // --- End of device list update ---
 
-        // Update markers on the map (existing logic)
+        // Update markers on the map
         devices.forEach(device => {
             updateDeviceMarker(device);
         });
@@ -124,7 +117,6 @@ function updateDeviceMarker(device) {
 
 // Create popup content
 function createIndexPopup(device) {
-    // Použijeme jméno zařízení, pokud existuje, jinak ID jako fallback.
     const displayName = device.name || device.device;
     return `
         <strong>${displayName}</strong><br>

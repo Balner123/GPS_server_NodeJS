@@ -10,12 +10,12 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
-                                                <h4 class="card-title mb-4"><%= pendingEmailChange ? 'Ověření změny emailu' : 'Ověření emailu' %></h4>
+                            <h4 class="card-title mb-4"><%= pendingEmailChange ? 'Ověření změny emailu' : 'Ověření emailu' %></h4>
                                                 <p class="mb-3">
                                                     <% if (pendingEmailChange) { %>
-                                                        Na váš nový email byl zaslán ověřovací kód. Zadejte jej níže pro potvrzení změny emailu.
+                                                        Please enter the verification code sent to your email to confirm the email address change.
                                                     <% } else { %>
-                                                        Na váš email byl zaslán ověřovací kód. Zadejte jej níže pro dokončení registrace.
+                                                        To complete your registration, please enter the verification code sent to your email.
                                                     <% } %>
                                                 </p>
                         <% if (error && error.length > 0) { %>
@@ -34,11 +34,11 @@
                                     <input type="text" inputmode="numeric" maxlength="1" pattern="\d" class="form-control code-input" name="code4" required style="width:3rem; height:3rem; font-size:2rem; text-align:center;" />
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100" style="font-size:1.2rem;">Ověřit</button>
+                            <button type="submit" class="btn btn-primary w-100" style="font-size:1.2rem;">Verify</button>
                         </form>
                         <div class="text-center mt-3">
                             <form action="/resend-verification-from-page" method="POST">
-                                <button type="submit" class="btn btn-link">Neobdrželi jste kód? Znovu odeslat.</button>
+                                <button type="submit" class="btn btn-link">Didn’t receive the code? Resend.</button>
                             </form>
                         </div>
                     </div>
@@ -49,7 +49,7 @@
         <%- include('partials/_footer.ejs') %>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
         <script>
-            // Automatické přeskočení mezi poli a spojení hodnot do jednoho kódu
+            // Automatic field switching and code concatenation
             document.querySelectorAll('.code-input').forEach((input, idx, arr) => {
                 input.addEventListener('input', function(e) {
                     if (this.value.length === 1 && idx < arr.length - 1) {
@@ -64,7 +64,7 @@
             });
             document.getElementById('verifyForm').addEventListener('submit', function(e) {
                 const code = Array.from(document.querySelectorAll('.code-input')).map(i => i.value).join('');
-                // Vložíme spojený kód do hidden inputu
+                // Insert the concatenated code into a hidden input
                 let hidden = document.getElementById('fullCode');
                 if (!hidden) {
                     hidden = document.createElement('input');
@@ -74,7 +74,7 @@
                     this.appendChild(hidden);
                 }
                 hidden.value = code;
-                // Zabráníme odeslání, pokud není 4 číslice
+                // Prevent form submission if code is not 4 digits
                 if (!/^\d{4}$/.test(code)) {
                     e.preventDefault();
                     document.querySelectorAll('.code-input').forEach(i => i.classList.add('is-invalid'));
