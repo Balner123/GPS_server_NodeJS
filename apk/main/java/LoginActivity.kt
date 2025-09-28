@@ -1,9 +1,8 @@
 package com.example.gpsreporterapp
 
-import java.security.MessageDigest
-
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -13,13 +12,16 @@ import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.UUID
+import java.security.MessageDigest
+import java.util.*
 import java.util.concurrent.Executors
 
 class LoginActivity : AppCompatActivity() {
@@ -49,11 +51,22 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+    private fun getEncryptedSharedPreferences(): SharedPreferences {
+        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        return EncryptedSharedPreferences.create(
+            "EncryptedAppPrefs",
+            masterKeyAlias,
+            this,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
     /**
      * Získá nebo vytvoří unikátní ID pro tuto instalaci aplikace.
      */
     private fun getInstallationId(): String {
-        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val sharedPrefs = getEncryptedSharedPreferences()
         var installationId = sharedPrefs.getString("installation_id", null)
         if (installationId == null) {
             val fullUuid = UUID.randomUUID().toString()
@@ -87,7 +100,7 @@ class LoginActivity : AppCompatActivity() {
 
         executorService.execute {
             try {
-                val url = URL("https://lotr-system.xyz/api/apk/login")
+                val url = URL("${BuildConfig.API_BASE_URL}/api/apk/login")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -115,14 +128,14 @@ class LoginActivity : AppCompatActivity() {
                     if (jsonResponse.optBoolean("success", false)) {
                         // Uložíme session cookie
                         val cookie = connection.headerFields["Set-Cookie"]?.firstOrNull()
-                        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+                        val sharedPrefs = getEncryptedSharedPreferences()
                         sharedPrefs.edit().putString("session_cookie", cookie).apply()
 
                         // Zkontrolujeme, zda je zařízení již registrováno
                         val isDeviceRegistered = jsonResponse.optBoolean("device_is_registered", false)
                         if (isDeviceRegistered) {
                             // Pokud ano, uložíme potřebná data a jdeme na hlavní obrazovku
-                                                        val gpsInterval = jsonResponse.optInt("gps_interval", 60) // Default to 60 seconds
+                            val gpsInterval = jsonResponse.optInt("gps_interval", 60) // Default to 60 seconds
                             val intervalSend = jsonResponse.optInt("interval_send", 1) // Default to 1 location before sending
                             sharedPrefs.edit()
                                 .putString("device_id", installationId)
@@ -160,12 +173,12 @@ class LoginActivity : AppCompatActivity() {
      */
     private fun registerDevice(installationId: String) {
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
-        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val sharedPrefs = getEncryptedSharedPreferences()
         val sessionCookie = sharedPrefs.getString("session_cookie", null)
 
         executorService.execute {
             try {
-                val url = URL("https://lotr-system.xyz/api/apk/register-device")
+                val url = URL("${BuildConfig.API_BASE_URL}/api/apk/register-device")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -189,7 +202,7 @@ class LoginActivity : AppCompatActivity() {
                     val jsonResponse = JSONObject(responseString)
                     if (jsonResponse.optBoolean("success", false)) {
                         // Uložíme potřebná data a jdeme na hlavní obrazovku
-                                                val gpsInterval = jsonResponse.optInt("gps_interval", 60) // Default to 60 seconds
+                        val gpsInterval = jsonResponse.optInt("gps_interval", 60) // Default to 60 seconds
                         val intervalSend = jsonResponse.optInt("interval_send", 1) // Default to 1 location before sending
                         sharedPrefs.edit()
                             .putString("device_id", installationId)

@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
 
     private var countdownTimer: CountDownTimer? = null
     private val gson = Gson()
+    private var isServiceRunning = false
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -47,9 +48,8 @@ class MainActivity : AppCompatActivity() {
                 if (serviceStateJson != null) {
                     try {
                         val serviceState = gson.fromJson(serviceStateJson, ServiceState::class.java)
-                        // Update UI based on serviceState
-
-                        updateUiState(serviceState.isRunning) // Update toggle button and status text
+                        isServiceRunning = serviceState.isRunning
+                        updateUiState(isServiceRunning)
 
                         lastLocationTextView.text = serviceState.statusMessage
                         lastConnectionStatusTextView.text = serviceState.connectionStatus
@@ -69,7 +69,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val requestPermissionLauncher = 
+    private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
                 checkAndRequestPermissions()
@@ -103,20 +103,6 @@ class MainActivity : AppCompatActivity() {
 
         toggleButton.setOnClickListener {
             animateButton()
-            // We need to get the current service state to decide whether to stop or start
-            // For now, we'll assume the UI reflects the true state, but this is a potential race condition
-            // A better approach would be to query the service for its current state before toggling
-            val currentServiceStateJson = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString(LocationService.EXTRA_SERVICE_STATE, null)
-            val isServiceRunning = if (currentServiceStateJson != null) {
-                try {
-                    gson.fromJson(currentServiceStateJson, ServiceState::class.java).isRunning
-                } catch (e: JsonSyntaxException) {
-                    false
-                }
-            } else {
-                false
-            }
-
             if (isServiceRunning) {
                 stopLocationService()
             } else {
@@ -146,7 +132,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         ConsoleLogger.logs.observe(this) { logs ->
-            consoleTextView.text = logs.joinToString("\n")
+            consoleTextView.text = logs.joinToString("
+")
             consoleScrollView.post { consoleScrollView.fullScroll(View.FOCUS_DOWN) }
         }
     }
@@ -247,7 +234,7 @@ class MainActivity : AppCompatActivity() {
         if (!isLocationEnabled) errorMessages.add("• Služby pro určování polohy jsou vypnuté.")
 
         if (errorMessages.isNotEmpty()) {
-            showErrorDialog("Požadované služby nejsou aktivní", errorMessages.joinToString("\n"))
+            showErrorDialog("Požadované služby nejsou aktivní", errorMessages.joinToString(""))
         } else {
             checkAndRequestPermissions()
         }
@@ -262,17 +249,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun animateButton() {
-        val currentServiceStateJson = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString(LocationService.EXTRA_SERVICE_STATE, null)
-        val isServiceRunning = if (currentServiceStateJson != null) {
-            try {
-                gson.fromJson(currentServiceStateJson, ServiceState::class.java).isRunning
-            } catch (e: JsonSyntaxException) {
-                false
-            }
-        } else {
-            false
-        }
-
         val anim = if (isServiceRunning) {
             AnimationUtils.loadAnimation(this, R.anim.scale_down)
         } else {

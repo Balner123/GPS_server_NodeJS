@@ -15,6 +15,8 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        buildConfigField("String", "API_BASE_URL", "\"https://lotr-system.xyz"\")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -36,6 +38,7 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 }
 
@@ -53,6 +56,9 @@ dependencies {
 
     // Google Play Services for Location
     implementation("com.google.android.gms:play-services-location:21.2.0")
+
+    // Security
+    implementation("androidx.security:security-crypto:1.0.0")
 
     // Splash Screen
     implementation("androidx.core:core-splashscreen:1.0.1")

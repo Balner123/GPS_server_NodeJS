@@ -2,6 +2,9 @@ package com.example.gpsreporterapp
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.gson.Gson
@@ -17,6 +20,17 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
 
     private val gson = Gson()
+
+    private fun getEncryptedSharedPreferences(): SharedPreferences {
+        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        return EncryptedSharedPreferences.create(
+            "EncryptedAppPrefs",
+            masterKeyAlias,
+            applicationContext,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
 
     override suspend fun doWork(): Result {
         ConsoleLogger.log("SyncWorker spuštěn.")
@@ -49,7 +63,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 jsonArray.put(jsonObject)
             }
 
-            val url = URL("https://lotr-system.xyz/api/devices/input")
+            val url = URL("${BuildConfig.API_BASE_URL}/api/devices/input")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -57,7 +71,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             connection.connectTimeout = 30000
             connection.readTimeout = 30000
 
-            val sharedPrefs = applicationContext.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            val sharedPrefs = getEncryptedSharedPreferences()
             sharedPrefs.getString("session_cookie", null)?.let {
                 connection.setRequestProperty("Cookie", it.split(";")[0])
             }
