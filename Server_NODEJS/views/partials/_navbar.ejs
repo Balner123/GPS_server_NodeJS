@@ -22,6 +22,12 @@
                 <% } %>
             </ul>
             <ul class="navbar-nav mb-2 mb-lg-1 align-items-center">
+                <li class="nav-item me-3">
+                    <div class="theme-switcher">
+                        <input type="checkbox" class="theme-switcher-checkbox" id="theme-switcher">
+                        <label class="theme-switcher-slider" for="theme-switcher"></label>
+                    </div>
+                </li>
                 <% if (isAuthenticated) { %>
                     <% if (user) { %>
                         <li class="nav-item">

@@ -8,6 +8,13 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
 <link href="/css/style.css" rel="stylesheet">
 <link rel="shortcut icon" href="/img/compass.svg" type="image/svg+xml">
+<script>
+    // Apply theme from localStorage to prevent FOUC (Flash of Unstyled Content)
+    const theme = localStorage.getItem('theme');
+    if (theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+    }
+</script>
 <style>
     .toast-container {
         z-index: 1090 !important;
