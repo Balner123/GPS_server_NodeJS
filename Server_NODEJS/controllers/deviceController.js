@@ -89,7 +89,8 @@ const getDeviceSettings = async (req, res) => {
     res.json({
       interval_gps: device.interval_gps,
       interval_send: device.interval_send,
-      geofence: device.geofence
+      geofence: device.geofence,
+      created_at: device.createdAt
     });
   } catch (err) {
     console.error("Error getting device settings:", err);
@@ -265,6 +266,93 @@ const getCurrentCoordinates = async (req, res) => {
   }
 };
 
+/**
+ * Vypočítá vzdálenost mezi dvěma GPS souřadnicemi v metrech.
+ * @param {number} lat1 Zeměpisná šířka prvního bodu.
+ * @param {number} lon1 Zeměpisná délka prvního bodu.
+ * @param {number} lat2 Zeměpisná šířka druhého bodu.
+ * @param {number} lon2 Zeměpisná délka druhého bodu.
+ * @returns {number} Vzdálenost v metrech.
+ */
+function getHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Poloměr Země v metrech
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Vzdálenost v metrech
+}
+
+/**
+ * Agreguje pole GPS lokací na základě jejich vzájemné vzdálenosti.
+ * @param {Array<object>} locations - Pole objektů lokací, seřazené podle času.
+ * @param {number} distanceThreshold - Práh vzdálenosti v metrech pro sloučení.
+ * @returns {Array<object>} - Pole s agregovanými lokacemi.
+ */
+function clusterLocations(locations, distanceThreshold) {
+  if (locations.length < 2) {
+    return locations;
+  }
+
+  const clusteredLocations = [];
+  let i = 0;
+
+  while (i < locations.length) {
+    const currentPoint = locations[i];
+    const cluster = [currentPoint];
+    let j = i + 1;
+
+    while (j < locations.length) {
+      const previousPointInCluster = cluster[cluster.length - 1];
+      const nextPoint = locations[j];
+      
+      const distance = getHaversineDistance(
+        previousPointInCluster.latitude,
+        previousPointInCluster.longitude,
+        nextPoint.latitude,
+        nextPoint.longitude
+      );
+
+      if (distance < distanceThreshold) {
+        cluster.push(nextPoint);
+        j++;
+      } else {
+        break;
+      }
+    }
+
+    if (cluster.length > 1) {
+      const totalLat = cluster.reduce((sum, point) => sum + point.latitude, 0);
+      const totalLon = cluster.reduce((sum, point) => sum + point.longitude, 0);
+      
+      const mergedPoint = {
+        latitude: totalLat / cluster.length,
+        longitude: totalLon / cluster.length,
+        startTime: cluster[0].timestamp,
+        endTime: cluster[cluster.length - 1].timestamp,
+        type: 'cluster',
+        device_id: currentPoint.device_id,
+        // Uchováváme původní body pro případné detailní zobrazení na klientovi
+        originalPoints: cluster 
+      };
+      clusteredLocations.push(mergedPoint);
+    } else {
+      clusteredLocations.push(currentPoint);
+    }
+    
+    i = j; // Posuneme hlavní index za zpracovaný shluk
+  }
+
+  return clusteredLocations;
+}
+
+
 const getDeviceData = async (req, res) => {
   try {
     const deviceId = req.query.id;
@@ -272,18 +360,25 @@ const getDeviceData = async (req, res) => {
       where: { 
         device_id: deviceId,
         user_id: req.session.user.id 
-      },
-      include: [{
-        model: db.Location,
-        order: [['timestamp', 'DESC']]
-      }]
+      }
     });
+
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
-    res.json(device.Locations);
+    // Načteme lokace seřazené VZESTUPNĚ pro správnou funkci algoritmu
+    const rawLocations = await db.Location.findAll({
+      where: { device_id: device.id },
+      order: [['timestamp', 'ASC']] 
+    });
+
+    const DISTANCE_THRESHOLD_METERS = 40;
+    const processedLocations = clusterLocations(rawLocations, DISTANCE_THRESHOLD_METERS);
+
+    res.json(processedLocations);
+
   } catch (err) {
-    console.error("Error:", err);
+    console.error("Error in getDeviceData:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -294,21 +389,40 @@ const deleteDevice = async (req, res) => {
     return res.status(400).json({ error: 'Device ID is required.' });
   }
 
+  const t = await db.sequelize.transaction(); // Start transaction
+
   try {
-    const device = await db.Device.findOne({ where: { 
-      device_id: deviceId,
-      user_id: req.session.user.id 
-    } });
-    if (!device) {
-      return res.status(404).json({ error: 'Device not found.' });
+    // Find device to get its internal ID. Admin (root) can delete any device.
+    const findOptions = { where: { device_id: deviceId } };
+    if (!req.session.user.isRoot) {
+        findOptions.where.user_id = req.session.user.id;
     }
-    
-    await device.destroy();
+
+    const device = await db.Device.findOne(findOptions);
+
+    if (!device) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Device not found or you do not have permission to delete it.' });
+    }
+
+    // 1. Manually delete associated locations
+    await db.Location.destroy({ where: { device_id: device.id }, transaction: t });
+
+    // 2. Manually delete associated alerts
+    await db.Alert.destroy({ where: { device_id: device.id }, transaction: t });
+
+    // 3. Finally, delete the device itself
+    await device.destroy({ transaction: t });
+
+    await t.commit(); // Commit the transaction
 
     res.status(200).json({ message: `Device '${deviceId}' and all its data have been deleted successfully.` });
+    res.redirect('/devices');
   } catch (err) {
+    await t.rollback(); // Rollback on any error
     console.error(`Error deleting device ${deviceId}:`, err);
     res.status(500).json({ error: 'Failed to delete device. An internal server error occurred.' });
+    res.redirect('/devices');
   }
 };
 

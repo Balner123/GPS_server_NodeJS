@@ -81,8 +81,18 @@ app.use('/api/hw', require('./routes/hw.api.js'));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Error handling middleware
-app.use((err, res, next) => {
-  console.error("Unhandled error:", err.stack);
+app.use((err, req, res, next) => {
+  console.error("--- UNHANDLED ERROR ---");
+  console.error("Request URL:", req.originalUrl);
+  console.error("Request Method:", req.method);
+  
+  if (err instanceof Error) {
+    console.error("Error Stack:", err.stack);
+  } else {
+    console.error("Raw Error:", err);
+  }
+  console.error("--- END UNHANDLED ERROR ---");
+
   if (res.headersSent) {
     return next(err);
   }

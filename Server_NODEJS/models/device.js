@@ -43,6 +43,11 @@ module.exports = (sequelize, DataTypes) => {
     geofence: {
       type: DataTypes.JSON,
       allowNull: true
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW
     }
   }, {
     timestamps: true,
@@ -66,4 +71,4 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   return Device;
-}; 
+};

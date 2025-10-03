@@ -47,8 +47,7 @@ const deleteUserAndData = async (req, res) => {
         return res.redirect('/administration');
     }
     try {
-        await User.destroy({ where: { id: userId } });
-        res.redirect('/administration');
+        await db.User.destroy({ where: { id: userId } });
     } catch (err) {
         console.error("Error deleting user and data:", err);
         res.status(500).send("Error deleting user and data.");
@@ -57,17 +56,34 @@ const deleteUserAndData = async (req, res) => {
 
 const deleteDeviceAndData = async (req, res) => {
     const deviceId = req.params.deviceId;
-    try {
-        const device = await Device.findOne({ where: { device_id: deviceId } });
+    const t = await db.sequelize.transaction();
 
-        if (device) {
-            await device.destroy();
+    try {
+        const device = await db.Device.findOne({ where: { id: deviceId } });
+
+        if (!device) {
+            await t.rollback();
+            req.flash('error', 'Device not found.');
+            return res.redirect('/administration');
         }
-        
+
+        // 1. Manually delete associated locations
+        await db.Location.destroy({ where: { device_id: device.id }, transaction: t });
+
+        // 2. Manually delete associated alerts
+        await db.Alert.destroy({ where: { device_id: device.id }, transaction: t });
+
+        // 3. Finally, delete the device itself
+        await device.destroy({ transaction: t });
+
+        await t.commit();
+        req.flash('success', `Device '${device.name || device.device_id}' and all its data have been deleted successfully.`);
         res.redirect('/administration');
     } catch (err) {
-        console.error("Error deleting device and data:", err);
-        res.status(500).send("Error deleting device and data.");
+        await t.rollback();
+        console.error(`Error deleting device ${deviceId}:`, err);
+        req.flash('error', 'Failed to delete device. An internal server error occurred.');
+        res.redirect('/administration');
     }
 };
 

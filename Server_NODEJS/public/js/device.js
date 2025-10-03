@@ -13,6 +13,19 @@ let drawnItems, drawControl;
 const API_BASE_URL = window.location.origin;
 const UPDATE_INTERVAL = 5000; // 5 seconds
 
+function formatTimestamp(timestamp) {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp);
+    return date.toLocaleString('cs-CZ', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+    });
+}
+
 function secondsToDhms(totalSeconds) {
     totalSeconds = Number(totalSeconds);
     if (isNaN(totalSeconds) || totalSeconds < 0) return { d: 0, h: 0, m: 0, s: 0 };
@@ -217,7 +230,6 @@ function createDeviceElement(device) {
             <h6 class="mb-1"><strong>${displayName}</strong>${alertIcon}</h6>
             <small class="text-muted">${formatTimestamp(device.timestamp)}</small>
         </div>
-        <small class="text-muted">Last position: ${formatCoordinate(device.latitude)}, ${formatCoordinate(device.longitude)}</small>
     `;
 
     const buttonGroup = document.createElement('div');
@@ -292,6 +304,10 @@ async function selectDevice(deviceId) {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const settings = await response.json();
         
+        if (infoCard) {
+            document.getElementById('info-registration-date').textContent = formatTimestamp(settings.created_at);
+        }
+        
         const dhms = secondsToDhms(settings.interval_gps || 0);
         document.getElementById('interval-gps-days').value = dhms.d;
         document.getElementById('interval-gps-hours').value = dhms.h;
@@ -341,20 +357,15 @@ async function loadDeviceData(isInitialLoad = false) {
         const response = await fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const allData = await response.json();
-        let dataToRender;
 
-        if (isInitialLoad) {
-            dataToRender = allData;
-        } else {
-            dataToRender = allData.filter(p => !lastTimestamp || (new Date(p.timestamp) > new Date(lastTimestamp)));
-        }
-
-        if (dataToRender.length > 0) {
-            lastTimestamp = dataToRender.reduce((max, p) => p.timestamp > max ? p.timestamp : max, dataToRender[0].timestamp);
-            updateMap(dataToRender, isInitialLoad);
-        }
-        
+        // Always update the complete history
         completeDeviceHistory = allData;
+
+        // Always redraw the map with the full history.
+        // The 'isInitialLoad' flag now only controls whether to fit the bounds.
+        updateMap(completeDeviceHistory, isInitialLoad);
+        
+        // Update the table with the latest data
         renderPositionTable();
 
     } catch (error) {
@@ -375,28 +386,32 @@ function clearMapAndData() {
     if (toggleBtn) toggleBtn.style.display = 'none';
 }
 
-function updateMap(data, isFullUpdate) {
-    if (!data || data.length === 0) return;
+function updateMap(data, fitBounds) {
+    if (!data) return;
+
+    // Always clear existing layers before drawing new ones
+    if (polyline) map.removeLayer(polyline);
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
 
     const coordinates = data.map(p => [Number(p.latitude), Number(p.longitude)]).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
-    if (coordinates.length === 0) return;
-
-    if (isFullUpdate && coordinates.length > 0) {
+    
+    if (coordinates.length > 0) {
         polyline = L.polyline(coordinates, { color: 'blue' }).addTo(map);
-        map.fitBounds(polyline.getBounds().pad(0.1));
-    } else if (polyline) {
-        coordinates.forEach(coord => polyline.addLatLng(coord));
+
+        data.forEach((point) => {
+            if (isNaN(Number(point.latitude)) || isNaN(Number(point.longitude))) return;
+            const marker = L.marker([Number(point.latitude), Number(point.longitude)])
+                .bindTooltip(createDevicePopup(point), { permanent: true, direction: 'auto' })
+                .addTo(map);
+            markers.push(marker);
+        });
+
+        // Only fit bounds on the initial load to prevent the map from moving on updates
+        if (fitBounds) {
+            map.fitBounds(polyline.getBounds().pad(0.1));
+        }
     }
-
-    data.forEach((point) => {
-        if (isNaN(Number(point.latitude)) || isNaN(Number(point.longitude))) return;
-        const marker = L.marker([Number(point.latitude), Number(point.longitude)])
-            .bindPopup(createDevicePopup(point))
-            .addTo(map);
-        markers.push(marker);
-    });
-
-    if (!isFullUpdate) map.fitBounds(coordinates, { padding: [50, 50] });
 }
 
 function renderPositionTable() {
@@ -424,24 +439,47 @@ function updateTable(data) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No position history available.</td></tr>';
         return;
     }
-    const sortedData = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Sort by the primary timestamp property (startTime for clusters, timestamp for single points)
+    const sortedData = data.sort((a, b) => new Date(b.startTime || b.timestamp) - new Date(a.startTime || a.timestamp));
+    
     sortedData.forEach(point => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${formatTimestamp(point.timestamp)}</td>
-            <td>${formatCoordinate(point.latitude)}</td>
-            <td>${formatCoordinate(point.longitude)}</td>
-            <td>${formatSpeed(point.speed)}</td>
-            <td>${formatAltitude(point.altitude)}</td>
-            <td>${formatAccuracy(point.accuracy)}</td>
-            <td>${point.satellites !== null ? point.satellites : 'N/A'}</td>
-        `;
+        
+        if (point.type === 'cluster') {
+            row.innerHTML = `
+                <td class="table-info">${formatTimestamp(point.startTime)} - ${formatTimestamp(point.endTime)}</td>
+                <td>${formatCoordinate(point.latitude)}</td>
+                <td>${formatCoordinate(point.longitude)}</td>
+                <td>N/A (Cluster)</td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td>${point.originalPoints.length} points</td>
+            `;
+        } else {
+            row.innerHTML = `
+                <td>${formatTimestamp(point.timestamp)}</td>
+                <td>${formatCoordinate(point.latitude)}</td>
+                <td>${formatCoordinate(point.longitude)}</td>
+                <td>${formatSpeed(point.speed)}</td>
+                <td>${formatAltitude(point.altitude)}</td>
+                <td>${formatAccuracy(point.accuracy)}</td>
+                <td>${point.satellites !== null ? point.satellites : 'N/A'}</td>
+            `;
+        }
         tbody.appendChild(row);
     });
 }
 
 function createDevicePopup(point) {
-    return `<strong>Time:</strong> ${formatTimestamp(point.timestamp)}<br><strong>Speed:</strong> ${formatSpeed(point.speed)}<br><strong>Altitude:</strong> ${formatAltitude(point.altitude)}`;
+    if (point.type === 'cluster') {
+        return `<strong>Cluster (${point.originalPoints.length} points)</strong><br>
+                <strong>From:</strong> ${formatTimestamp(point.startTime)}<br>
+                <strong>To:</strong> ${formatTimestamp(point.endTime)}`;
+    } else {
+        return `<strong>Time:</strong> ${formatTimestamp(point.timestamp)}<br>
+                <strong>Speed:</strong> ${formatSpeed(point.speed)}<br>
+                <strong>Altitude:</strong> ${formatAltitude(point.altitude)}`;
+    }
 }
 
 function formatCoordinate(coord) { return coord !== null ? Number(coord).toFixed(6) : 'N/A'; }

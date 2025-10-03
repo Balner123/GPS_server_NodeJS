@@ -105,12 +105,14 @@ async function loadCurrentCoordinates(isInitialLoad = false) {
 // Update device marker
 function updateDeviceMarker(device) {
     const position = [device.latitude, device.longitude];
-    
+    const popupContent = createIndexPopup(device);
+
     if (markers[device.device]) {
-        markers[device.device].setLatLng(position);
+        markers[device.device].setLatLng(position)
+            .setTooltipContent(popupContent);
     } else {
         const marker = L.marker(position).addTo(map);
-        marker.bindPopup(createIndexPopup(device));
+        marker.bindTooltip(popupContent, { permanent: true, direction: 'auto' });
         markers[device.device] = marker;
     }
 }
