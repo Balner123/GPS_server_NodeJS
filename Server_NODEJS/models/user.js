@@ -41,6 +41,19 @@ module.exports = (sequelize, DataTypes) => {
     pending_email: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    provider: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: 'local'
+    },
+    provider_id: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    provider_data: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
     tableName: 'users',

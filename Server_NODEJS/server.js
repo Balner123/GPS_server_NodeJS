@@ -33,6 +33,11 @@ app.use(session({
   }
 }));
 
+// Passport middleware (must be after session)
+const passport = require('./config/passport');
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Flash middleware
 app.use(flash());
 
@@ -55,6 +60,7 @@ app.use(limiter);
 // Web routes (rendering pages)
 app.use('/', require('./routes/index'));
 app.use('/', require('./routes/auth.web'));
+app.use('/auth', require('./routes/auth.oauth.js')); // <--- ADDED THIS LINE
 app.use('/', require('./routes/devices.web'));
 app.use('/', require('./routes/settings.web'));
 app.use('/', require('./routes/administration.web'));

@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS users (
   verification_expires TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   pending_email VARCHAR(255) DEFAULT NULL,
+  provider VARCHAR(50) DEFAULT 'local',
+  provider_id VARCHAR(255),
+  provider_data TEXT
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -46,6 +49,7 @@ CREATE TABLE IF NOT EXISTS locations (
 CREATE INDEX idx_device_id ON locations(device_id);
 CREATE INDEX idx_timestamp ON locations(timestamp);
 CREATE INDEX idx_device_status ON devices(status);
+CREATE INDEX idx_users_provider_id ON users(provider, provider_id);
 
 CREATE TABLE IF NOT EXISTS alerts (
     id INT AUTO_INCREMENT PRIMARY KEY,
