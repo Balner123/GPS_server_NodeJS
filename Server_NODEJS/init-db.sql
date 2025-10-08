@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   pending_email VARCHAR(255) DEFAULT NULL,
   provider VARCHAR(50) DEFAULT 'local',
   provider_id VARCHAR(255),
-  provider_data TEXT
+  provider_data TEXT,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

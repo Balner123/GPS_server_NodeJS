@@ -22,7 +22,7 @@ app.use(express.static(path.join(__dirname, 'public'))); // Static files are pub
 
 // Session middleware
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'a_very_secret_key_that_should_be_in_env_file',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
