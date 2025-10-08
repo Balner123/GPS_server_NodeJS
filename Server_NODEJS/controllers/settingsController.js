@@ -188,12 +188,81 @@ const deleteAccount = async (req, res) => {
     }
 };
 
+const disconnectProvider = async (req, res) => {
+    const { newPassword, confirmPassword, use_weak_password } = req.body;
+    const userId = req.session.user.id;
+
+    try {
+        const user = await User.findByPk(userId);
+        if (user.provider === 'local') {
+            req.flash('error', 'This account is not linked to a third-party provider.');
+            return res.redirect('/settings');
+        }
+
+        if (!newPassword || !confirmPassword) {
+            req.flash('error', 'To set a password, you must fill in all fields.');
+            return res.redirect('/settings');
+        }
+
+        if (newPassword !== confirmPassword) {
+            req.flash('error', 'Passwords do not match.');
+            return res.redirect('/settings');
+        }
+
+        // --- Password Validation ---
+        if (!use_weak_password) {
+            const passwordRequirements = [
+                { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
+                { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
+                { regex: /[0-9]/, message: 'Password must contain at least one number.' },
+                { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
+            ];
+            for (const requirement of passwordRequirements) {
+                if (!requirement.regex.test(newPassword)) {
+                    req.flash('error', requirement.message);
+                    return res.redirect('/settings');
+                }
+            }
+        } else {
+            if (newPassword.length < 3) {
+                req.flash('error', 'Weak password must be at least 3 characters long.');
+                return res.redirect('/settings');
+            }
+        }
+
+        const newHash = await bcrypt.hash(newPassword, 10);
+        await user.update({
+            password: newHash,
+            provider: 'local',
+            provider_id: null,
+            provider_data: null
+        });
+
+        // Log the user out and force them to log in with their new password
+        req.session.destroy((err) => {
+            if (err) {
+                console.error("Error destroying session after provider disconnect:", err);
+                return res.redirect('/');
+            }
+            res.clearCookie('connect.sid');
+            // Using a query parameter for a flash-like message on the login page
+            res.redirect('/login?message=Account+converted.+Please+log+in+with+your+new+password.');
+        });
+
+    } catch (err) {
+        console.error("Error disconnecting provider:", err);
+        req.flash('error', 'An error occurred while converting your account.');
+        res.redirect('/settings');
+    }
+};
+
 
 module.exports = {
     getSettingsPage,
     updateUsername,
     updatePassword,
     updateEmail,
-    deleteAccount
+    deleteAccount,
+    disconnectProvider
 }; 
 

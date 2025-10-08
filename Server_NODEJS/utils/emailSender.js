@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
 
 async function sendVerificationEmail(to, code) {
   await transporter.sendMail({
-    from: 'GPS Server <lotr.system.cz@gmail.com>',
+    from: `GPS Server <${process.env.EMAIL_USER}>`,
     to,
     subject: 'Your code is : ' + code,
     text: `Your code is : ${code}`
@@ -33,7 +33,7 @@ async function sendGeofenceAlertEmail(to, device, location) {
   `;
 
   await transporter.sendMail({
-    from: 'GPS Server <lotr.system.cz@gmail.com>',
+    from: `GPS Server <${process.env.EMAIL_USER}>`,
     to,
     subject,
     text

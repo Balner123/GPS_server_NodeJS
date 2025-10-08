@@ -8,6 +8,9 @@ CREATE TABLE `Users` (
 	`verification_expires` TIMESTAMP,
 	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	`pending_email` VARCHAR(255) DEFAULT NULL,
+	`provider` VARCHAR(50) DEFAULT 'local',
+	`provider_id` VARCHAR(255),
+	`provider_data` TEXT,
 	PRIMARY KEY(`id`)
 );
 

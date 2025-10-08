@@ -167,4 +167,6 @@ router.post('/email', isAuthenticated, isUser, settingsController.updateEmail);
  */
 router.post('/delete-account', isAuthenticated, isUser, settingsController.deleteAccount);
 
+router.post('/disconnect', isAuthenticated, isUser, settingsController.disconnectProvider);
+
 module.exports = router;
