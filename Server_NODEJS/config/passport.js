@@ -2,6 +2,8 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
 const db = require('../database');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser(async (id, done) => {
@@ -57,15 +59,21 @@ passport.use(new GoogleStrategy({
             return done(null, false, { message: 'An email address, verified by Google, is required to sign up.' });
         }
 
+        // Generate a random password and hash it
+        const randomPassword = crypto.randomBytes(16).toString('hex');
+        const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
         const newUser = await db.User.create({
             username: profile.displayName || `google_${providerId}`,
             email: emailObj.value,
-            password: '', // No local password
+            password: hashedPassword, // Save the hashed password
             provider: 'google',
             provider_id: providerId,
             provider_data: JSON.stringify(profile),
             is_verified: true // Account is verified by Google
         });
+        // Optional: Here you could email the user their randomPassword
+        // or display it to them once. For now, it's just in the system.
         return done(null, newUser);
     }
 
@@ -103,11 +111,15 @@ passport.use(new GitHubStrategy({
 
     // 3) If still not found, create a new user
     if (!user) {
+      // Generate a random password and hash it
+      const randomPassword = crypto.randomBytes(16).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
       const username = profile.username || `github_${providerId}`;
       user = await db.User.create({
         username: username,
         email: email,
-        password: '', // No local password
+        password: hashedPassword, // Save the hashed password
         provider: 'github',
         provider_id: providerId,
         provider_data: JSON.stringify(profile),
