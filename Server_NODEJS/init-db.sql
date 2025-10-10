@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
   provider VARCHAR(50) DEFAULT 'local',
   provider_id VARCHAR(255),
   provider_data TEXT,
+  deletion_code VARCHAR(10),
+  deletion_code_expires TIMESTAMP NULL,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

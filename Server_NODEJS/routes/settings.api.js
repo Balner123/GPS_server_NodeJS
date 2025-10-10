@@ -198,5 +198,8 @@ router.post('/delete-account', isAuthenticated, isUser, settingsController.delet
  *         description: Unauthorized.
  */
 router.post('/set-password', isAuthenticated, isUser, settingsController.setPassword);
+router.post('/disconnect', isAuthenticated, isUser, settingsController.disconnect);
+router.post('/confirm-delete', isAuthenticated, isUser, settingsController.confirmDeleteAccount);
+router.post('/resend-deletion-code', isAuthenticated, isUser, settingsController.resendDeletionCode);
 
 module.exports = router;

@@ -16,11 +16,12 @@ module.exports = (sequelize, DataTypes) => {
     },
     user_id: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: false,
       references: {
         model: 'users',
         key: 'id'
       }
+      // onDelete: 'CASCADE' // Removed to prevent multiple cascade paths
     },
     last_seen: {
       type: DataTypes.DATE,
@@ -58,15 +59,14 @@ module.exports = (sequelize, DataTypes) => {
 
   Device.associate = models => {
     Device.hasMany(models.Location, {
-      foreignKey: 'device_id',
-      onDelete: 'CASCADE'
+      foreignKey: 'device_id'
     });
     Device.hasMany(models.Alert, {
-      foreignKey: 'device_id',
-      onDelete: 'CASCADE'
+      foreignKey: 'device_id'
     });
     Device.belongsTo(models.User, {
-      foreignKey: 'user_id'
+      foreignKey: 'user_id',
+      onDelete: 'CASCADE'
     });
   };
 

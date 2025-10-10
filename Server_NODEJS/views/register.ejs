@@ -10,7 +10,7 @@
         <div class="card login-card">
             <div class="card-body">
                 <h3 class="card-title text-center mb-4">Registration</h3>
-                <% if (error) { %>
+                <% if (error && error.length > 0) { %>
                     <div class="alert alert-danger"><%= error %></div>
                 <% } %>
                 <form action="/api/auth/register" method="POST">

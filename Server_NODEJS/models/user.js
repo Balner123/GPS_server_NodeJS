@@ -54,6 +54,14 @@ module.exports = (sequelize, DataTypes) => {
     provider_data: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    deletion_code: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    deletion_code_expires: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     tableName: 'users',
@@ -63,8 +71,8 @@ module.exports = (sequelize, DataTypes) => {
   User.associate = models => {
     User.hasMany(models.Device, {
       foreignKey: 'user_id',
-      as: 'devices',
-      onDelete: 'CASCADE'
+      as: 'devices'
+      // onDelete: 'CASCADE' // This is now handled in Device.belongsTo
     });
   };
 

@@ -7,7 +7,19 @@ module.exports = (sequelize, DataTypes) => {
     },
     device_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
+      references: {
+        model: 'devices',
+        key: 'id'
+      }
+    },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     },
     longitude: {
       type: DataTypes.DECIMAL(10, 6),
@@ -30,9 +42,14 @@ module.exports = (sequelize, DataTypes) => {
 
   Location.associate = models => {
     Location.belongsTo(models.Device, {
-      foreignKey: 'device_id'
+      foreignKey: 'device_id',
+      onDelete: 'CASCADE'
+    });
+    Location.belongsTo(models.User, {
+      foreignKey: 'user_id',
+      onDelete: 'CASCADE'
     });
   };
 
   return Location;
-}; 
+};

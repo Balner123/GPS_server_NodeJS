@@ -8,12 +8,29 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-async function sendVerificationEmail(to, code) {
+async function sendVerificationEmail(to, code, type = 'email_verification') {
+  let subject = '';
+  let text = '';
+
+  switch (type) {
+    case 'email_verification':
+      subject = `Verify Your Email : ${code}`;
+      text = `Thank you for registering with LOTR System. Please use the following code to verify your email address:\n\nVerification Code: ${code}\n\nThis code is valid for 10 minutes.\n\nIf you did not register for this service, please ignore this email.\n\nBest regards,\nLOTR System Team`;
+      break;
+    case 'account_deletion':
+      subject = `Confirm Account Deletion : ${code}`;
+      text = `You have requested to permanently delete your LOTR System account. To confirm this action, please use the following verification code:\n\nDeletion Code: ${code}\n\nThis code is valid for 10 minutes.\n\nIf you did not request to delete your account, please ignore this email and contact support immediately.\n\nBest regards,\nLOTR System Team`;
+      break;
+    default:
+      subject = 'Your code is: ' + code;
+      text = `Your code is: ${code}`;
+  }
+
   await transporter.sendMail({
-    from: `GPS Server <${process.env.EMAIL_USER}>`,
+    from: `LOTR System <${process.env.EMAIL_USER}>`,
     to,
-    subject: 'Your code is : ' + code,
-    text: `Your code is : ${code}`
+    subject,
+    text
   });
 }
 
@@ -33,7 +50,7 @@ async function sendGeofenceAlertEmail(to, device, location) {
   `;
 
   await transporter.sendMail({
-    from: `GPS Server <${process.env.EMAIL_USER}>`,
+    from: `LOTR System <${process.env.EMAIL_USER}>`,
     to,
     subject,
     text

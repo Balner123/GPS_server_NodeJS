@@ -18,5 +18,6 @@ const { isAuthenticated } = require('../middleware/authorization');
  *         description: Unauthorized access.
  */
 router.get('/settings', isAuthenticated, settingsController.getSettingsPage);
+router.get('/settings/confirm-delete', isAuthenticated, settingsController.getConfirmDeletePage);
 
 module.exports = router;

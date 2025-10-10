@@ -417,12 +417,10 @@ const deleteDevice = async (req, res) => {
     await t.commit(); // Commit the transaction
 
     res.status(200).json({ message: `Device '${deviceId}' and all its data have been deleted successfully.` });
-    res.redirect('/devices');
   } catch (err) {
     await t.rollback(); // Rollback on any error
     console.error(`Error deleting device ${deviceId}:`, err);
     res.status(500).json({ error: 'Failed to delete device. An internal server error occurred.' });
-    res.redirect('/devices');
   }
 };
 

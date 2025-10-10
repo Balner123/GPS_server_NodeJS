@@ -13,6 +13,14 @@ module.exports = (sequelize, DataTypes) => {
         key: 'id'
       }
     },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true, // Can be null if the alert is system-wide
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
     type: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -35,7 +43,12 @@ module.exports = (sequelize, DataTypes) => {
 
   Alert.associate = models => {
     Alert.belongsTo(models.Device, {
-      foreignKey: 'device_id'
+      foreignKey: 'device_id',
+      onDelete: 'CASCADE'
+    });
+    Alert.belongsTo(models.User, {
+      foreignKey: 'user_id',
+      onDelete: 'CASCADE'
     });
   };
 

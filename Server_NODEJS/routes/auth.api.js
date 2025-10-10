@@ -117,6 +117,8 @@ router.post('/login', authController.loginUser);
  *         description: Server error.
  */
 router.post('/register', authController.registerUser);
+router.post('/verify-email', authController.verifyEmailCode);
+
 
 router.post('/resend-verification-code', authController.resendVerificationCodeFromPage);
 

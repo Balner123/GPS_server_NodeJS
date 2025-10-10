@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <%- include('partials/_head.ejs', {title: 'Ověření emailu'}) %>
+    <%- include('partials/_head.ejs', {title: 'Confirm Account Deletion'}) %>
 </head>
 <body>
     <%- include('partials/_navbar.ejs') %>
@@ -10,23 +10,25 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
-                            <h4 class="card-title mb-4"><%= pendingEmailChange ? 'Ověření změny emailu' : 'Ověření emailu' %></h4>
-                                                <p class="mb-3">
-                                                    <% if (pendingEmailChange) { %>
-                                                        Please enter the verification code sent to your email to confirm the email address change.
-                                                    <% } else { %>
-                                                        To complete your registration, please enter the verification code sent to your email.
-                                                    <% } %>
-                                                </p>
+                        <h4 class="card-title mb-4">Confirm Account Deletion</h4>
+                        <p class="mb-3">A verification code has been sent to your email address. Please enter the code below to confirm the permanent deletion of your account.</p>
+                        
                         <% if (error && error.length > 0) { %>
-                            <div class="alert alert-danger"><%= error[0] %></div>
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <% error.forEach(function(msg){ %><p class="mb-0"><%= msg %></p><% }); %>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
                         <% } %>
                         <% if (success && success.length > 0) { %>
-                            <div class="alert alert-success"><%= success[0] %></div>
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                <% success.forEach(function(msg){ %><p class="mb-0"><%= msg %></p><% }); %>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
                         <% } %>
-                                                 <form action="/api/auth/verify-email" method="POST" id="verifyForm">
+
+                        <form action="/api/settings/confirm-delete" method="POST" id="confirmDeleteForm">
                             <div class="mb-4 text-center">
-                                <label class="form-label mb-3" style="font-size:1.2rem;">Ověřovací kód</label>
+                                <label class="form-label mb-3" style="font-size:1.2rem;">Verification Code</label>
                                 <div style="display:flex; justify-content:center; gap:1rem;">
                                     <input type="text" inputmode="numeric" maxlength="1" pattern="\d" class="form-control code-input" name="code1" required style="width:3rem; height:3rem; font-size:2rem; text-align:center;" />
                                     <input type="text" inputmode="numeric" maxlength="1" pattern="\d" class="form-control code-input" name="code2" required style="width:3rem; height:3rem; font-size:2rem; text-align:center;" />
@@ -34,10 +36,10 @@
                                     <input type="text" inputmode="numeric" maxlength="1" pattern="\d" class="form-control code-input" name="code4" required style="width:3rem; height:3rem; font-size:2rem; text-align:center;" />
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100" style="font-size:1.2rem;">Verify</button>
+                            <button type="submit" class="btn btn-danger w-100" style="font-size:1.2rem;">Confirm Deletion</button>
                         </form>
                         <div class="text-center mt-3">
-                            <form action="/api/auth/resend-verification-code" method="POST">
+                            <form action="/api/settings/resend-deletion-code" method="POST">
                                 <button type="submit" class="btn btn-link">Didn’t receive the code? Resend.</button>
                             </form>
                         </div>
@@ -62,7 +64,7 @@
                     }
                 });
             });
-            document.getElementById('verifyForm').addEventListener('submit', function(e) {
+            document.getElementById('confirmDeleteForm').addEventListener('submit', function(e) {
                 const code = Array.from(document.querySelectorAll('.code-input')).map(i => i.value).join('');
                 // Insert the concatenated code into a hidden input
                 let hidden = document.getElementById('fullCode');

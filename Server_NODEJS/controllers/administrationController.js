@@ -50,9 +50,12 @@ const deleteUserAndData = async (req, res) => {
     }
     try {
         await db.User.destroy({ where: { id: userId } });
+        req.flash('success', 'User has been deleted successfully.');
+        res.redirect('/administration');
     } catch (err) {
         console.error("Error deleting user and data:", err);
-        res.status(500).send("Error deleting user and data.");
+        req.flash('error', 'An error occurred while deleting the user.');
+        res.redirect('/administration');
     }
 };
 

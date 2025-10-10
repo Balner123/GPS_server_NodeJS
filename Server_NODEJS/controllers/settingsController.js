@@ -1,57 +1,4 @@
 const { sendVerificationEmail } = require('../utils/emailSender');
-
-const updateEmail = async (req, res) => {
-    const userId = req.session.user.id;
-
-    try {
-        const user = await User.findByPk(userId);
-        if (user.provider !== 'local') {
-            req.flash('error', 'Email cannot be changed for accounts linked with a third-party provider.');
-            return res.redirect('/settings');
-        }
-
-        const { email } = req.body;
-
-        const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-        if (!email || !emailRegex.test(email)) {
-            req.flash('error', 'Enter a valid email address.');
-            return res.redirect('/settings');
-        }
-
-        if (email === user.email) { // Compare with the email from the database
-            req.flash('info', 'The entered email is the same as your current one.');
-            return res.redirect('/settings');
-        }
-
-        const existingUser = await User.findOne({ where: { email: email } });
-        if (existingUser) {
-            req.flash('error', 'This email is already taken by another account.');
-            return res.redirect('/settings');
-        }
-
-        const code = Math.floor(1000 + Math.random() * 9000).toString();
-        const expires = new Date(Date.now() + 10 * 60 * 1000);
-
-        await user.update({
-            pending_email: email,
-            verification_code: code,
-            verification_expires: expires
-        });
-
-        await sendVerificationEmail(email, code);
-
-        req.session.pendingUserId = userId;
-        req.session.pendingEmailChange = true;
-
-        req.flash('success', 'A verification code has been sent to your new email address.');
-        return res.redirect('/verify-email');
-
-    } catch (err) {
-        console.error("Error updating email:", err);
-        req.flash('error', 'An error occurred while changing the email.');
-        return res.redirect('/settings');
-    }
-};
 const bcrypt = require('bcryptjs');
 const { User } = require('../database');
 const { body, validationResult } = require('express-validator');
@@ -165,21 +112,86 @@ const updatePassword = async (req, res) => {
     res.redirect('/settings');
 };
 
+const updateEmail = async (req, res) => {
+    const userId = req.session.user.id;
+
+    try {
+        const user = await User.findByPk(userId);
+        if (user.provider !== 'local') {
+            req.flash('error', 'Email cannot be changed for accounts linked with a third-party provider.');
+            return res.redirect('/settings');
+        }
+
+        const { email } = req.body;
+
+        const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+        if (!email || !emailRegex.test(email)) {
+            req.flash('error', 'Enter a valid email address.');
+            return res.redirect('/settings');
+        }
+
+        if (email === user.email) { // Compare with the email from the database
+            req.flash('info', 'The entered email is the same as your current one.');
+            return res.redirect('/settings');
+        }
+
+        const existingUser = await User.findOne({ where: { email: email } });
+        if (existingUser) {
+            req.flash('error', 'This email is already taken by another account.');
+            return res.redirect('/settings');
+        }
+
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        const expires = new Date(Date.now() + 10 * 60 * 1000);
+
+        await user.update({
+            pending_email: email,
+            verification_code: code,
+            verification_expires: expires
+        });
+
+        await sendVerificationEmail(email, code);
+
+        req.session.pendingUserId = userId;
+        req.session.pendingEmailChange = true;
+
+        req.flash('success', 'A verification code has been sent to your new email address.');
+        return res.redirect('/verify-email');
+
+    } catch (err) {
+        console.error("Error updating email:", err);
+        req.flash('error', 'An error occurred while changing the email.');
+        return res.redirect('/settings');
+    }
+};
+
 const deleteAccount = async (req, res) => {
     const userId = req.session.user.id;
     try {
-        await User.destroy({ where: { id: userId } });
-        req.session.destroy((err) => {
-            if (err) {
-                console.error("Error destroying session:", err);
-                // Even if session destruction fails, redirect to login
-                return res.redirect('/login');
-            }
-            res.redirect('/login');
+        const user = await User.findByPk(userId);
+        if (!user) {
+            req.flash('error', 'User not found.');
+            return res.redirect('/settings');
+        }
+
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        await user.update({
+            deletion_code: code,
+            deletion_code_expires: expires
         });
+
+        // Send email with deletion code
+        await sendVerificationEmail(user.email, code, 'account_deletion'); // 'account_deletion' is a new template type
+
+        req.session.pendingDeletionUserId = userId; // Store user ID in session for deletion confirmation
+        req.flash('success', 'A verification code has been sent to your email to confirm account deletion.');
+        return res.redirect('/settings/confirm-delete');
+
     } catch (err) {
-        console.error("Error deleting account:", err);
-        req.flash('error', 'An error occurred while deleting the account.');
+        console.error("Error initiating account deletion:", err);
+        req.flash('error', 'An error occurred while initiating account deletion.');
         res.redirect('/settings');
     }
 };
@@ -241,12 +253,187 @@ const setPassword = async (req, res) => {
     res.redirect('/settings');
 };
 
+const disconnect = async (req, res) => {
+    const userId = req.session.user.id;
+
+    try {
+        const user = await User.findByPk(userId);
+
+        if (user.provider === 'local') {
+            req.flash('error', 'This action is only available for accounts linked with a third-party provider.');
+            return res.redirect('/settings');
+        }
+
+        const { newPassword, confirmPassword, use_weak_password } = req.body;
+
+        if (!newPassword || !confirmPassword) {
+            req.flash('error', 'To disconnect your account, you must set a new password.');
+            return res.redirect('/settings');
+        }
+
+        if (newPassword !== confirmPassword) {
+            req.flash('error', 'Passwords do not match.');
+            return res.redirect('/settings');
+        }
+
+        // --- Password Validation ---
+        if (!use_weak_password) {
+            const passwordRequirements = [
+                { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
+                { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
+                { regex: /[0-9]/, message: 'Password must contain at least one number.' },
+                { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
+            ];
+            for (const requirement of passwordRequirements) {
+                if (!requirement.regex.test(newPassword)) {
+                    req.flash('error', requirement.message);
+                    return res.redirect('/settings');
+                }
+            }
+        } else {
+            if (newPassword.length < 3) {
+                req.flash('error', 'Weak password must be at least 3 characters long.');
+                return res.redirect('/settings');
+            }
+        }
+
+        const newHash = await bcrypt.hash(newPassword, 10);
+        await user.update({
+            password: newHash,
+            provider: 'local',
+            provider_id: null,
+            provider_data: null
+        });
+
+        req.session.destroy((err) => {
+            if (err) {
+                console.error("Error destroying session after disconnect:", err);
+                return res.redirect('/login');
+            }
+            res.clearCookie('connect.sid');
+            res.redirect('/login');
+        });
+
+    } catch (err) {
+        console.error("Error disconnecting account:", err);
+        req.flash('error', 'An error occurred while disconnecting your account.');
+        res.redirect('/settings');
+    }
+};
+
+const getConfirmDeletePage = (req, res) => {
+    if (!req.session.pendingDeletionUserId) {
+        req.flash('error', 'No pending account deletion to confirm.');
+        return res.redirect('/settings');
+    }
+    res.render('confirm-delete', {
+        currentPage: 'confirm-delete',
+        error: req.flash('error'),
+        success: req.flash('success')
+    });
+};
+
+const confirmDeleteAccount = async (req, res) => {
+    const userId = req.session.pendingDeletionUserId;
+    const { code } = req.body;
+
+    if (!userId) {
+        req.flash('error', 'Session expired or no pending deletion.');
+        return res.redirect('/settings');
+    }
+
+    try {
+        const user = await User.findByPk(userId);
+
+        if (!user) {
+            req.flash('error', 'User not found.');
+            delete req.session.pendingDeletionUserId;
+            return res.redirect('/settings');
+        }
+
+        // Check for code expiration
+        if (!user.deletion_code || !user.deletion_code_expires || new Date() > user.deletion_code_expires) {
+            req.flash('error', 'Verification code has expired. Please try deleting your account again.');
+            delete req.session.pendingDeletionUserId;
+            return res.redirect('/settings');
+        }
+
+        // Check if code matches
+        if (user.deletion_code !== code) {
+            req.flash('error', 'The provided code is incorrect.');
+            return res.redirect('/settings/confirm-delete');
+        }
+
+        // First, delete all devices associated with the user.
+        // This will trigger the cascading delete for locations and alerts.
+        await db.Device.destroy({ where: { user_id: userId } });
+
+        // Now, it's safe to delete the user.
+        await User.destroy({ where: { id: userId } });
+
+        delete req.session.pendingDeletionUserId; // Clear pending deletion status
+
+        req.session.destroy((err) => {
+            if (err) {
+                console.error("Error destroying session after account deletion:", err);
+                return res.redirect('/login');
+            }
+            res.clearCookie('connect.sid');
+            req.flash('success', 'Your account has been successfully deleted.');
+            res.redirect('/login');
+        });
+
+    } catch (err) {
+        console.error("Error confirming account deletion:", err);
+        req.flash('error', 'An error occurred while confirming account deletion.');
+        res.redirect('/settings/confirm-delete');
+    }
+};
+
+const resendDeletionCode = async (req, res) => {
+    const userId = req.session.pendingDeletionUserId;
+    if (!userId) {
+        req.flash('error', 'Session expired. Please try deleting your account again.');
+        return res.redirect('/settings');
+    }
+
+    try {
+        const user = await User.findByPk(userId);
+        if (!user) {
+            req.flash('error', 'User not found.');
+            delete req.session.pendingDeletionUserId;
+            return res.redirect('/settings');
+        }
+
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        await user.update({
+            deletion_code: code,
+            deletion_code_expires: expires
+        });
+
+        await sendVerificationEmail(user.email, code, 'account_deletion');
+
+        req.flash('success', 'New verification code sent to your email.');
+        res.redirect('/settings/confirm-delete');
+
+    } catch (err) {
+        console.error("Error during resend deletion code:", err);
+        req.flash('error', 'Error during server.');
+        res.redirect('/settings/confirm-delete');
+    }
+};
+
 module.exports = {
     getSettingsPage,
     updateUsername,
     updatePassword,
     updateEmail,
     deleteAccount,
-    setPassword
-}; 
-
+    setPassword,
+    disconnect,
+    getConfirmDeletePage,
+    confirmDeleteAccount,
+    resendDeletionCode
+};
