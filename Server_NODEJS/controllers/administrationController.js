@@ -32,7 +32,9 @@ const getAdminPage = async (req, res) => {
             currentPage: 'administration',
             users,
             devices,
-            locations
+            locations,
+            success: req.flash('success'),
+            error: req.flash('error')
         });
     } catch (err) {
         console.error("Error loading administration data:", err);
