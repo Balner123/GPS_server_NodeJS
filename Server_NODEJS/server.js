@@ -41,12 +41,17 @@ app.use(passport.session());
 // Flash middleware
 app.use(flash());
 
+const { checkPasswordPrompt } = require('./middleware/prompt');
+
 // Middleware to make session status available in templates
 app.use((req, res, next) => {
   res.locals.isAuthenticated = req.session.isAuthenticated || false;
   res.locals.user = req.session.user || null;
   next();
 });
+
+// Middleware to check if a password prompt should be shown
+app.use(checkPasswordPrompt);
 
 // Rate limiting (applies to all subsequent routes)
 const limiter = rateLimit({

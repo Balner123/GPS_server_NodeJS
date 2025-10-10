@@ -83,49 +83,83 @@
 
                 <!-- Right column: Change password -->
                 <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Change password</h5>
-                            <form action="/api/settings/password" method="POST">
-                                <div class="mb-3">
-                                    <label for="oldPassword" class="form-label">Old password</label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="oldPassword" name="oldPassword" required>
-                                        <button class="input-group-text border-start-0 bg-white" type="button" id="toggleOldPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
-                                            <i class="fa fa-eye" aria-hidden="true"></i>
-                                        </button>
+                    <% if (user.provider !== 'local' && (!user.password || user.password.trim() === '')) { %>
+                        <!-- Form to SET password for the first time -->
+                        <div class="card border-primary">
+                            <div class="card-body">
+                                <h5 class="card-title">Set Your Account Password</h5>
+                                <p class="card-text">To use your account with external devices (hardware or apps), you need to set a password.</p>
+                                <form action="/api/settings/set-password" method="POST">
+                                    <div class="mb-3">
+                                        <label for="newPassword" class="form-label">New Password</label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="newPassword" name="newPassword" required>
+                                            <button class="input-group-text border-start-0 bg-white" type="button" id="toggleNewPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
+                                                <i class="fa fa-eye" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <% if (user.provider !== 'local') { %>
-                                        <small class="form-text text-muted">Your account is linked with <%= user.provider %>. If you are logging in for the first time, you may not have a password set. Please contact support if you need to have a password generated for use with external devices.</small>
-                                    <% } %>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="newPassword" class="form-label">New password</label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="newPassword" name="newPassword" required>
-                                        <button class="input-group-text border-start-0 bg-white" type="button" id="toggleNewPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
-                                            <i class="fa fa-eye" aria-hidden="true"></i>
-                                        </button>
+                                    <div class="mb-3">
+                                        <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                                            <button class="input-group-text border-start-0 bg-white" type="button" id="toggleConfirmPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
+                                                <i class="fa fa-eye" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="confirmPassword" class="form-label">Confirm new password</label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
-                                        <button class="input-group-text border-start-0 bg-white" type="button" id="toggleConfirmPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
-                                            <i class="fa fa-eye" aria-hidden="true"></i>
-                                        </button>
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="use_weak_password_set" name="use_weak_password" value="true">
+                                        <label class="form-check-label" for="use_weak_password_set">Use a weak password</label>
+                                        <small class="form-text text-muted d-block">Bypasses complexity requirements. Minimum 3 characters.</small>
                                     </div>
-                                </div>
-                                <div class="mb-3 form-check">
-                                    <input type="checkbox" class="form-check-input" id="use_weak_password" name="use_weak_password" value="true">
-                                    <label class="form-check-label" for="use_weak_password">Use a weak password</label>
-                                    <small class="form-text text-muted d-block">Bypasses complexity requirements. Minimum 3 characters.</small>
-                                </div>
-                                <button type="submit" class="btn btn-primary">Change password</button>
-                            </form>
+                                    <button type="submit" class="btn btn-primary">Set Password</button>
+                                </form>
+                            </div>
                         </div>
-                    </div>
+                    <% } else { %>
+                        <!-- Form to CHANGE existing password -->
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Change Password</h5>
+                                <form action="/api/settings/password" method="POST">
+                                    <div class="mb-3">
+                                        <label for="oldPassword" class="form-label">Old Password</label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="oldPassword" name="oldPassword" required>
+                                            <button class="input-group-text border-start-0 bg-white" type="button" id="toggleOldPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
+                                                <i class="fa fa-eye" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="newPassword" class="form-label">New Password</label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="newPassword" name="newPassword" required>
+                                            <button class="input-group-text border-start-0 bg-white" type="button" id="toggleNewPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
+                                                <i class="fa fa-eye" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                                            <button class="input-group-text border-start-0 bg-white" type="button" id="toggleConfirmPassword" tabindex="-1" style="border-radius: 0 0.375rem 0.375rem 0; border-left: none; padding: 0 0.75rem;">
+                                                <i class="fa fa-eye" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="use_weak_password" name="use_weak_password" value="true">
+                                        <label class="form-check-label" for="use_weak_password">Use a weak password</label>
+                                        <small class="form-text text-muted d-block">Bypasses complexity requirements. Minimum 3 characters.</small>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Change Password</button>
+                                </form>
+                            </div>
+                        </div>
+                    <% } %>
                 </div>
             </div>
         </div>

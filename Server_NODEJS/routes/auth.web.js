@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const { isAuthenticated } = require('../middleware/authorization');
 
 /**
  * @swagger
@@ -95,10 +96,12 @@ const authController = require('../controllers/authController');
  */
 
 router.get('/login', authController.getLoginPage);
-router.get('/register', authController.getRegisterPage);
-router.get('/verify-email', authController.getVerifyEmailPage);
-router.post('/verify-email', authController.verifyEmailCode);
-router.post('/resend-verification-from-page', authController.resendVerificationCodeFromPage);
-router.get('/logout', authController.logoutUser);
+router.get('/register', (req, res) => {
+    res.render('register', { currentPage: 'register', error: req.flash('error'), success: req.flash('success') });
+});
+
+router.get('/set-password', isAuthenticated, (req, res) => {
+    res.render('set-password', { currentPage: 'set-password', error: req.flash('error') });
+});
 
 module.exports = router;

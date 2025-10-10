@@ -378,6 +378,62 @@ const resendVerificationCodeFromPage = async (req, res) => {
   }
 };
 
+const setInitialPassword = async (req, res) => {
+    const { newPassword, confirmPassword, use_weak_password } = req.body;
+    const userId = req.session.user.id;
+
+    try {
+        const user = await db.User.findByPk(userId);
+
+        if (!user || user.provider === 'local' || (user.password && user.password.trim() !== '')) {
+            req.flash('error', 'This action is not applicable for your account.');
+            return res.redirect('/');
+        }
+
+        if (!newPassword || !confirmPassword) {
+            req.flash('error', 'Both password fields are required.');
+            return res.redirect('/set-password');
+        }
+
+        if (newPassword !== confirmPassword) {
+            req.flash('error', 'Passwords do not match.');
+            return res.redirect('/set-password');
+        }
+
+        // --- Password Validation ---
+        if (!use_weak_password) {
+            const passwordRequirements = [
+                { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
+                { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
+                { regex: /[0-9]/, message: 'Password must contain at least one number.' },
+                { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
+            ];
+            for (const requirement of passwordRequirements) {
+                if (!requirement.regex.test(newPassword)) {
+                    req.flash('error', requirement.message);
+                    return res.redirect('/set-password');
+                }
+            }
+        } else {
+            if (newPassword.length < 3) {
+                req.flash('error', 'Weak password must be at least 3 characters long.');
+                return res.redirect('/set-password');
+            }
+        }
+
+        const newHash = await bcrypt.hash(newPassword, 10);
+        await user.update({ password: newHash });
+
+        req.flash('success', 'Your password has been set successfully! You can now use it for external devices.');
+        res.redirect('/');
+
+    } catch (err) {
+        console.error("Error setting initial password:", err);
+        req.flash('error', 'An error occurred while setting your password.');
+        res.redirect('/set-password');
+    }
+};
+
 module.exports = {
   getLoginPage,
   loginUser,
@@ -388,5 +444,6 @@ module.exports = {
   verifyEmailCode,
   loginApk,
   logoutApk,
-  resendVerificationCodeFromPage
+  resendVerificationCodeFromPage,
+  setInitialPassword
 };

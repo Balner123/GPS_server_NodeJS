@@ -167,4 +167,36 @@ router.post('/email', isAuthenticated, isUser, settingsController.updateEmail);
  */
 router.post('/delete-account', isAuthenticated, isUser, settingsController.deleteAccount);
 
+/**
+ * @swagger
+ * /api/settings/set-password:
+ *   post:
+ *     summary: Set the initial password for a user registered via a third-party provider
+ *     tags: [Settings API]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               newPassword:
+ *                 type: string
+ *               confirmPassword:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Password set successfully.
+ *       '400':
+ *         description: Bad request (e.g., passwords don't match, user not eligible).
+ *       '401':
+ *         description: Unauthorized.
+ */
+router.post('/set-password', isAuthenticated, isUser, settingsController.setPassword);
+
 module.exports = router;

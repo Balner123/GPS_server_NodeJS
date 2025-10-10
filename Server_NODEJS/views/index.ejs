@@ -8,6 +8,29 @@
 
     <div class="content-wrapper">
         <div class="container mt-4">
+            <% if (success && success.length > 0) { %>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <% success.forEach(function(msg){ %><p class="mb-0"><%= msg %></p><% }); %>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <% } %>
+            <% if (error && error.length > 0) { %>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                     <% error.forEach(function(msg){ %><p class="mb-0"><%= msg %></p><% }); %>
+                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <% } %>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Registered devices</h5>
+                            <p class="card-text">You have <%= devices.length %> registered devices.</p>
+                            <a href="/manage-devices" class="btn btn-primary">Manage devices</a>
+                        </div>
+                    </div>
+                </div>
             <div class="row">
                 <div class="col-md-8">
                     <div class="card">

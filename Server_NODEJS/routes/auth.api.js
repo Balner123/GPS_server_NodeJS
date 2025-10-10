@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const { isAuthenticated } = require('../middleware/authorization');
 
 /**
  * @swagger
@@ -116,5 +117,9 @@ router.post('/login', authController.loginUser);
  *         description: Server error.
  */
 router.post('/register', authController.registerUser);
+
+router.post('/resend-verification-code', authController.resendVerificationCodeFromPage);
+
+router.post('/set-initial-password', isAuthenticated, authController.setInitialPassword);
 
 module.exports = router;
