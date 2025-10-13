@@ -6,6 +6,7 @@ let lastTimestamp = null;
 let completeDeviceHistory = [];
 let isShowingAllHistory = false;
 const HISTORY_ROW_LIMIT = 5;
+let expandedClusters = new Set(); // State for expanded cluster rows
 
 let drawnItems, drawControl;
 
@@ -182,6 +183,27 @@ function initializeApp() {
         isShowingAllHistory = !isShowingAllHistory;
         renderPositionTable();
     });
+
+    // Add a single, delegated event listener for expanding/collapsing cluster rows
+    const tableBody = document.getElementById('positions-table');
+    if (tableBody) {
+        tableBody.addEventListener('click', function(e) {
+            const clusterRow = e.target.closest('.cluster-row');
+            if (!clusterRow) return;
+
+            const clusterId = clusterRow.dataset.clusterId;
+
+            // Update the state
+            if (expandedClusters.has(clusterId)) {
+                expandedClusters.delete(clusterId);
+            } else {
+                expandedClusters.add(clusterId);
+            }
+
+            // Re-render the table to reflect the new state
+            renderPositionTable();
+        });
+    }
 
     setInterval(checkForAlerts, 15000); // Check for new alerts every 15 seconds
 }
@@ -434,28 +456,54 @@ function updateToggleButton() {
 
 function updateTable(data) {
     const tbody = document.getElementById('positions-table');
-    tbody.innerHTML = '';
+    tbody.innerHTML = ''; // Clear previous content
     if (!data || data.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No position history available.</td></tr>';
         return;
     }
-    // Sort by the primary timestamp property (startTime for clusters, timestamp for single points)
+
     const sortedData = data.sort((a, b) => new Date(b.startTime || b.timestamp) - new Date(a.startTime || a.timestamp));
-    
-    sortedData.forEach(point => {
-        const row = document.createElement('tr');
-        
+
+    sortedData.forEach((point) => {
         if (point.type === 'cluster') {
-            row.innerHTML = `
-                <td class="table-info">${formatTimestamp(point.startTime)} - ${formatTimestamp(point.endTime)}</td>
+            const clusterId = `cluster-${point.startTime}`;
+            const clusterRow = document.createElement('tr');
+            clusterRow.className = 'cluster-row table-info';
+            clusterRow.dataset.clusterId = clusterId;
+            clusterRow.style.cursor = 'pointer';
+
+            const isExpanded = expandedClusters.has(clusterId);
+
+            clusterRow.innerHTML = `
+                <td><i class="fas ${isExpanded ? 'fa-minus-circle' : 'fa-plus-circle'} me-2"></i>${formatTimestamp(point.startTime)} - ${formatTimestamp(point.endTime)}</td>
                 <td>${formatCoordinate(point.latitude)}</td>
                 <td>${formatCoordinate(point.longitude)}</td>
                 <td>N/A (Cluster)</td>
                 <td>N/A</td>
-                <td>N/A</td>
+                <td>Less ${point.clusterThreshold}m</td>
                 <td>${point.originalPoints.length} points</td>
             `;
+            tbody.appendChild(clusterRow);
+
+            // Create and append hidden child rows for each original point in the cluster
+            point.originalPoints.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(originalPoint => {
+                const childRow = document.createElement('tr');
+                childRow.className = `child-row child-of-${clusterId} ${isExpanded ? '' : 'd-none'}`;
+                childRow.style.backgroundColor = 'rgba(0,0,0,0.02)';
+
+                childRow.innerHTML = `
+                    <td style="padding-left: 2.5rem;">${formatTimestamp(originalPoint.timestamp)}</td>
+                    <td>${formatCoordinate(originalPoint.latitude)}</td>
+                    <td>${formatCoordinate(originalPoint.longitude)}</td>
+                    <td>${formatSpeed(originalPoint.speed)}</td>
+                    <td>${formatAltitude(originalPoint.altitude)}</td>
+                    <td>${formatAccuracy(originalPoint.accuracy)}</td>
+                    <td>${originalPoint.satellites !== null ? originalPoint.satellites : 'N/A'}</td>
+                `;
+                tbody.appendChild(childRow);
+            });
         } else {
+            const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${formatTimestamp(point.timestamp)}</td>
                 <td>${formatCoordinate(point.latitude)}</td>
@@ -465,8 +513,8 @@ function updateTable(data) {
                 <td>${formatAccuracy(point.accuracy)}</td>
                 <td>${point.satellites !== null ? point.satellites : 'N/A'}</td>
             `;
+            tbody.appendChild(row);
         }
-        tbody.appendChild(row);
     });
 }
 
@@ -519,48 +567,68 @@ async function handleSettingsUpdate(e) {
 }
 
 async function handleRenameDevice(deviceId, currentName) {
-    const newName = prompt("Enter the new name for the device:", currentName);
-    if (!newName || newName.trim() === '' || newName === currentName) return;
+    showInputModal({
+        title: 'Rename Device',
+        label: 'New device name',
+        value: currentName,
+        confirmText: 'Rename',
+        onConfirm: async (newName) => {
+            if (!newName || newName.trim() === '' || newName === currentName) {
+                return; // Do nothing if the name is empty or unchanged
+            }
 
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/name`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deviceId: deviceId, newName: newName.trim() })
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) throw new Error(result.error || 'Failed to rename device.');
-        displayAlert(result.message || 'Device renamed successfully!', 'success');
-        const el = document.querySelector(`.device-item[data-device-id='${deviceId}'] strong`);
-        if (el) el.textContent = newName.trim();
-    } catch (error) {
-        displayAlert(`Error: ${error.message}`, 'danger');
-    }
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/devices/name`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deviceId: deviceId, newName: newName.trim() })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'Failed to rename device.');
+                
+                displayAlert(result.message || 'Device renamed successfully!', 'success');
+                
+                // Update the name in the UI
+                const el = document.querySelector(`.device-item[data-device-id='${deviceId}'] strong`);
+                if (el) el.textContent = newName.trim();
+
+            } catch (error) {
+                displayAlert(`Error: ${error.message}`, 'danger');
+            }
+        }
+    });
 }
 
 async function handleDeleteDevice(deviceId) {
     const el = document.querySelector(`.device-item[data-device-id='${deviceId}']`);
     const name = el ? (el.querySelector('strong').textContent) : deviceId;
-    if (!confirm(`Are you sure you want to delete '${name}'? This is permanent.`)) return;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/delete/${deviceId}`, { method: 'POST' });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Failed to delete device.');
-        displayAlert(result.message, 'success');
-        if (selectedDevice === deviceId) {
-            selectedDevice = null;
-            clearMapAndData();
-            document.getElementById('device-settings-card').style.display = 'none';
-            window.history.pushState({path: window.location.pathname}, '', window.location.pathname);
+
+    showConfirmationModal({
+        title: 'Confirm Device Deletion',
+        body: `Are you sure you want to permanently delete the device '<strong>${name}</strong>'? This action is irreversible.`,
+        confirmText: 'Delete Device',
+        confirmClass: 'btn-danger',
+        onConfirm: async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/devices/delete/${deviceId}`, { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Failed to delete device.');
+                displayAlert(result.message, 'success');
+                if (selectedDevice === deviceId) {
+                    selectedDevice = null;
+                    clearMapAndData();
+                    document.getElementById('device-settings-card').style.display = 'none';
+                    window.history.pushState({path: window.location.pathname}, '', window.location.pathname);
+                }
+                if (el) el.remove();
+                if (document.getElementById('devices-list').children.length === 0) {
+                    document.getElementById('devices-list').innerHTML = '<p class="text-muted">No active devices found.</p>';
+                }
+            } catch (error) {
+                displayAlert(`Error: ${error.message}`, 'danger');
+            }
         }
-        if (el) el.remove();
-        if (document.getElementById('devices-list').children.length === 0) {
-            document.getElementById('devices-list').innerHTML = '<p class="text-muted">No active devices found.</p>';
-        }
-    } catch (error) {
-        displayAlert(`Error: ${error.message}`, 'danger');
-    }
+    });
 }
 
 async function handleClearDeviceAlerts(deviceId) {

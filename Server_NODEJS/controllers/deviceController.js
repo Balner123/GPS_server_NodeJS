@@ -57,6 +57,7 @@ async function triggerGeofenceAlert(device, location) {
         // 1. Save alert to the database
         await db.Alert.create({
             device_id: device.id,
+            user_id: device.user_id, // <-- FIX: Add user_id from the device
             type: 'geofence',
             message: `Device '${device.name || device.device_id}' has left the defined geofence area.`
         });
@@ -163,6 +164,7 @@ const handleDeviceInput = async (req, res) => {
         }
         return {
           device_id: device.id,
+          user_id: device.user_id, // <-- FIX: Add user_id from the device
           latitude: point.latitude,
           longitude: point.longitude,
           speed: point.speed !== undefined ? point.speed : null,
@@ -338,7 +340,7 @@ function clusterLocations(locations, distanceThreshold) {
         endTime: cluster[cluster.length - 1].timestamp,
         type: 'cluster',
         device_id: currentPoint.device_id,
-        // Uchováváme původní body pro případné detailní zobrazení na klientovi
+        clusterThreshold: distanceThreshold, // Pass threshold to frontend
         originalPoints: cluster 
       };
       clusteredLocations.push(mergedPoint);
@@ -372,7 +374,7 @@ const getDeviceData = async (req, res) => {
       order: [['timestamp', 'ASC']] 
     });
 
-    const DISTANCE_THRESHOLD_METERS = 40;
+    const DISTANCE_THRESHOLD_METERS = 25; // Updated threshold
     const processedLocations = clusterLocations(rawLocations, DISTANCE_THRESHOLD_METERS);
 
     res.json(processedLocations);

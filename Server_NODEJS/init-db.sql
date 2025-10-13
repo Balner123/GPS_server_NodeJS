@@ -2,7 +2,6 @@ DROP DATABASE IF EXISTS gps_tracking;
 CREATE DATABASE gps_tracking;
 USE gps_tracking;
 
-
 CREATE TABLE IF NOT EXISTS users (
   id int(11) NOT NULL AUTO_INCREMENT,
   username varchar(255) NOT NULL UNIQUE,
@@ -28,8 +27,8 @@ CREATE TABLE IF NOT EXISTS devices (
     name VARCHAR(255),
     status VARCHAR(50) DEFAULT 'active',
     last_seen TIMESTAMP NULL,
-    interval_gps INT DEFAULT 60, -- Default: 60 seconds between GPS fixes
-    interval_send INT DEFAULT 1, -- Default: Send after every 1 cycle (simple mode)
+    interval_gps INT DEFAULT 60,
+    interval_send INT DEFAULT 1,
     geofence JSON NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -38,6 +37,7 @@ CREATE TABLE IF NOT EXISTS devices (
 CREATE TABLE IF NOT EXISTS locations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     device_id INT NOT NULL,
+    user_id INT NOT NULL,
     longitude DECIMAL(10, 6) NOT NULL,
     latitude DECIMAL(10, 6) NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -45,23 +45,29 @@ CREATE TABLE IF NOT EXISTS locations (
     altitude DECIMAL(7, 2),
     accuracy DECIMAL(5, 2),
     satellites INT,
-    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-
-CREATE INDEX idx_device_id ON locations(device_id);
-CREATE INDEX idx_timestamp ON locations(timestamp);
-CREATE INDEX idx_device_status ON devices(status);
-CREATE INDEX idx_users_provider_id ON users(provider, provider_id);
 
 CREATE TABLE IF NOT EXISTS alerts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     device_id INT NOT NULL,
+    user_id INT,
     type VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_device_id_locations ON locations(device_id);
+CREATE INDEX idx_user_id_locations ON locations(user_id);
+CREATE INDEX idx_timestamp_locations ON locations(timestamp);
+CREATE INDEX idx_device_status ON devices(status);
+CREATE INDEX idx_users_provider_id ON users(provider, provider_id);
+CREATE INDEX idx_device_id_alerts ON alerts(device_id);
+CREATE INDEX idx_user_id_alerts ON alerts(user_id);
 
 -- Root user for Admin purposes (testing)
 INSERT INTO users (username, email, is_verified, password) VALUES ('root', 'root', 1, '$2b$10$5JGpNVbNnSSbqs/hn9OW1OqdvhT5gCXh1n984mlPF46k5GHfZ/HwW');

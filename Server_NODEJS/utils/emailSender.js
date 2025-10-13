@@ -11,15 +11,14 @@ const transporter = nodemailer.createTransport({
 async function sendVerificationEmail(to, code, type = 'email_verification') {
   let subject = '';
   let text = '';
-
   switch (type) {
     case 'email_verification':
       subject = `Verify Your Email : ${code}`;
-      text = `Thank you for registering with LOTR System. Please use the following code to verify your email address:\n\nVerification Code: ${code}\n\nThis code is valid for 10 minutes.\n\nIf you did not register for this service, please ignore this email.\n\nBest regards,\nLOTR System Team`;
+      text = `Your LOTR System verification code is: ${code}\n\nThis code is valid for 10 minutes.\n\nIf you did not request this, please ignore this email.`;
       break;
     case 'account_deletion':
       subject = `Confirm Account Deletion : ${code}`;
-      text = `You have requested to permanently delete your LOTR System account. To confirm this action, please use the following verification code:\n\nDeletion Code: ${code}\n\nThis code is valid for 10 minutes.\n\nIf you did not request to delete your account, please ignore this email and contact support immediately.\n\nBest regards,\nLOTR System Team`;
+      text = `To confirm your LOTR System account deletion, use the following code:\n\nDeletion Code: ${code}\n\nThis code is valid for 10 minutes.\n\nIf you did not request this, please ignore this email and contact support.`;
       break;
     default:
       subject = 'Your code is: ' + code;

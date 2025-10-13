@@ -69,13 +69,12 @@
                         </div>
                     </div>
 
-                        <!-- Delete account -->
                     <div class="card card-danger">
                          <div class="card-body">
                             <h5 class="card-title text-danger">Danger zone</h5>
                             <p class="card-text">Deleting your account is irreversible. All your data, including registered devices and their history, will be permanently deleted.</p>
-                            <form action="/api/settings/delete-account" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete your account? This action is irreversible.');">
-                                    <button type="submit" class="btn btn-danger">Permanently delete my account</button>
+                            <form action="/api/settings/delete-account" method="POST" id="deleteAccountForm">
+                                    <button type="button" id="deleteAccountBtn" class="btn btn-danger">Permanently delete my account</button>
                             </form>
                         </div>
                     </div>
@@ -171,6 +170,22 @@
             setupHoldToShow('oldPassword', 'toggleOldPassword');
             setupHoldToShow('newPassword', 'toggleNewPassword');
             setupHoldToShow('confirmPassword', 'toggleConfirmPassword');
+
+            const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+            if (deleteAccountBtn) {
+                deleteAccountBtn.addEventListener('click', function(e) {
+                    e.preventDefault(); // Prevent any default button action
+                    showConfirmationModal({
+                        title: 'Confirm Account Deletion',
+                        body: 'Are you sure you want to permanently delete your account? This action is irreversible and all your data will be lost.',
+                        confirmText: 'Delete My Account',
+                        confirmClass: 'btn-danger',
+                        onConfirm: () => {
+                            document.getElementById('deleteAccountForm').submit();
+                        }
+                    });
+                });
+            }
         });
     </script>
 </body>

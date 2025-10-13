@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const db = require('../database');
+const { sendVerificationEmail } = require('../utils/emailSender');
 
 const getLoginPage = (req, res) => {
   if (req.session.isAuthenticated) {
@@ -40,7 +41,6 @@ const loginUser = async (req, res) => {
         user.verification_expires = expires;
         await user.save();
 
-        const { sendVerificationEmail } = require('../utils/emailSender');
         try {
           await sendVerificationEmail(user.email, code);
         } catch (mailErr) {
@@ -55,10 +55,7 @@ const loginUser = async (req, res) => {
       }
 
       req.session.isAuthenticated = true;
-      req.session.user = {
-        id: user.id,
-        username: user.username
-      };
+      req.session.user = { id: user.id, username: user.username, email: user.email };
 
       if (user.username === 'root') {
         return res.redirect('/administration');
@@ -157,7 +154,6 @@ const registerUser = async (req, res) => {
       verification_expires: expires
     });
 
-    const { sendVerificationEmail } = require('../utils/emailSender');
     try {
       await sendVerificationEmail(email, code);
     } catch (mailErr) {
@@ -290,22 +286,18 @@ const loginApk = async (req, res) => {
         });
 
         if (!user) {
-            return res.status(401).json({ success: false, error: 'Uživatel nenalezen.' });
+            return res.status(401).json({ success: false, error: 'User not found.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return res.status(401).json({ success: false, error: 'Nesprávné heslo.' });
+            return res.status(401).json({ success: false, error: 'Invalid password.' });
         }
 
         // Step 3: Create session
         req.session.isAuthenticated = true; // Important for authorizing further requests
-        req.session.user = {
-            id: user.id,
-            username: user.username,
-            role: user.role // Added for consistency
-        };
+        req.session.user = { id: user.id, username: user.username, email: user.email };
 
         // Step 4: Check if the device is already registered (using Sequelize)
         const device = await db.Device.findOne({ // Assuming the model is named 'Device'
@@ -366,7 +358,6 @@ const resendVerificationCodeFromPage = async (req, res) => {
     user.verification_expires = expires;
     await user.save();
 
-    const { sendVerificationEmail } = require('../utils/emailSender');
     await sendVerificationEmail(targetEmail, code);
 
     req.flash('success', 'New verification code sent to your email.');
@@ -434,6 +425,37 @@ const setInitialPassword = async (req, res) => {
     }
 };
 
+const cancelEmailChange = async (req, res) => {
+  const userId = req.session.pendingUserId;
+
+  if (!userId) {
+    req.flash('error', 'Session expired or no pending email change to cancel.');
+    return res.redirect('/settings');
+  }
+
+  try {
+    const user = await db.User.findByPk(userId);
+
+    if (user) {
+      await user.update({
+        pending_email: null,
+        verification_code: null,
+        verification_expires: null
+      });
+    }
+
+    delete req.session.pendingUserId;
+    delete req.session.pendingEmailChange;
+
+    req.flash('success', 'Email change has been successfully canceled.');
+    res.redirect('/settings');
+  } catch (err) {
+    console.error('Error canceling email change:', err);
+    req.flash('error', 'An error occurred while canceling the email change.');
+    res.redirect('/settings');
+  }
+};
+
 module.exports = {
   getLoginPage,
   loginUser,
@@ -445,5 +467,6 @@ module.exports = {
   loginApk,
   logoutApk,
   resendVerificationCodeFromPage,
-  setInitialPassword
+  setInitialPassword,
+  cancelEmailChange
 };

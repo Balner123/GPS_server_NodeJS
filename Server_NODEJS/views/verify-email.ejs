@@ -24,7 +24,7 @@
                         <% if (success && success.length > 0) { %>
                             <div class="alert alert-success"><%= success[0] %></div>
                         <% } %>
-                                                 <form action="/api/auth/verify-email" method="POST" id="verifyForm">
+                                                 <form action="/verify-email" method="POST" id="verifyForm">
                             <div class="mb-4 text-center">
                                 <label class="form-label mb-3" style="font-size:1.2rem;">Ověřovací kód</label>
                                 <div style="display:flex; justify-content:center; gap:1rem;">
@@ -37,10 +37,17 @@
                             <button type="submit" class="btn btn-primary w-100" style="font-size:1.2rem;">Verify</button>
                         </form>
                         <div class="text-center mt-3">
-                            <form action="/api/auth/resend-verification-code" method="POST">
+                            <form action="/resend-verification-from-page" method="POST">
                                 <button type="submit" class="btn btn-link">Didn’t receive the code? Resend.</button>
                             </form>
                         </div>
+                        <% if (pendingEmailChange) { %>
+                          <div class="text-center mt-2">
+                            <form action="/verify-email/cancel" method="POST">
+                              <button type="submit" class="btn btn-secondary">Cancel Email Change</button>
+                            </form>
+                          </div>
+                        <% } %>
                     </div>
                 </div>
             </div>

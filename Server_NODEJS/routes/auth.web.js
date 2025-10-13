@@ -96,9 +96,7 @@ const { isAuthenticated } = require('../middleware/authorization');
  */
 
 router.get('/login', authController.getLoginPage);
-router.get('/register', (req, res) => {
-    res.render('register', { currentPage: 'register', error: req.flash('error'), success: req.flash('success'), input: {} });
-});
+router.get('/register', authController.getRegisterPage);
 
 router.get('/set-password', isAuthenticated, (req, res) => {
     res.render('set-password', { currentPage: 'set-password', error: req.flash('error') });
@@ -106,5 +104,13 @@ router.get('/set-password', isAuthenticated, (req, res) => {
 
 router.get('/logout', authController.logoutUser);
 router.get('/verify-email', authController.getVerifyEmailPage);
+
+// POST Routes
+router.post('/login', authController.loginUser);
+router.post('/register', authController.registerUser);
+router.post('/set-password', isAuthenticated, authController.setInitialPassword);
+router.post('/verify-email', authController.verifyEmailCode);
+router.post('/resend-verification-from-page', authController.resendVerificationCodeFromPage);
+router.post('/verify-email/cancel', authController.cancelEmailChange);
 
 module.exports = router;

@@ -11,7 +11,7 @@
                 <div class="card">
                     <div class="card-body">
                         <h4 class="card-title mb-4">Confirm Account Deletion</h4>
-                        <p class="mb-3">A verification code has been sent to your email address. Please enter the code below to confirm the permanent deletion of your account.</p>
+                        <p class="mb-3"> Enter the verification code below to confirm the permanent deletion of your account.</p>
                         
                         <% if (error && error.length > 0) { %>
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -38,7 +38,10 @@
                             </div>
                             <button type="submit" class="btn btn-danger w-100" style="font-size:1.2rem;">Confirm Deletion</button>
                         </form>
-                        <div class="text-center mt-3">
+                        <div class="text-center mt-3 d-flex justify-content-center gap-3">
+                            <form action="/api/settings/cancel-delete" method="POST">
+                                <button type="submit" class="btn btn-secondary">Cancel Deletion</button>
+                            </form>
                             <form action="/api/settings/resend-deletion-code" method="POST">
                                 <button type="submit" class="btn btn-link">Didn’t receive the code? Resend.</button>
                             </form>

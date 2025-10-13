@@ -202,4 +202,20 @@ router.post('/disconnect', isAuthenticated, isUser, settingsController.disconnec
 router.post('/confirm-delete', isAuthenticated, isUser, settingsController.confirmDeleteAccount);
 router.post('/resend-deletion-code', isAuthenticated, isUser, settingsController.resendDeletionCode);
 
+/**
+ * @swagger
+ * /api/settings/cancel-delete:
+ *   post:
+ *     summary: Cancel a pending account deletion
+ *     tags: [Settings API]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '302':
+ *         description: Redirects to the /settings page after cancellation.
+ *       '401':
+ *         description: Unauthorized.
+ */
+router.post('/cancel-delete', isAuthenticated, isUser, settingsController.cancelDeleteAccount);
+
 module.exports = router;

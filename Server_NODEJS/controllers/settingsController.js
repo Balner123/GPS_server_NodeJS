@@ -1,11 +1,11 @@
 const { sendVerificationEmail } = require('../utils/emailSender');
 const bcrypt = require('bcryptjs');
-const { User } = require('../database');
+const db = require('../database');
 const { body, validationResult } = require('express-validator');
 
 const getSettingsPage = async (req, res) => {
     try {
-        const user = await User.findByPk(req.session.user.id);
+        const user = await db.User.findByPk(req.session.user.id);
         if (!user) {
             req.flash('error', 'User not found.');
             return res.redirect('/login');
@@ -38,12 +38,12 @@ const updateUsername = async (req, res) => {
     }
 
     try {
-        const existingUser = await User.findOne({ where: { username: username } });
+        const existingUser = await db.User.findOne({ where: { username: username } });
         if (existingUser) {
             req.flash('error', 'This username is already taken.');
             return res.redirect('/settings');
         }
-        await User.update({ username: username }, { where: { id: userId } });
+        await db.User.update({ username: username }, { where: { id: userId } });
         req.session.user.username = username; // Update username in session
         req.flash('success', 'Username has been successfully changed.');
     } catch (err) {
@@ -57,7 +57,7 @@ const updatePassword = async (req, res) => {
     const userId = req.session.user.id;
 
     try {
-        const user = await User.findByPk(userId);
+        const user = await db.User.findByPk(userId);
 
         const { oldPassword, newPassword, confirmPassword, use_weak_password } = req.body;
 
@@ -116,7 +116,7 @@ const updateEmail = async (req, res) => {
     const userId = req.session.user.id;
 
     try {
-        const user = await User.findByPk(userId);
+        const user = await db.User.findByPk(userId);
         if (user.provider !== 'local') {
             req.flash('error', 'Email cannot be changed for accounts linked with a third-party provider.');
             return res.redirect('/settings');
@@ -135,7 +135,7 @@ const updateEmail = async (req, res) => {
             return res.redirect('/settings');
         }
 
-        const existingUser = await User.findOne({ where: { email: email } });
+        const existingUser = await db.User.findOne({ where: { email: email } });
         if (existingUser) {
             req.flash('error', 'This email is already taken by another account.');
             return res.redirect('/settings');
@@ -168,7 +168,7 @@ const updateEmail = async (req, res) => {
 const deleteAccount = async (req, res) => {
     const userId = req.session.user.id;
     try {
-        const user = await User.findByPk(userId);
+        const user = await db.User.findByPk(userId);
         if (!user) {
             req.flash('error', 'User not found.');
             return res.redirect('/settings');
@@ -200,7 +200,7 @@ const setPassword = async (req, res) => {
     const userId = req.session.user.id;
 
     try {
-        const user = await User.findByPk(userId);
+        const user = await db.User.findByPk(userId);
 
         // This action should only be for provider-based users without a password
         if (user.provider === 'local' || (user.password && user.password.trim() !== '')) {
@@ -257,7 +257,7 @@ const disconnect = async (req, res) => {
     const userId = req.session.user.id;
 
     try {
-        const user = await User.findByPk(userId);
+        const user = await db.User.findByPk(userId);
 
         if (user.provider === 'local') {
             req.flash('error', 'This action is only available for accounts linked with a third-party provider.');
@@ -343,7 +343,7 @@ const confirmDeleteAccount = async (req, res) => {
     }
 
     try {
-        const user = await User.findByPk(userId);
+        const user = await db.User.findByPk(userId);
 
         if (!user) {
             req.flash('error', 'User not found.');
@@ -369,7 +369,7 @@ const confirmDeleteAccount = async (req, res) => {
         await db.Device.destroy({ where: { user_id: userId } });
 
         // Now, it's safe to delete the user.
-        await User.destroy({ where: { id: userId } });
+        await db.User.destroy({ where: { id: userId } });
 
         delete req.session.pendingDeletionUserId; // Clear pending deletion status
 
@@ -398,7 +398,7 @@ const resendDeletionCode = async (req, res) => {
     }
 
     try {
-        const user = await User.findByPk(userId);
+        const user = await db.User.findByPk(userId);
         if (!user) {
             req.flash('error', 'User not found.');
             delete req.session.pendingDeletionUserId;
@@ -425,6 +425,36 @@ const resendDeletionCode = async (req, res) => {
     }
 };
 
+const cancelDeleteAccount = async (req, res) => {
+    const userId = req.session.pendingDeletionUserId;
+    if (!userId) {
+        // If there's no pending deletion, just redirect them.
+        return res.redirect('/settings');
+    }
+
+    try {
+        const user = await db.User.findByPk(userId);
+        if (user) {
+            // Clear the deletion-related fields
+            await user.update({
+                deletion_code: null,
+                deletion_code_expires: null
+            });
+        }
+        
+        // Clear the session flag
+        delete req.session.pendingDeletionUserId;
+
+        req.flash('success', 'Account deletion has been successfully cancelled.');
+        res.redirect('/settings');
+
+    } catch (err) {
+        console.error("Error cancelling account deletion:", err);
+        req.flash('error', 'An error occurred while cancelling the account deletion.');
+        res.redirect('/settings');
+    }
+};
+
 module.exports = {
     getSettingsPage,
     updateUsername,
@@ -435,5 +465,6 @@ module.exports = {
     disconnect,
     getConfirmDeletePage,
     confirmDeleteAccount,
-    resendDeletionCode
+    resendDeletionCode,
+    cancelDeleteAccount
 };

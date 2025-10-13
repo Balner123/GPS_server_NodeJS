@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timedelta
 
 # --- Configuration ---
-BASE_URL = "http://localhost:3000"  # Change this if your server runs elsewhere
+BASE_URL = "http://localhost:5000"  # Change this if your server runs elsewhere
 TEST_DEVICE_ID = "TEST-HW-01"
 
 # --- User credentials for registration ---
