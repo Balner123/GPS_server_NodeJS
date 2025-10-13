@@ -85,12 +85,15 @@ class LocationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Send initial "starting" state immediately
+        updateAndBroadcastState(status = "Služba se spouští...", isRunning = true)
+
         if (intent?.action == ACTION_REQUEST_STATUS_UPDATE) {
             // Send current state immediately
-            val intent = Intent(ACTION_BROADCAST_STATUS).apply {
+            val broadcastIntent = Intent(ACTION_BROADCAST_STATUS).apply {
                 putExtra(EXTRA_SERVICE_STATE, gson.toJson(currentServiceState))
             }
-            LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+            LocalBroadcastManager.getInstance(this).sendBroadcast(broadcastIntent)
         } else {
             ConsoleLogger.log("Služba LocationService spuštěna.")
             val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
@@ -129,6 +132,7 @@ class LocationService : Service() {
                 connectionStatus = "Chyba oprávnění",
                 isRunning = false
             )
+            stopSelf() // Stop the service if permissions are missing
         }
     }
 
@@ -198,32 +202,52 @@ class LocationService : Service() {
                 locationsCachedCount++
                 ConsoleLogger.log("Poloha uložena do mezipaměti (cache=${locationsCachedCount})")
 
-                launch(Dispatchers.Main) {
-                    updateAndBroadcastState(
-                        status = "Poloha uložena do mezipaměti (cache=${locationsCachedCount})",
-                        connectionStatus = "Čekání na synchronizaci",
-                        nextUpdate = System.currentTimeMillis() + sendIntervalMillis,
-                        isRunning = true
-                    )
+                // Zde se rozhoduje, zda se má spustit synchronizace
+                if (locationsCachedCount >= syncIntervalCount) {
+                    enqueueSyncWorker()
+                    locationsCachedCount = 0 // Reset counter
                 }
 
-                if (locationsCachedCount >= syncIntervalCount) {
-                    val currentCachedLocations = dao.getAllCachedLocations()
-                    if (currentCachedLocations.isNotEmpty()) {
-                        ConsoleLogger.log("Dosažen limit pro odeslání (${syncIntervalCount}). Spouštím synchronizaci.")
-                        enqueueSyncWorker()
-                        locationsCachedCount = 0
-                    } else {
-                        locationsCachedCount = 0 // Reset count even if not enqueuing
-                    }
-                }
+                updateAndBroadcastState(
+                    status = "Poloha uložena v mezipaměti",
+                    cachedCount = locationsCachedCount
+                )
 
             } catch (e: Exception) {
-                ConsoleLogger.log("Chyba při ukládání polohy do mezipaměti: ${e.message}")
-                launch(Dispatchers.Main) {
-                    updateAndBroadcastState()
-                }
+                ConsoleLogger.log("Chyba při ukládání polohy do DB: ${e.message}")
+                updateAndBroadcastState(status = "Chyba ukládání do DB")
             }
+        }
+    }
+
+    private fun startForegroundService() {
+        createNotificationChannel()
+
+        val notificationIntent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, notificationIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification: Notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setContentTitle("GPS Reportér Aktivní")
+            .setContentText("Služba pro sledování polohy běží na pozadí.")
+            .setSmallIcon(R.drawable.ic_gps_pin)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        startForeground(NOTIFICATION_ID, notification)
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val serviceChannel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Location Service Channel",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(serviceChannel)
         }
     }
 
@@ -232,60 +256,39 @@ class LocationService : Service() {
         connectionStatus: String? = null,
         nextUpdate: Long? = null,
         isRunning: Boolean? = null,
-        resetLocationsCachedCount: Boolean = false
+        cachedCount: Int? = null
     ) {
-        if (resetLocationsCachedCount) {
-            locationsCachedCount = 0
-        }
+        // Update current state
+        status?.let { currentServiceState.statusMessage = it }
+        connectionStatus?.let { currentServiceState.connectionStatus = it }
+        nextUpdate?.let { currentServiceState.nextUpdateTimestamp = it }
+        isRunning?.let { currentServiceState.isRunning = it }
+        cachedCount?.let { currentServiceState.cachedCount = it }
 
-        currentServiceState = currentServiceState.copy(
-            isRunning = isRunning ?: currentServiceState.isRunning,
-            statusMessage = status ?: currentServiceState.statusMessage,
-            connectionStatus = connectionStatus ?: currentServiceState.connectionStatus,
-            nextUpdateTimestamp = nextUpdate ?: currentServiceState.nextUpdateTimestamp
-        )
 
+        // Broadcast the updated state
         val intent = Intent(ACTION_BROADCAST_STATUS).apply {
             putExtra(EXTRA_SERVICE_STATE, gson.toJson(currentServiceState))
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 
-    private fun startForegroundService() {
-        val channelId = "LocationServiceChannel"
-        val channelName = "Sledování Polohy"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
-        }
-
-        val notificationIntent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
-
-        val notification: Notification = Notification.Builder(this, channelId)
-            .setContentTitle("Služba sledování polohy je aktivní")
-            .setContentText("Aplikace zaznamenává vaši polohu na pozadí.")
-            .setSmallIcon(R.drawable.ic_gps_pin)
-            .setContentIntent(pendingIntent)
-            .build()
-
-        startForeground(NOTIFICATION_ID, notification)
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         ConsoleLogger.log("Služba LocationService se zastavuje.")
-        unregisterReceiver(locationProviderReceiver)
         fusedLocationClient.removeLocationUpdates(locationCallback)
+        unregisterReceiver(locationProviderReceiver)
+        // Send final state update to ensure UI is correct
         updateAndBroadcastState(
             status = "Služba zastavena",
-            connectionStatus = "-",
+            connectionStatus = "Neaktivní",
             nextUpdate = 0,
-            isRunning = false,
-            resetLocationsCachedCount = true
+            isRunning = false
         )
+        ConsoleLogger.log("Služba LocationService zničena.")
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent): IBinder? {
+        return null
+    }
 }

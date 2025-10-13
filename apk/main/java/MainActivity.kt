@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.LocationManager
-import android.net.ConnectivityManager
 import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -25,7 +24,6 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
-import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lastConnectionStatusTextView: TextView
     private lateinit var countdownTextView: TextView
     private lateinit var lastLocationTextView: TextView
+    private lateinit var cachedCountTextView: TextView
     private lateinit var consoleTextView: TextView
     private lateinit var consoleScrollView: ScrollView
 
@@ -53,6 +52,7 @@ class MainActivity : AppCompatActivity() {
 
                         lastLocationTextView.text = serviceState.statusMessage
                         lastConnectionStatusTextView.text = serviceState.connectionStatus
+                        cachedCountTextView.text = "Pozic v mezipaměti: ${serviceState.cachedCount}" // Aktualizace UI
 
                         if (serviceState.nextUpdateTimestamp > 0) {
                             startCountdown(serviceState.nextUpdateTimestamp)
@@ -96,6 +96,7 @@ class MainActivity : AppCompatActivity() {
         lastConnectionStatusTextView = findViewById(R.id.lastConnectionStatusTextView)
         countdownTextView = findViewById(R.id.countdownTextView)
         lastLocationTextView = findViewById(R.id.lastLocationTextView)
+            cachedCountTextView = findViewById(R.id.cachedCountTextView)
         consoleTextView = findViewById(R.id.consoleTextView)
         consoleScrollView = findViewById(R.id.consoleScrollView)
 
@@ -132,8 +133,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         ConsoleLogger.logs.observe(this) { logs ->
-            consoleTextView.text = logs.joinToString("
-")
+            consoleTextView.text = logs.joinToString("")
             consoleScrollView.post { consoleScrollView.fullScroll(View.FOCUS_DOWN) }
         }
     }

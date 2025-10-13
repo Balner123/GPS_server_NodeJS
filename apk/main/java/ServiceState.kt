@@ -1,8 +1,9 @@
 package com.example.gpsreporterapp
 
 data class ServiceState(
-    val isRunning: Boolean = false,
-    val statusMessage: String = "Služba zastavena.",
-    val connectionStatus: String = "-",
-    val nextUpdateTimestamp: Long = 0L
+    var isRunning: Boolean = false,
+    var statusMessage: String = "Inicializace...",
+    var connectionStatus: String = "Čekání na akci",
+    var nextUpdateTimestamp: Long = 0,
+    var cachedCount: Int = 0
 )
