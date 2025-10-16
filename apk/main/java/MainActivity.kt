@@ -23,6 +23,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
+import android.content.SharedPreferences;
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import com.google.gson.JsonSyntaxException
 
 class MainActivity : AppCompatActivity() {
@@ -83,7 +86,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val sharedPrefs = getEncryptedSharedPreferences()
         if (!sharedPrefs.getBoolean("isAuthenticated", false)) {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
@@ -140,7 +143,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun performLogout() {
         stopLocationService()
-        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val sharedPrefs = getEncryptedSharedPreferences()
         sharedPrefs.edit()
             .remove("session_cookie")
             .putBoolean("isAuthenticated", false)
@@ -148,6 +151,17 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "Odhlášení úspěšné.", Toast.LENGTH_SHORT).show()
         startActivity(Intent(this, LoginActivity::class.java))
         finish()
+    }
+
+    private fun getEncryptedSharedPreferences(): SharedPreferences {
+        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        return EncryptedSharedPreferences.create(
+            "EncryptedAppPrefs",
+            masterKeyAlias,
+            this,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
     }
 
     override fun onResume() {

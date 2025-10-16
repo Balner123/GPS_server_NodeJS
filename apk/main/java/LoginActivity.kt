@@ -12,8 +12,7 @@ import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
+
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -51,22 +50,8 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun getEncryptedSharedPreferences(): SharedPreferences {
-        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-        return EncryptedSharedPreferences.create(
-            "EncryptedAppPrefs",
-            masterKeyAlias,
-            this,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    }
-
-    /**
-     * Získá nebo vytvoří unikátní ID pro tuto instalaci aplikace.
-     */
     private fun getInstallationId(): String {
-        val sharedPrefs = getEncryptedSharedPreferences()
+        val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
         var installationId = sharedPrefs.getString("installation_id", null)
         if (installationId == null) {
             val fullUuid = UUID.randomUUID().toString()
@@ -128,7 +113,7 @@ class LoginActivity : AppCompatActivity() {
                     if (jsonResponse.optBoolean("success", false)) {
                         // Uložíme session cookie
                         val cookie = connection.headerFields["Set-Cookie"]?.firstOrNull()
-                        val sharedPrefs = getEncryptedSharedPreferences()
+                        val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
                         sharedPrefs.edit().putString("session_cookie", cookie).apply()
 
                         // Zkontrolujeme, zda je zařízení již registrováno
@@ -173,7 +158,7 @@ class LoginActivity : AppCompatActivity() {
      */
     private fun registerDevice(installationId: String) {
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
-        val sharedPrefs = getEncryptedSharedPreferences()
+        val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
         val sessionCookie = sharedPrefs.getString("session_cookie", null)
 
         executorService.execute {

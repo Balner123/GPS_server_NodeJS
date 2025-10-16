@@ -96,7 +96,7 @@ class LocationService : Service() {
             LocalBroadcastManager.getInstance(this).sendBroadcast(broadcastIntent)
         } else {
             ConsoleLogger.log("Služba LocationService spuštěna.")
-            val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
             gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
             syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
             sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
@@ -175,7 +175,7 @@ class LocationService : Service() {
 
     private fun sendLocationAndProcessResponse(location: Location) {
         val dao = AppDatabase.getDatabase(applicationContext).locationDao()
-        val sharedPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(applicationContext)
         val deviceId = sharedPrefs.getString("device_id", null)
 
         if (deviceId == null) {

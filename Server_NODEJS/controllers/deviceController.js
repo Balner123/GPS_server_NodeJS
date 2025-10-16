@@ -72,7 +72,35 @@ async function triggerGeofenceAlert(device, location) {
     }
 }
 
+function generateGpx(deviceName, locations) {
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPS Server" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>${deviceName} - GPS Track</name>
+    <time>${new Date().toISOString()}</time>
+  </metadata>
+  <trk>
+    <name>${deviceName}</name>
+    <trkseg>`;
+
+    locations.forEach(loc => {
+        gpx += `
+      <trkpt lat="${loc.latitude}" lon="${loc.longitude}">
+        <ele>${loc.altitude || 0}</ele>
+        <time>${new Date(loc.timestamp).toISOString()}</time>
+        <speed>${loc.speed || 0}</speed>
+      </trkpt>`;
+    });
+
+    gpx += `
+    </trkseg>
+  </trk>
+</gpx>`;
+    return gpx;
+}
+
 // --- End Geofencing Helpers ---
+
 
 
 const getDeviceSettings = async (req, res) => {
@@ -733,6 +761,43 @@ const markDeviceAlertsAsRead = async (req, res) => {
   }
 };
 
+const exportDeviceDataAsGpx = async (req, res) => {
+  try {
+    const deviceId = req.params.deviceId;
+    const device = await db.Device.findOne({
+      where: {
+        device_id: deviceId,
+        user_id: req.session.user.id
+      }
+    });
+
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    const locations = await db.Location.findAll({
+      where: { device_id: device.id },
+      order: [['timestamp', 'ASC']]
+    });
+
+    if (locations.length === 0) {
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Content-Disposition', `attachment; filename="device_${deviceId}_no_data.txt"`);
+        return res.status(404).send('No location data found for this device.');
+    }
+
+    const gpxData = generateGpx(device.name || device.device_id, locations);
+
+    res.setHeader('Content-Type', 'application/gpx+xml');
+    res.setHeader('Content-Disposition', `attachment; filename="device_${deviceId}_export.gpx"`);
+    res.send(gpxData);
+
+  } catch (err) {
+    console.error("Error in exportDeviceDataAsGpx:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   getDeviceSettings,
   updateDeviceSettings,
@@ -749,4 +814,5 @@ module.exports = {
   getDevicesPage,
   removeDeviceFromUser,
   registerDeviceFromHardware,
+  exportDeviceDataAsGpx
 };

@@ -32,7 +32,7 @@ Kompletní a detailní popis jednotlivých částí systému naleznete v násled
 - **[3. API a Routy](./docs/3-api-and-routes.md)**: Kompletní seznam všech API endpointů a webových stránek.
 - **[4. Autentizace a Autorizace](./docs/4-authentication.md)**: Hloubkový pohled na přihlašování, registrace, OAuth a uživatelské role.
 - **[5. Správa uživatelského účtu](./docs/5-user-management.md)**: Popis funkcí dostupných uživateli v nastavení jeho účtu.
-- **[6. Správa zařízení](./docs/6-device-management.md)**: Vše o registraci, konfiguraci a sledování GPS zařízení.
+- **[6. Správa zařízení](./docs/6-device-management.md)**: Vše o registraci, konfiguraci, sledování a exportu dat z GPS zařízení.
 - **[7. Zpracování GPS dat (Agregace)](./docs/7-gps-data-processing.md)**: Detailní vysvětlení algoritmu pro shlukování GPS bodů.
 - **[8. Frontend](./docs/8-frontend.md)**: Popis klientské části, včetně použitých knihoven a skriptů.
 - **[9. Administrace](./docs/9-administration.md)**: Funkce dostupné v rozhraní pro správce systému.

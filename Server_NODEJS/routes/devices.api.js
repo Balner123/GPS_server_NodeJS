@@ -192,6 +192,38 @@ router.get('/data', isAuthenticated, deviceController.getDeviceData);
 
 /**
  * @swagger
+ * /api/devices/export/gpx/{deviceId}:
+ *   get:
+ *     summary: Export historical location data for a specific device as a GPX file
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: deviceId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The hardware ID of the device.
+ *     responses:
+ *       '200':
+ *         description: A GPX file of the device's location history.
+ *         content:
+ *           application/gpx+xml:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found or does not belong to the user.
+ *       '500':
+ *         description: Server error.
+ */
+router.get('/export/gpx/:deviceId', isAuthenticated, isUser, deviceController.exportDeviceDataAsGpx);
+
+/**
+ * @swagger
  * /api/devices/settings/{deviceId}:
  *   get:
  *     summary: Get settings for a specific device

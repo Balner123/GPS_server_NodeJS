@@ -206,6 +206,12 @@ function initializeApp() {
     }
 
     setInterval(checkForAlerts, 15000); // Check for new alerts every 15 seconds
+
+    document.getElementById('export-gpx-btn')?.addEventListener('click', () => {
+        if (selectedDevice) {
+            window.open(`${API_BASE_URL}/api/devices/export/gpx/${selectedDevice}`, '_blank');
+        }
+    });
 }
 
 async function loadDevices() {
@@ -319,6 +325,10 @@ async function selectDevice(deviceId) {
         settingsCard.style.display = 'block';
         infoCard.style.display = 'block';
         document.getElementById('info-device-id').textContent = deviceId;
+        const exportBtn = document.getElementById('export-gpx-btn');
+        if (exportBtn) {
+            exportBtn.style.display = 'block';
+        }
     }
     
     try {
@@ -406,6 +416,10 @@ function clearMapAndData() {
     document.getElementById('positions-table').innerHTML = '';
     const toggleBtn = document.getElementById('toggle-history-btn');
     if (toggleBtn) toggleBtn.style.display = 'none';
+    const exportBtn = document.getElementById('export-gpx-btn');
+    if (exportBtn) {
+        exportBtn.style.display = 'none';
+    }
 }
 
 function updateMap(data, fitBounds) {
