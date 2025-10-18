@@ -502,26 +502,22 @@ void sendGpsData() {
         isRegistered = false;
       }
 
-      // Calculate batch size from intervals
-      if (!serverResponseDoc["interval_gps"].isNull() && !serverResponseDoc["interval_send"].isNull()) {
+      // Update settings from server response
+      if (!serverResponseDoc["interval_gps"].isNull()) {
         unsigned int interval_gps = serverResponseDoc["interval_gps"].as<unsigned int>();
-        unsigned int interval_send = serverResponseDoc["interval_send"].as<unsigned int>();
-
-        if (interval_gps > 0 && interval_send >= interval_gps) {
-          // Update sleep time
+        if (interval_gps > 0) {
           sleepTimeSeconds = interval_gps;
           SerialMon.print(F("Server updated sleep interval to: ")); SerialMon.println(sleepTimeSeconds);
-
-          // Calculate and update batch size
-          uint8_t newBatchSize = interval_send / interval_gps;
-          if (newBatchSize == 0) newBatchSize = 1; // Ensure batch size is at least 1
-          if (newBatchSize > 50) newBatchSize = 50; // Cap batch size to a reasonable max
-
-          preferences.putUChar(KEY_BATCH_SIZE, newBatchSize);
-          SerialMon.print(F("Calculated and updated batch size to: ")); SerialMon.println(newBatchSize);
-        } else {
-          SerialMon.println(F("Received invalid intervals from server. Using existing settings."));
         }
+      }
+
+      if (!serverResponseDoc["interval_send"].isNull()) {
+        uint8_t newBatchSize = serverResponseDoc["interval_send"].as<uint8_t>();
+        if (newBatchSize == 0) newBatchSize = 1; // Ensure batch size is at least 1
+        if (newBatchSize > 50) newBatchSize = 50; // Cap batch size to a reasonable max
+        
+        preferences.putUChar(KEY_BATCH_SIZE, newBatchSize);
+        SerialMon.print(F("Server updated batch size to: ")); SerialMon.println(newBatchSize);
       }
     }
   } else {
@@ -616,26 +612,22 @@ bool sendCachedData() {
 
   // Process server response for settings
   if (!error) {
-      // Calculate batch size from intervals
-      if (!serverResponseDoc["interval_gps"].isNull() && !serverResponseDoc["interval_send"].isNull()) {
+      // Update settings from server response
+      if (!serverResponseDoc["interval_gps"].isNull()) {
         unsigned int interval_gps = serverResponseDoc["interval_gps"].as<unsigned int>();
-        unsigned int interval_send = serverResponseDoc["interval_send"].as<unsigned int>();
-
-        if (interval_gps > 0 && interval_send >= interval_gps) {
-          // Update sleep time
+        if (interval_gps > 0) {
           sleepTimeSeconds = interval_gps;
           SerialMon.print(F("Server updated sleep interval to: ")); SerialMon.println(sleepTimeSeconds);
-
-          // Calculate and update batch size
-          uint8_t newBatchSize = interval_send / interval_gps;
-          if (newBatchSize == 0) newBatchSize = 1; // Ensure batch size is at least 1
-          if (newBatchSize > 50) newBatchSize = 50; // Cap batch size
-
-          preferences.putUChar(KEY_BATCH_SIZE, newBatchSize);
-          SerialMon.print(F("Calculated and updated batch size to: ")); SerialMon.println(newBatchSize);
-        } else {
-          SerialMon.println(F("Received invalid intervals from server. Using existing settings."));
         }
+      }
+
+      if (!serverResponseDoc["interval_send"].isNull()) {
+        uint8_t newBatchSize = serverResponseDoc["interval_send"].as<uint8_t>();
+        if (newBatchSize == 0) newBatchSize = 1; // Ensure batch size is at least 1
+        if (newBatchSize > 50) newBatchSize = 50; // Cap batch size to a reasonable max
+        
+        preferences.putUChar(KEY_BATCH_SIZE, newBatchSize);
+        SerialMon.print(F("Server updated batch size to: ")); SerialMon.println(newBatchSize);
       }
   }
 
