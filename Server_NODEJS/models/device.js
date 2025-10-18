@@ -45,6 +45,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSON,
       allowNull: true
     },
+    geofence_alert_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
     created_at: {
       type: DataTypes.DATE,
       allowNull: false,

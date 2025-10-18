@@ -29,11 +29,8 @@
             <% } %>
 
             <div class="row">
-                <!-- Left column: Change username and delete account -->
                 <div class="col-md-6">
-                    <!-- Change username -->
-                    <!-- Change email -->
-                    <div class="card mb-4">
+                    <div class="card mb-4 fade-in-on-load" style="animation-delay: 0.1s;">
                         <div class="card-body">
                             <h5 class="card-title">Change email</h5>
                             <% if (user.provider === 'local') { %>
@@ -56,7 +53,7 @@
                             <% } %>
                         </div>
                     </div>
-                    <div class="card mb-4">
+                    <div class="card mb-4 fade-in-on-load" style="animation-delay: 0.2s;">
                         <div class="card-body">
                             <h5 class="card-title">Change username</h5>
                             <form action="/api/settings/username" method="POST">
@@ -69,7 +66,7 @@
                         </div>
                     </div>
 
-                    <div class="card card-danger">
+                    <div class="card card-danger fade-in-on-load" style="animation-delay: 0.3s;">
                          <div class="card-body">
                             <h5 class="card-title text-danger">Danger zone</h5>
                             <p class="card-text">Deleting your account is irreversible. All your data, including registered devices and their history, will be permanently deleted.</p>
@@ -83,8 +80,7 @@
                 <!-- Right column: Change password -->
                 <div class="col-md-6">
                     <% if (user.provider !== 'local' && (!user.password || user.password.trim() === '')) { %>
-                        <!-- Form to SET password for the first time -->
-                        <div class="card border-primary">
+                        <div class="card border-primary fade-in-on-load" style="animation-delay: 0.1s;">
                             <div class="card-body">
                                 <h5 class="card-title">Set Your Account Password</h5>
                                 <p class="card-text">To use your account with external devices (hardware or apps), you need to set a password.</p>
@@ -118,7 +114,7 @@
                         </div>
                     <% } else { %>
                         <!-- Form to CHANGE existing password -->
-                        <div class="card">
+                        <div class="card fade-in-on-load" style="animation-delay: 0.1s;">
                             <div class="card-body">
                                 <h5 class="card-title">Change Password</h5>
                                 <form action="/api/settings/password" method="POST">

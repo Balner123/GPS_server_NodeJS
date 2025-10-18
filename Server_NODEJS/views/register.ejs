@@ -6,8 +6,8 @@
 <body class="central-body">
     <%- include('partials/_navbar', { currentPage: 'register' }) %>
 
-    <div class="main-container">
-        <div class="card login-card">
+    <div class="main-container fade-in-on-load" style="animation-delay: 0.1s;">
+        <div class="card login-card fade-in-on-load" style="animation-delay: 0.2s;">
             <div class="card-body">
                 <h3 class="card-title text-center mb-4">Registration</h3>
                 <% if (error && error.length > 0) { %>

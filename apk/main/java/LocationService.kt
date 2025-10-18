@@ -85,31 +85,47 @@ class LocationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Send initial "starting" state immediately
-        updateAndBroadcastState(status = "Služba se spouští...", isRunning = true)
-
         if (intent?.action == ACTION_REQUEST_STATUS_UPDATE) {
-            // Send current state immediately
             val broadcastIntent = Intent(ACTION_BROADCAST_STATUS).apply {
                 putExtra(EXTRA_SERVICE_STATE, gson.toJson(currentServiceState))
             }
             LocalBroadcastManager.getInstance(this).sendBroadcast(broadcastIntent)
-        } else {
-            ConsoleLogger.log("Služba LocationService spuštěna.")
-            val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
-            gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
-            syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
-            sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
-            ConsoleLogger.log("Nastaven interval GPS: ${gpsIntervalSeconds}s, Odeslání po: ${syncIntervalCount} pozicích.")
-
-            startForegroundService()
-            startLocationUpdates()
+            return START_NOT_STICKY // Jen posíláme stav, nechceme restartovat službu
         }
+
+        ConsoleLogger.log("Služba LocationService spuštěna.")
+        updateAndBroadcastState(status = "Služba se spouští...", isRunning = true)
+
+        val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
+        gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
+        syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
+        sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
+        ConsoleLogger.log("Nastaven interval GPS: ${gpsIntervalSeconds}s, Odeslání po: ${syncIntervalCount} pozicích.")
+
+        startForegroundService()
+        startLocationUpdates()
+
         return START_STICKY
     }
 
     private fun startLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
+
+        // Okamžité zjištění polohy při startu
+        try {
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { location: Location? ->
+                    location?.let {
+                        ConsoleLogger.log("Získána okamžitá poloha při startu.")
+                        sendLocationAndProcessResponse(it)
+                    }
+                }
+                .addOnFailureListener { e ->
+                    ConsoleLogger.log("Nepodařilo se získat okamžitou polohu: ${e.message}")
+                }
+        } catch (e: SecurityException) {
+            ConsoleLogger.log("Chyba oprávnění při žádosti o okamžitou polohu: ${e.message}")
+        }
 
         val locationRequest = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
@@ -146,6 +162,8 @@ class LocationService : Service() {
             syncWorkRequest
         )
 
+        updateAndBroadcastState(connectionStatus = "Probíhá odesílání...", isRunning = true)
+
         CoroutineScope(Dispatchers.Main).launch {
             WorkManager.getInstance(applicationContext).getWorkInfoByIdLiveData(syncWorkRequest.id)
                 .observeForever { workInfo ->
@@ -153,24 +171,26 @@ class LocationService : Service() {
                         when (workInfo.state) {
                             WorkInfo.State.SUCCEEDED -> {
                                 ConsoleLogger.log("SyncWorker dokončen: Úspěch.")
-                                updateAndBroadcastState(connectionStatus = "Synchronizace úspěšná", isRunning = true)
+                                val statusText = "Sledování polohy aktivní"
+                                updateAndBroadcastState(status = statusText, connectionStatus = "Synchronizace úspěšná", isRunning = true)
                             }
                             WorkInfo.State.FAILED -> {
                                 ConsoleLogger.log("SyncWorker selhal.")
-                                updateAndBroadcastState(connectionStatus = "Chyba synchronizace", isRunning = true)
+                                val statusText = "Sledování polohy aktivní"
+                                updateAndBroadcastState(status = statusText, connectionStatus = "Chyba synchronizace", isRunning = true)
                             }
                             WorkInfo.State.CANCELLED -> {
                                 ConsoleLogger.log("SyncWorker zrušen.")
-                                updateAndBroadcastState(connectionStatus = "Synchronizace zrušena", isRunning = true)
+                                val statusText = "Sledování polohy aktivní"
+                                updateAndBroadcastState(status = statusText, connectionStatus = "Synchronizace zrušena", isRunning = true)
                             }
                             else -> {
-                                // Do nothing for other states like ENQUEUED, RUNNING, BLOCKED
+                                // Stavy ENQUEUED, RUNNING, BLOCKED - necháváme "Probíhá odesílání..."
                             }
                         }
                     }
                 }
         }
-        updateAndBroadcastState(connectionStatus = "Synchronizace s serverem", isRunning = true)
     }
 
     private fun sendLocationAndProcessResponse(location: Location) {

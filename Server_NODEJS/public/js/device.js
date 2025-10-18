@@ -1,7 +1,7 @@
 let map;
 let selectedDevice = null;
 let polyline = null;
-let markers = [];
+let markers = {}; // Changed from array to object
 let lastTimestamp = null;
 let completeDeviceHistory = [];
 let isShowingAllHistory = false;
@@ -9,6 +9,9 @@ const HISTORY_ROW_LIMIT = 5;
 let expandedClusters = new Set(); // State for expanded cluster rows
 
 let drawnItems, drawControl;
+
+// --- New state for map view ---
+let useClusters = true;
 
 // Configuration
 const API_BASE_URL = window.location.origin;
@@ -56,6 +59,16 @@ function initializeApp() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
+
+    // --- Cluster Toggle Listener ---
+    const clusterToggle = document.getElementById('cluster-toggle-switch');
+    if (clusterToggle) {
+        clusterToggle.addEventListener('change', (e) => {
+            useClusters = e.target.checked;
+            // Force a redraw of the map with the new setting
+            updateMap(completeDeviceHistory, false);
+        });
+    }
 
     // --- Leaflet.draw Initialization ---
     drawnItems = new L.FeatureGroup();
@@ -184,24 +197,32 @@ function initializeApp() {
         renderPositionTable();
     });
 
-    // Add a single, delegated event listener for expanding/collapsing cluster rows
     const tableBody = document.getElementById('positions-table');
     if (tableBody) {
         tableBody.addEventListener('click', function(e) {
-            const clusterRow = e.target.closest('.cluster-row');
-            if (!clusterRow) return;
+            const row = e.target.closest('tr');
+            if (!row) return;
 
-            const clusterId = clusterRow.dataset.clusterId;
-
-            // Update the state
-            if (expandedClusters.has(clusterId)) {
-                expandedClusters.delete(clusterId);
-            } else {
-                expandedClusters.add(clusterId);
+            // If the clicked row is a cluster row, handle expansion/collapse
+            if (row.classList.contains('cluster-row')) {
+                const clusterId = row.dataset.clusterId;
+                if (expandedClusters.has(clusterId)) {
+                    expandedClusters.delete(clusterId);
+                } else {
+                    expandedClusters.add(clusterId);
+                }
+                renderPositionTable(); // Re-render to show/hide children
+                return; // Done
             }
 
-            // Re-render the table to reflect the new state
-            renderPositionTable();
+            // If it's not a cluster row, it might be a focusable row (regular or child)
+            const timestamp = row.dataset.timestamp;
+            if (timestamp && markers[timestamp]) {
+                const marker = markers[timestamp];
+                const latLng = marker.getLatLng();
+                map.flyTo(latLng, 18); // Zoom in to a close-up level
+                marker.openTooltip();
+            }
         });
     }
 
@@ -409,8 +430,8 @@ function clearMapAndData() {
     if (polyline) map.removeLayer(polyline);
     polyline = null;
     drawnItems.clearLayers();
-    markers.forEach(marker => map.removeLayer(marker));
-    markers = [];
+    Object.values(markers).forEach(marker => map.removeLayer(marker)); // Updated for object
+    markers = {}; // Reset to empty object
     lastTimestamp = null;
     completeDeviceHistory = [];
     document.getElementById('positions-table').innerHTML = '';
@@ -427,25 +448,82 @@ function updateMap(data, fitBounds) {
 
     // Always clear existing layers before drawing new ones
     if (polyline) map.removeLayer(polyline);
-    markers.forEach(marker => map.removeLayer(marker));
-    markers = [];
+    Object.values(markers).forEach(marker => map.removeLayer(marker));
+    markers = {};
 
-    const coordinates = data.map(p => [Number(p.latitude), Number(p.longitude)]).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
-    
-    if (coordinates.length > 0) {
-        polyline = L.polyline(coordinates, { color: 'blue' }).addTo(map);
-
-        data.forEach((point) => {
-            if (isNaN(Number(point.latitude)) || isNaN(Number(point.longitude))) return;
-            const marker = L.marker([Number(point.latitude), Number(point.longitude)])
-                .bindTooltip(createDevicePopup(point), { permanent: true, direction: 'auto' })
-                .addTo(map);
-            markers.push(marker);
+    let pointsToDraw = [];
+    if (useClusters) {
+        pointsToDraw = data;
+    } else {
+        // Unroll clusters into individual points
+        const rawPoints = [];
+        data.forEach(p => {
+            if (p.type === 'cluster') {
+                rawPoints.push(...p.originalPoints);
+            } else {
+                rawPoints.push(p);
+            }
         });
+        pointsToDraw = rawPoints;
+    }
 
-        // Only fit bounds on the initial load to prevent the map from moving on updates
-        if (fitBounds) {
-            map.fitBounds(polyline.getBounds().pad(0.1));
+    // Create polyline from all points in the current view
+    const coordinates = pointsToDraw.map(p => [Number(p.latitude), Number(p.longitude)]).filter(c => c && !isNaN(c[0]) && !isNaN(c[1]));
+    if (coordinates.length > 0) {
+        polyline = L.polyline(coordinates, { color: '#007bff', weight: 2 }).addTo(map);
+    }
+
+    // Create markers for all points
+    pointsToDraw.forEach((point) => {
+        let lat, lon;
+        // For clusters, we need to calculate the average position
+        if (useClusters && point.type === 'cluster') {
+            const totalLat = point.originalPoints.reduce((sum, p) => sum + Number(p.latitude), 0);
+            const totalLon = point.originalPoints.reduce((sum, p) => sum + Number(p.longitude), 0);
+            lat = totalLat / point.originalPoints.length;
+            lon = totalLon / point.originalPoints.length;
+        } else {
+            lat = Number(point.latitude);
+            lon = Number(point.longitude);
+        }
+
+        // Validate coordinates AFTER they have been determined
+        if (isNaN(lat) || isNaN(lon)) {
+            return; // Skip this point if coords are bad
+        }
+
+        const pointTimestamp = useClusters ? (point.startTime || point.timestamp) : point.timestamp;
+
+        const marker = L.marker([lat, lon])
+            .bindTooltip(createDevicePopup(point), { permanent: true, direction: 'auto' });
+        
+        marker.addTo(map);
+        if (pointTimestamp) {
+            markers[pointTimestamp] = marker;
+        }
+    });
+
+    // Fit bounds logic on initial load
+    if (fitBounds) {
+        // The data from the server is sorted by timestamp ASC, so the last point is the latest.
+        if (data.length > 0) {
+            const latestPoint = data[data.length - 1];
+            let lat, lon;
+
+            // If the latest point is a cluster, use its average position
+            if (latestPoint.type === 'cluster') {
+                const totalLat = latestPoint.originalPoints.reduce((sum, p) => sum + Number(p.latitude), 0);
+                const totalLon = latestPoint.originalPoints.reduce((sum, p) => sum + Number(p.longitude), 0);
+                lat = totalLat / latestPoint.originalPoints.length;
+                lon = totalLon / latestPoint.originalPoints.length;
+            } else {
+                lat = Number(latestPoint.latitude);
+                lon = Number(latestPoint.longitude);
+            }
+
+            if (!isNaN(lat) && !isNaN(lon)) {
+                map.setView([lat, lon], 16); // Center on the last point with a zoom of 16
+            }
         }
     }
 }
@@ -479,11 +557,13 @@ function updateTable(data) {
     const sortedData = data.sort((a, b) => new Date(b.startTime || b.timestamp) - new Date(a.startTime || a.timestamp));
 
     sortedData.forEach((point) => {
+        const pointTimestamp = point.startTime || point.timestamp;
         if (point.type === 'cluster') {
             const clusterId = `cluster-${point.startTime}`;
             const clusterRow = document.createElement('tr');
             clusterRow.className = 'cluster-row table-info';
             clusterRow.dataset.clusterId = clusterId;
+            // Do not add data-timestamp here, cluster row only expands
             clusterRow.style.cursor = 'pointer';
 
             const isExpanded = expandedClusters.has(clusterId);
@@ -504,6 +584,8 @@ function updateTable(data) {
                 const childRow = document.createElement('tr');
                 childRow.className = `child-row child-of-${clusterId} ${isExpanded ? '' : 'd-none'}`;
                 childRow.style.backgroundColor = 'rgba(0,0,0,0.02)';
+                childRow.dataset.timestamp = point.startTime; // Link to the parent cluster's marker
+                childRow.style.cursor = 'pointer'; // Make child rows clickable
 
                 childRow.innerHTML = `
                     <td style="padding-left: 2.5rem;">${formatTimestamp(originalPoint.timestamp)}</td>
@@ -518,6 +600,8 @@ function updateTable(data) {
             });
         } else {
             const row = document.createElement('tr');
+            row.dataset.timestamp = pointTimestamp; // Add timestamp for map linking
+            row.style.cursor = 'pointer';
             row.innerHTML = `
                 <td>${formatTimestamp(point.timestamp)}</td>
                 <td>${formatCoordinate(point.latitude)}</td>

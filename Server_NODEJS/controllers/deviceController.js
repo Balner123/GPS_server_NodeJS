@@ -1,7 +1,7 @@
 const db = require('../database');
 const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
-const { sendGeofenceAlertEmail } = require('../utils/emailSender');
+const { sendGeofenceAlertEmail, sendGeofenceReturnEmail } = require('../utils/emailSender');
 
 // --- Geofencing Helper Functions ---
 
@@ -47,28 +47,21 @@ function isPointInCircle(point, circle) {
 }
 
 /**
- * Triggers a geofence alert.
+ * Creates a geofence alert record in the database.
  * @param {object} device - The Sequelize device object.
  * @param {object} location - The location object that triggered the alert.
  */
-async function triggerGeofenceAlert(device, location) {
-    console.log(`Geofence alert for device: ${device.name || device.device_id}`);
+async function createGeofenceAlertRecord(device, location) {
+    console.log(`Creating geofence alert record for device: ${device.name || device.device_id}`);
     try {
-        // 1. Save alert to the database
         await db.Alert.create({
             device_id: device.id,
-            user_id: device.user_id, // <-- FIX: Add user_id from the device
+            user_id: device.user_id,
             type: 'geofence',
             message: `Device '${device.name || device.device_id}' has left the defined geofence area.`
         });
-
-        // 2. Send email to the user
-        const user = await device.getUser();
-        if (user && user.email) {
-            await sendGeofenceAlertEmail(user.email, device, location);
-        }
     } catch (error) {
-        console.error('Failed to trigger geofence alert:', error);
+        console.error('Failed to create geofence alert record:', error);
     }
 }
 
@@ -225,8 +218,26 @@ const handleDeviceInput = async (req, res) => {
             isInside = isPointInPolygon(lastLocation, geofence.geometry.coordinates[0]);
         }
 
-        if (!isInside) {
-            triggerGeofenceAlert(device, lastLocation);
+        const user = await device.getUser();
+
+        // Case 1: Device is OUTSIDE and alert is NOT active yet
+        if (!isInside && !device.geofence_alert_active) {
+            console.log(`Device ${device.device_id} left geofence. Triggering alert.`);
+            device.geofence_alert_active = true;
+            await device.save(); // Save the new alert state
+            await createGeofenceAlertRecord(device, lastLocation); // Create DB record
+            if (user && user.email) {
+                await sendGeofenceAlertEmail(user.email, device, lastLocation);
+            }
+        }
+        // Case 2: Device is INSIDE and alert IS active
+        else if (isInside && device.geofence_alert_active) {
+            console.log(`Device ${device.device_id} returned to geofence. Resolving alert.`);
+            device.geofence_alert_active = false;
+            await device.save(); // Save the new alert state
+            if (user && user.email) {
+                await sendGeofenceReturnEmail(user.email, device, lastLocation);
+            }
         }
       }
       // --- End Geofence Check ---
@@ -402,7 +413,7 @@ const getDeviceData = async (req, res) => {
       order: [['timestamp', 'ASC']] 
     });
 
-    const DISTANCE_THRESHOLD_METERS = 25; // Updated threshold
+    const DISTANCE_THRESHOLD_METERS = 4000; // Updated threshold
     const processedLocations = clusterLocations(rawLocations, DISTANCE_THRESHOLD_METERS);
 
     res.json(processedLocations);

@@ -56,4 +56,27 @@ async function sendGeofenceAlertEmail(to, device, location) {
   });
 }
 
+async function sendGeofenceReturnEmail(to, device, location) {
+  const subject = `Device "${device.name || device.device_id}" has returned to the geofence`;
+  const text = `
+    Information:
+
+    Your device '${device.name || device.device_id}' has returned to its defined geofence area.
+
+    Details:
+    - Time: ${new Date(location.timestamp).toLocaleString()}
+    - Last Known Latitude: ${location.latitude}
+    - Last Known Longitude: ${location.longitude}
+
+    The alert for this device has been automatically resolved.
+  `;
+
+  await transporter.sendMail({
+    from: `LOTR System <${process.env.EMAIL_USER}>`,
+    to,
+    subject,
+    text
+  });
+}
+
 module.exports = { sendVerificationEmail, sendGeofenceAlertEmail };

@@ -359,7 +359,24 @@ a:hover {
 
 .theme-switcher-checkbox:checked + .theme-switcher-slider::before {
     transform: translateX(24px);
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-moon-stars-fill" viewBox="0 0 16 16"><path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162h1.212a.217.217 0 0 1 .134.386l-1.017.737.386 1.162a.217.217 0 0 1-.316.242l-1.018-.737-1.017.737a.217.217 0 0 1-.317-.242l.387-1.162-1.017-.737a.217.217 0 0 1 .134-.386h1.212l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a.73.73 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a.73.73 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/></svg>');
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="black" class="bi bi-moon-stars-fill" viewBox="0 0 16 16"><path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162h1.212a.217.217 0 0 1 .134.386l-1.017.737.386 1.162a.217.217 0 0 1-.316.242l-1.018-.737-1.017.737a.217.217 0 0 1-.317-.242l.387-1.162-1.017-.737a.217.217 0 0 1 .134-.386h1.212l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a.73.73 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a.73.73 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/></svg>');
+}
+
+/* Animation for panels on page load */
+@keyframes panel-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-on-load {
+    animation: panel-fade-in 0.5s ease-out forwards;
+    opacity: 0; /* Start hidden */
 }
 
 [data-theme='dark'] .input-group-text,
@@ -420,4 +437,15 @@ a:hover {
 .btn-github:hover {
     background-color: #222222;
     color: white;
+}
+
+/* Fix for Bootstrap switch in dark mode */
+[data-theme='dark'] .form-switch .form-check-input {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme='dark'] .form-switch .form-check-input:checked {
+    background-color: var(--button-primary-bg);
+    border-color: var(--button-primary-bg);
 }

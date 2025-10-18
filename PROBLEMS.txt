@@ -1,0 +1,4 @@
+problémy :
+	- logování apk -> neodpovídá skuteènosti , seká se , výchozí stav je po registraci ON ale služba se nespustí
+	- Posílání ALERT emailu pouze jednou ne v cyklu, nefunguje zrušení alertu (+ pøidat email po navrácení zpìt do oblasti geofence)
+	- Cluster's se nezobrazuje správnì na mapì , jeho prùmìrné souøadnice se nepoèítají a proto zùstane na zžejmì výchozí pozici 0,0 (oceán u afriky)
