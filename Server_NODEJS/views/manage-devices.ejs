@@ -43,10 +43,15 @@
                                 </div>
                                 <div class="form-text">The time interval between each GPS fix attempt.</div>
                             </div>
-                            <div class="mb-3" id="batch-settings" style="display: none;">
+                            <div class="mb-1" id="batch-settings" style="display: none;">
                                 <label for="interval-send" class="form-label">Send Data Interval:</label>
                                 <input type="number" class="form-control" id="interval-send" placeholder="Number of cycles" min="1" value="1">
                                 <div class="form-text">Send data to server after this many GPS fixes.</div>
+                            </div>
+                            <div class="mb-1" id="satellites-setting" style="display: none;">
+                                <label for="satellites" class="form-label">Minimum Satellites for Fix:</label>
+                                <input type="number" class="form-control" id="satellites" placeholder="Number of satellites" min="1" max="50" value="7">
+                                <div class="form-text">Minimum number of satellites required for a valid GPS fix.</div>
                             </div>
                             <button type="submit" class="btn btn-primary">Save Settings</button>
                         </form>

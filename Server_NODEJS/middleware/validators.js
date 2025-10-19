@@ -13,7 +13,8 @@ const validateCoordinates = [
 const validateSettings = [
   body('deviceId').isString().trim().escape(),
   body('interval_gps').isInt({ min: 1, max: 3600 * 24 * 30 }).withMessage('GPS interval must be a valid integer of seconds (min 1s, max 30 days).'),
-  body('interval_send').isInt({ min: 1, max: 3600 * 24 * 30 }).withMessage('Send interval must be a valid integer of seconds (min 1s, max 30 days).')
+  body('interval_send').isInt({ min: 1, max: 3600 * 24 * 30 }).withMessage('Send interval must be a valid integer of seconds (min 1s, max 30 days).'),
+  body('satellites').isInt({ min: 1, max: 50 }).withMessage('Satellites must be a valid integer (min 1, max 50).')
 ];
 
 module.exports = {

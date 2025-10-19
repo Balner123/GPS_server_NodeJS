@@ -188,6 +188,11 @@ function initializeApp() {
             } else {
                 batchSettings.style.display = 'none';
                 document.getElementById('interval-send').value = 1;
+
+                const satellitesSetting = document.getElementById('satellites-setting');
+                if (satellitesSetting) {
+                    satellitesSetting.style.display = 'none';
+                }
             }
         });
     }
@@ -367,9 +372,14 @@ async function selectDevice(deviceId) {
         document.getElementById('interval-gps-minutes').value = dhms.m;
         document.getElementById('interval-gps-seconds').value = dhms.s;
         document.getElementById('interval-send').value = settings.interval_send || 1;
+        document.getElementById('satellites').value = settings.satellites || 7;
 
         const modeSelect = document.getElementById('mode-select');
         const batchSettings = document.getElementById('batch-settings');
+        const satellitesSetting = document.getElementById('satellites-setting');
+        if (satellitesSetting) {
+            satellitesSetting.style.display = 'block';
+        }
         if (settings.interval_send > 1) {
             modeSelect.value = 'batch';
             batchSettings.style.display = 'block';
@@ -653,7 +663,8 @@ async function handleSettingsUpdate(e) {
             body: JSON.stringify({ 
                 deviceId: selectedDevice, 
                 interval_gps: intervalGps,
-                interval_send: parseInt(intervalSend, 10)
+                interval_send: parseInt(intervalSend, 10),
+                satellites: parseInt(document.getElementById('satellites').value, 10) || 7
             })
         });
         const result = await response.json();

@@ -111,6 +111,7 @@ const getDeviceSettings = async (req, res) => {
     res.json({
       interval_gps: device.interval_gps,
       interval_send: device.interval_send,
+      satellites: device.satellites,
       geofence: device.geofence,
       created_at: device.createdAt
     });
@@ -126,11 +127,11 @@ const updateDeviceSettings = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    const { deviceId, interval_gps, interval_send } = req.body;
-    
+    const { deviceId, interval_gps, interval_send, satellites } = req.body;
+
     const [affectedRows] = await db.Device.update(
-      { interval_gps, interval_send },
-      { where: { 
+      { interval_gps, interval_send, satellites },
+      { where: {
           device_id: deviceId,
           user_id: req.session.user.id 
         } 
@@ -246,7 +247,8 @@ const handleDeviceInput = async (req, res) => {
         success: true,
         message: `${locationsToCreate.length} location(s) recorded.`,
         interval_gps: device.interval_gps,
-        interval_send: device.interval_send
+        interval_send: device.interval_send,
+        satellites: device.satellites
       });
 
     } catch (err) {

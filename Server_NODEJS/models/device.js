@@ -41,6 +41,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 1 // Default: Send after every 1 cycle (simple mode)
     },
+    sattelites: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 7
+    },
     geofence: {
       type: DataTypes.JSON,
       allowNull: true

@@ -74,6 +74,7 @@ const { isAuthenticated, isUser } = require('../middleware/authorization');
  *          - deviceId
  *          - interval_gps
  *          - interval_send
+ *          - satellites
  *        properties:
  *          deviceId:
  *            type: string
@@ -87,6 +88,10 @@ const { isAuthenticated, isUser } = require('../middleware/authorization');
  *            type: integer
  *            description: The new send interval in seconds.
  *            example: 300
+ *          satellites:
+ *            type: integer
+ *            description: The new number of satellites.
+ *            example: 7
  */
 
 /**
