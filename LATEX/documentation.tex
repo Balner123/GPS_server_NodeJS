@@ -1,0 +1,152 @@
+\documentclass[12pt, a4paper]{report}
+
+% --- Základní nastavení kódování a jazyka ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[czech]{babel}
+
+% --- Balíčky pro sazbu ---
+\usepackage{graphicx} % Pro obrázky
+\usepackage{amsmath} % Pro matematiku
+\usepackage{geometry} % Pro nastavení okrajů
+\geometry{
+ left=30mm,
+ right=25mm,
+ top=30mm,
+ bottom=30mm,
+}
+
+% --- Balíčky pro kód a odkazy ---
+\usepackage{listings} % Pro výpisy kódu
+\usepackage{xcolor} % Pro barvy v kódu
+\usepackage{hyperref} % Pro klikatelné odkazy
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Dokumentace LOTR Systému},
+    pdfpagemode=FullScreen,
+}
+
+% --- Nastavení pro výpisy kódu ---
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+
+% --- Informace o dokumentu ---
+\title{Technická dokumentace \\ GPS Tracking Systém "LOTR"}
+\author{Tým LOTR}
+\date{\today}
+
+
+% --- Začátek dokumentu ---
+\begin{document}
+
+% --- Titulní strana a obsah ---
+\maketitle
+
+% --- Prohlášení a poděkování ---
+\cleardoublepage
+\pagenumbering{roman}
+
+\chapter*{Prohlášení}
+\addcontentsline{toc}{chapter}{Prohlášení}
+Prohlašujeme, že tento dokument byl vypracován samostatně a všechny použité zdroje jsou řádně citovány.
+
+\vspace*{2cm}
+\noindent V Praze dne \today \hfill \textit{Tým LOTR}
+
+\chapter*{Poděkování}
+\addcontentsline{toc}{chapter}{Poděkování}
+Děkujeme všem, kteří se podíleli na tomto projektu.
+
+\begin{abstract}
+\addcontentsline{toc}{chapter}{Abstrakt}
+Tento dokument poskytuje komplexní technický přehled systému pro sledování GPS zařízení "LOTR". Popisuje architekturu backendu, hardwarových komponent a mobilní aplikace.
+\end{abstract}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\cleardoublepage
+\pagenumbering{arabic}
+
+% --- Hlavní část dokumentu ---
+
+
+\part{Analytická část}
+\chapter{Úvod do problematiky}
+\section{Cíle projektu}
+\section{Analýza existujících řešení}
+\section{Technologický stack}
+
+\chapter{Architektura systému}
+\section{Celkový přehled}
+\section{Komunikační diagramy}
+
+
+\part{Návrhová a implementační část}
+\chapter{Backend Server (Node.js)}
+\section{Přehled a technologie}
+\section{Databázové schéma (ERD)}
+\section{API a routy}
+\section{Zpracování GPS dat}
+\section{Autentizace a autorizace}
+
+
+\chapter{Hardware (GPS Tracker)}
+\section{Popis komponent}
+\section{Schéma zapojení}
+\section{Firmware a provozní režimy}
+
+\chapter{Mobilní aplikace (Android)}
+\section{Architektura a použité knihovny}
+\section{Uživatelské rozhraní a funkce}
+
+\chapter{Testování}
+\section{Unit testy}
+\section{Integrační testy}
+\section{Uživatelské testování}
+
+\chapter{Závěr}
+\section{Shrnutí výsledků}
+\section{Možnosti dalšího rozvoje}
+
+
+% --- Přílohy ---
+\appendix
+\chapter{Příklady API volání}
+\chapter{Výpisy zdrojových kódů}
+\chapter{Obsah přiloženého CD/úložiště}
+
+% --- Bibliografie ---
+\cleardoublepage
+\addcontentsline{toc}{chapter}{Literatura}
+\bibliographystyle{czechiso} % Styl citací podle normy
+%\bibliography{zdroje} % Název vašeho .bib souboru
+
+\end{document}
