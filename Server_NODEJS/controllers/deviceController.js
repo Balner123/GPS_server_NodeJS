@@ -113,7 +113,8 @@ const getDeviceSettings = async (req, res) => {
       interval_send: device.interval_send,
       satellites: device.satellites,
       geofence: device.geofence,
-      created_at: device.createdAt
+      created_at: device.created_at,
+      device_type: device.device_type // ADDED THIS LINE
     });
   } catch (err) {
     console.error("Error getting device settings:", err);
@@ -415,7 +416,7 @@ const getDeviceData = async (req, res) => {
       order: [['timestamp', 'ASC']] 
     });
 
-    const DISTANCE_THRESHOLD_METERS = 4000; // Updated threshold
+    const DISTANCE_THRESHOLD_METERS = 25; // Updated threshold
     const processedLocations = clusterLocations(rawLocations, DISTANCE_THRESHOLD_METERS);
 
     res.json(processedLocations);
@@ -545,7 +546,8 @@ const registerDeviceFromApk = async (req, res) => {
         await db.Device.create({
             user_id: userId,
             device_id: installationId,
-            name: deviceName
+            name: deviceName,
+            device_type: 'APK' // Set device type
         });
 
         res.status(201).json({ success: true, message: 'Device registered successfully.' });
@@ -595,7 +597,8 @@ const registerDeviceFromHardware = async (req, res) => {
     await db.Device.create({
       device_id: deviceId,
       user_id: user.id,
-      name: name || `Device ${deviceId.slice(0, 6)}` // Default name if not provided
+      name: name || `Device ${deviceId.slice(0, 6)}`, // Default name if not provided
+      device_type: 'HW' // Set device type
     });
 
     res.status(201).json({ success: true, message: 'Device registered successfully.' });
@@ -676,9 +679,17 @@ const updateGeofence = async (req, res) => {
       }
     );
 
-    if (affectedRows === 0) {
-      return res.status(404).json({ success: false, error: 'Device not found or you do not have permission to edit it.' });
+    if (affectedRows > 0) {
+    res.json({ success: true, message: 'Geofence updated successfully.' });
+    } else {
+    // Pokud byla geofence null a snažíme se ji znovu nastavit na null, není to chyba.
+    // Záznam se neaktualizoval, ale stav je správný.
+    if (geofence === null) {
+        res.json({ success: true, message: 'Geofence removed.' });
+    } else {
+        return res.status(404).json({ success: false, error: 'Device not found or you do not have permission to edit it.' });
     }
+}
 
     res.json({ success: true, message: 'Geofence updated successfully.' });
 

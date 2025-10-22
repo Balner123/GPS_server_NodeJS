@@ -9,9 +9,11 @@ const HISTORY_ROW_LIMIT = 5;
 let expandedClusters = new Set(); // State for expanded cluster rows
 
 let drawnItems, drawControl;
+let currentDeviceGeofence = null;
 
 // --- New state for map view ---
 let useClusters = true;
+let permanentTooltips = false;
 
 // Configuration
 const API_BASE_URL = window.location.origin;
@@ -60,6 +62,16 @@ function initializeApp() {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
+    // --- Info Toggle Listener ---
+    const infoToggle = document.getElementById('info-toggle-switch');
+    if (infoToggle) {
+         permanentTooltips = infoToggle.checked;
+        infoToggle.addEventListener('change', (e) => {
+            permanentTooltips = e.target.checked;
+            updateMap(completeDeviceHistory, false); // Redraw map with new tooltip setting
+        });
+    }
+
     // --- Cluster Toggle Listener ---
     const clusterToggle = document.getElementById('cluster-toggle-switch');
     if (clusterToggle) {
@@ -93,6 +105,7 @@ function initializeApp() {
     map.on(L.Draw.Event.CREATED, (e) => {
         drawnItems.clearLayers();
         drawnItems.addLayer(e.layer);
+        updateGeofenceControls();
     });
 
     document.getElementById('toggle-draw-mode').addEventListener('click', function(e) {
@@ -240,6 +253,18 @@ function initializeApp() {
     });
 }
 
+function updateGeofenceControls() {
+    const saveBtn = document.getElementById('save-geofence-btn');
+    const deleteBtn = document.getElementById('delete-geofence-btn');
+    const hasDrawnItems = drawnItems.getLayers().length > 0;
+
+    // Zobrazit tlačítko Uložit, pouze pokud je něco nakresleno
+    saveBtn.style.display = hasDrawnItems ? 'block' : 'none';
+
+    // Zobrazit tlačítko Smazat, pouze pokud existuje uložená geofence A ZÁROVEŇ se nic nekreslí
+    deleteBtn.style.display = (currentDeviceGeofence && !hasDrawnItems) ? 'block' : 'none';
+}
+
 async function loadDevices() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
@@ -364,6 +389,7 @@ async function selectDevice(deviceId) {
         
         if (infoCard) {
             document.getElementById('info-registration-date').textContent = formatTimestamp(settings.created_at);
+            document.getElementById('info-device-type').textContent = settings.device_type || 'N/A';
         }
         
         const dhms = secondsToDhms(settings.interval_gps || 0);
@@ -387,7 +413,7 @@ async function selectDevice(deviceId) {
             modeSelect.value = 'simple';
             batchSettings.style.display = 'none';
         }
-
+        currentDeviceGeofence = settings.geofence;
         if (settings.geofence) {
             // Handle custom circle format
             if (settings.geofence.type === 'circle') {
@@ -406,6 +432,7 @@ async function selectDevice(deviceId) {
                 map.fitBounds(geofenceLayer.getBounds());
             }
         }
+        updateGeofenceControls();
 
     } catch (error) {
         displayAlert(`Error loading settings for ${deviceId}.`, 'danger');
@@ -416,6 +443,9 @@ async function selectDevice(deviceId) {
 
 async function loadDeviceData(isInitialLoad = false) {
     if (!selectedDevice) return;
+    
+    showLoadingIndicator(); // <-- ADDED THIS LINE
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -451,6 +481,8 @@ function clearMapAndData() {
     if (exportBtn) {
         exportBtn.style.display = 'none';
     }
+    currentDeviceGeofence = null;
+    updateGeofenceControls();
 }
 
 function updateMap(data, fitBounds) {
@@ -478,9 +510,30 @@ function updateMap(data, fitBounds) {
     }
 
     // Create polyline from all points in the current view
-    const coordinates = pointsToDraw.map(p => [Number(p.latitude), Number(p.longitude)]).filter(c => c && !isNaN(c[0]) && !isNaN(c[1]));
-    if (coordinates.length > 0) {
-        polyline = L.polyline(coordinates, { color: '#007bff', weight: 2 }).addTo(map);
+    const coordinates = [];
+    pointsToDraw.forEach(p => {
+        if (p.type === 'cluster' && p.originalPoints && p.originalPoints.length > 0) {
+            // For a cluster, we need to connect the line to its first and last actual points
+            // to ensure the polyline flows correctly into and out of the clustered section.
+            const sortedOriginals = [...p.originalPoints].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const firstPoint = sortedOriginals[0];
+            const lastPoint = sortedOriginals[sortedOriginals.length - 1];
+            
+            // We only add the first and last points of the cluster to the polyline path
+            coordinates.push([Number(firstPoint.latitude), Number(firstPoint.longitude)]);
+            if (sortedOriginals.length > 1) {
+                 coordinates.push([Number(lastPoint.latitude), Number(lastPoint.longitude)]);
+            }
+        } else {
+            // For a regular point, just add its coordinates.
+            coordinates.push([Number(p.latitude), Number(p.longitude)]);
+        }
+    });
+
+    const validCoordinates = coordinates.filter(c => c && !isNaN(c[0]) && !isNaN(c[1]));
+
+    if (validCoordinates.length > 0) {
+        polyline = L.polyline(validCoordinates, { color: '#007bff', weight: 2 }).addTo(map);
     }
 
     // Create markers for all points
@@ -505,7 +558,11 @@ function updateMap(data, fitBounds) {
         const pointTimestamp = useClusters ? (point.startTime || point.timestamp) : point.timestamp;
 
         const marker = L.marker([lat, lon])
-            .bindTooltip(createDevicePopup(point), { permanent: true, direction: 'auto' });
+            .bindTooltip(createDevicePopup(point), { 
+                permanent: permanentTooltips, 
+                direction: 'auto',
+                className: 'device-tooltip' // Add a class for styling
+            });
         
         marker.addTo(map);
         if (pointTimestamp) {
@@ -765,32 +822,12 @@ async function sendGeofenceToBackend(geofenceData) {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Failed to save geofence.');
         displayAlert(result.message || 'Geofence saved successfully!', 'success');
+        currentDeviceGeofence = geofenceData;
+        drawnItems.clearLayers();
+        updateGeofenceControls();
+
     } catch (error) {
         displayAlert(`Error: ${error.message}`, 'danger');
-    }
-}
-
-async function checkForAlerts() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/alerts`);
-        if (!response.ok) {
-            console.error('Failed to fetch alerts:', response.status);
-            return;
-        }
-        const alerts = await response.json();
-        if (alerts && alerts.length > 0) {
-            const alertIds = alerts.map(alert => alert.id);
-            alerts.forEach(alert => {
-                displayAlert(alert.message, 'danger');
-            });
-            await fetch(`${API_BASE_URL}/api/alerts/read`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ alertIds })
-            });
-        }
-    } catch (error) {
-        console.error('Error polling for alerts:', error);
     }
 }
 

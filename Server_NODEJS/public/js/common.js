@@ -167,3 +167,13 @@ function showInputModal({ title, body = '', label, value = '', confirmText = 'Co
         modalField.select();
     }, { once: true });
 }
+function showLoadingIndicator() {
+    const bar = document.querySelector('#loading-bar-container .loading-bar');
+    if (bar) {
+        // Force a reflow to restart the animation
+        bar.style.animation = 'none';
+        bar.offsetHeight; // Trigger reflow
+        bar.style.animation = null; 
+        bar.style.animationPlayState = 'running';
+    }
+}

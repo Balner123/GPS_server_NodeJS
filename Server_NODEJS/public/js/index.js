@@ -56,6 +56,7 @@ function createDeviceElement(device) {
 
 // Load current coordinates and update device list
 async function loadCurrentCoordinates(isInitialLoad = false) {
+        showLoadingIndicator(); 
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
         if (!response.ok) {

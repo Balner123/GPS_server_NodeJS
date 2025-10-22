@@ -22,9 +22,10 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS devices (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    device_id VARCHAR(10) NOT NULL UNIQUE,
-    name VARCHAR(255),
+    user_id INT NOT NULL,
+    device_id VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    device_type VARCHAR(10) DEFAULT NULL,
     status VARCHAR(50) DEFAULT 'active',
     last_seen TIMESTAMP NULL,
     interval_gps INT DEFAULT 60,

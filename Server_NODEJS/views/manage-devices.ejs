@@ -66,6 +66,8 @@
                         <dl class="row">
                             <dt class="col-sm-4">Device ID</dt>
                             <dd class="col-sm-8" id="info-device-id"></dd>
+                            <dt class="col-sm-4">Device Type</dt>
+                            <dd class="col-sm-8" id="info-device-type"></dd>
                             <dt class="col-sm-4">Registration Date</dt>
                             <dd class="col-sm-8" id="info-registration-date"></dd>
                         </dl>
@@ -77,17 +79,23 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Live Map</h5>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cluster-toggle-switch" checked>
-                            <label class="form-check-label" for="cluster-toggle-switch">Clusters</label>
+                        <div class="d-flex align-items-center">
+                            <div class="form-check form-switch me-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="info-toggle-switch">
+                                <label class="form-check-label" for="info-toggle-switch">Info</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="cluster-toggle-switch" checked>
+                                <label class="form-check-label" for="cluster-toggle-switch">Clusters</label>
+                            </div>
                         </div>
                     </div>
                     <div class="card-body">
                         <div id="history-map" style="height: 400px; position: relative;">
                             <div id="map-tool-menu" class="leaflet-bar leaflet-control leaflet-control-custom">
                                 <a id="toggle-draw-mode" href="#" title="Create/Edit Geofence"><i class="fas fa-draw-polygon"></i></a>
-                                <a id="save-geofence-btn" href="#" title="Save Geofence"><i class="fas fa-save"></i></a>
-                                <a id="delete-geofence-btn" href="#" title="Delete Geofence"><i class="fas fa-trash"></i></a>
+                                <a id="save-geofence-btn" href="#" title="Save Geofence" style="display: none;"><i class="fas fa-save"></i></a>
+                                <a id="delete-geofence-btn" href="#" title="Delete Geofence" style="display: none;"><i class="fas fa-trash"></i></a>
                             </div>
                         </div>
                     </div>
