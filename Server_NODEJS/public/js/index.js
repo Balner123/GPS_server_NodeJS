@@ -1,6 +1,7 @@
 // Map initialization
 let map;
 let markers = {};
+let permanentTooltips = false;
 
 // Configuration
 const API_BASE_URL = window.location.origin;
@@ -13,6 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
+
+    const infoToggle = document.getElementById('info-toggle-switch');
+    if (infoToggle) {
+        permanentTooltips = infoToggle.checked;
+        infoToggle.addEventListener('change', (e) => {
+            permanentTooltips = e.target.checked;
+            // Re-bind tooltips on all existing markers with the new setting
+            Object.values(markers).forEach(marker => {
+                const content = marker.getTooltip().getContent();
+                marker.unbindTooltip();
+                marker.bindTooltip(content, { permanent: permanentTooltips, direction: 'auto' });
+            });
+        });
+    }
 
     loadCurrentCoordinates(true); 
     setInterval(() => loadCurrentCoordinates(false), UPDATE_INTERVAL);
@@ -113,7 +128,7 @@ function updateDeviceMarker(device) {
             .setTooltipContent(popupContent);
     } else {
         const marker = L.marker(position).addTo(map);
-        marker.bindTooltip(popupContent, { permanent: true, direction: 'auto' });
+        marker.bindTooltip(popupContent, { permanent: permanentTooltips, direction: 'auto' });
         markers[device.device] = marker;
     }
 }

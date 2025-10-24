@@ -574,45 +574,55 @@ void appendToCache(String jsonRecord) {
   file.close();
 }
 
-// Reads cached data, sends it as a batch, and handles the result
+// Reads cached data, sends it in batches, and handles the result
 bool sendCachedData() {
-  File file = LittleFS.open(CACHE_FILE, "r");
-  if (!file) {
-    SerialMon.println(F("Cache file not found. Nothing to send."));
-    return true; // Nothing to send is considered a success
-  }
+  const int MAX_BATCH_SIZE = 50;
+  bool allDataSent = true;
 
-  if (file.size() == 0) {
-    SerialMon.println(F("Cache file is empty."));
-    file.close();
-    LittleFS.remove(CACHE_FILE);
-    return true;
-  }
-
-  String payload = "[";
-  bool first = true;
-  while (file.available()) {
-    String line = file.readStringUntil('\n');
-    line.trim(); // Remove any whitespace
-    if (line.length() > 0) {
-      if (!first) {
-        payload += ",";
+  while (true) {
+    File file = LittleFS.open(CACHE_FILE, "r");
+    if (!file || file.size() == 0) {
+      if (file) file.close();
+      if (allDataSent) {
+        SerialMon.println(F("Cache is empty. All data sent."));
+        LittleFS.remove(CACHE_FILE); // Clean up empty file
       }
-      payload += line;
-      first = false;
+      return allDataSent;
     }
-  }
-  payload += "]";
-  file.close();
 
-  String response = sendPostRequest(resourcePost, payload);
-  
-  JsonDocument serverResponseDoc;
-  DeserializationError error = deserializeJson(serverResponseDoc, response);
+    String payload = "[";
+    bool first = true;
+    int recordCount = 0;
+    long lastPosition = 0;
 
-  // Process server response for settings
-  if (!error) {
-      // Update settings from server response
+    while (file.available() && recordCount < MAX_BATCH_SIZE) {
+      String line = file.readStringUntil('\n');
+      line.trim();
+      if (line.length() > 0) {
+        if (!first) {
+          payload += ",";
+        }
+        payload += line;
+        first = false;
+        recordCount++;
+        lastPosition = file.position();
+      }
+    }
+    payload += "]";
+
+    if (recordCount == 0) {
+      file.close();
+      LittleFS.remove(CACHE_FILE); // No valid records found, clear cache
+      return true;
+    }
+
+    SerialMon.printf("Sending batch of %d records...\n", recordCount);
+    String response = sendPostRequest(resourcePost, payload);
+
+    JsonDocument serverResponseDoc;
+    DeserializationError error = deserializeJson(serverResponseDoc, response);
+
+    if (!error) {
       if (!serverResponseDoc["interval_gps"].isNull()) {
         unsigned int interval_gps = serverResponseDoc["interval_gps"].as<unsigned int>();
         if (interval_gps > 0) {
@@ -620,39 +630,65 @@ bool sendCachedData() {
           SerialMon.print(F("Server updated sleep interval to: ")); SerialMon.println(sleepTimeSeconds);
         }
       }
-
       if (!serverResponseDoc["interval_send"].isNull()) {
         uint8_t newBatchSize = serverResponseDoc["interval_send"].as<uint8_t>();
-        if (newBatchSize == 0) newBatchSize = 1; // Ensure batch size is at least 1
-        if (newBatchSize > 50) newBatchSize = 50; // Cap batch size to a reasonable max
-        
+        if (newBatchSize == 0) newBatchSize = 1;
+        if (newBatchSize > 50) newBatchSize = 50;
         preferences.putUChar(KEY_BATCH_SIZE, newBatchSize);
         SerialMon.print(F("Server updated batch size to: ")); SerialMon.println(newBatchSize);
       }
-
       if (!serverResponseDoc["satellites"].isNull()) {
         minSatellitesForFix = serverResponseDoc["satellites"].as<int>();
         SerialMon.print(F("Server updated minimum satellites for fix to: ")); SerialMon.println(minSatellitesForFix);
       }
-  }
+    }
 
-  if (!error && serverResponseDoc["success"] == true) {
-    SerialMon.println(F("Batch data sent successfully. Deleting cache."));
-    LittleFS.remove(CACHE_FILE);
-    return true;
-  } else {
-    SerialMon.println(F("Failed to send batch data. Cache will be kept."));
-    if (error) {
+    if (!error && serverResponseDoc["success"] == true) {
+      SerialMon.println(F("Batch sent successfully. Updating cache file."));
+      
+      bool moreData = file.available();
+      file.close();
+
+      if (moreData) {
+        File tempFile = LittleFS.open("/cache.tmp", "w");
+        File originalFile = LittleFS.open(CACHE_FILE, "r");
+        if (tempFile && originalFile) {
+          originalFile.seek(lastPosition);
+          while (originalFile.available()) {
+            tempFile.write(originalFile.read());
+          }
+          tempFile.close();
+          originalFile.close();
+          LittleFS.remove(CACHE_FILE);
+          LittleFS.rename("/cache.tmp", CACHE_FILE);
+        } else {
+          SerialMon.println(F("Error creating temp file for cache update."));
+          if(tempFile) tempFile.close();
+          if(originalFile) originalFile.close();
+          allDataSent = false;
+          break; 
+        }
+      } else {
+        LittleFS.remove(CACHE_FILE);
+        SerialMon.println(F("All cached data sent."));
+        break; 
+      }
+    } else {
+      SerialMon.println(F("Failed to send batch data. Cache will be kept."));
+      if (error) {
         SerialMon.print(F("JSON parsing of server response failed: "));
         SerialMon.println(error.c_str());
-    }
-    // Check for registration status if success is not true
-    if (serverResponseDoc["registered"] == false) {
+      }
+      if (serverResponseDoc["registered"] == false) {
         SerialMon.println(F("Server indicated device is not registered. Halting."));
         isRegistered = false;
+      }
+      allDataSent = false;
+      file.close();
+      break; 
     }
-    return false;
   }
+  return allDataSent;
 }
 
 

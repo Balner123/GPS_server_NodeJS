@@ -114,7 +114,7 @@ const getDeviceSettings = async (req, res) => {
       satellites: device.satellites,
       geofence: device.geofence,
       created_at: device.created_at,
-      device_type: device.device_type // ADDED THIS LINE
+      device_type: device.device_type
     });
   } catch (err) {
     console.error("Error getting device settings:", err);
@@ -172,7 +172,7 @@ const handleDeviceInput = async (req, res) => {
     const device = await db.Device.findOne({ 
       where: { 
         device_id: deviceId,
-        user_id: req.session.user.id 
+        user_id: req.user.id 
       } 
     });
 
@@ -201,7 +201,7 @@ const handleDeviceInput = async (req, res) => {
         }
         return {
           device_id: device.id,
-          user_id: device.user_id, // <-- FIX: Add user_id from the device
+          user_id: device.user_id,
           latitude: point.latitude,
           longitude: point.longitude,
           speed: point.speed !== undefined ? point.speed : null,

@@ -30,4 +30,35 @@ const isRoot = (req, res, next) => {
   res.redirect('/login');
 };
 
-module.exports = { isAuthenticated, isUser, isRoot }; 
+const authenticateDevice = async (req, res, next) => {
+  const deviceId = req.body.device || (Array.isArray(req.body) && req.body.length > 0 ? req.body[0].device : null);
+
+  if (!deviceId) {
+    return res.status(400).json({ success: false, error: 'Device ID is missing in the request body.' });
+  }
+
+  try {
+    const device = await require('../database').Device.findOne({ where: { device_id: deviceId } });
+
+    if (!device) {
+      return res.status(404).json({ success: false, error: `Device with ID ${deviceId} not found or not registered.` });
+    }
+
+    const user = await require('../database').User.findByPk(device.user_id);
+
+    if (!user) {
+      // This should ideally not happen if device.user_id is a valid foreign key
+      return res.status(500).json({ success: false, error: 'Associated user not found for device.' });
+    }
+
+    req.device = device;
+    req.user = user; // Attach the user object associated with the device
+    next();
+
+  } catch (error) {
+    console.error('Error in authenticateDevice middleware:', error);
+    res.status(500).json({ success: false, error: 'Internal server error during device authentication.' });
+  }
+};
+
+module.exports = { isAuthenticated, isUser, isRoot, authenticateDevice };

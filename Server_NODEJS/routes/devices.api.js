@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const deviceController = require('../controllers/deviceController');
 const { validateCoordinates, validateSettings } = require('../middleware/validators');
-const { isAuthenticated, isUser } = require('../middleware/authorization');
+const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/authorization');
 
 /**
  * @swagger
@@ -124,7 +124,7 @@ const { isAuthenticated, isUser } = require('../middleware/authorization');
  *       '500':
  *         description: Server error.
  */
-router.post('/input', isAuthenticated, deviceController.handleDeviceInput);
+router.post('/input', authenticateDevice, deviceController.handleDeviceInput);
 
 /**
  * @swagger

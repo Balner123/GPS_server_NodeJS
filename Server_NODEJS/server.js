@@ -50,9 +50,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware to check if a password prompt should be shown
-app.use(checkPasswordPrompt);
-
 // Rate limiting (applies to all subsequent routes)
 const limiter = rateLimit({
   windowMs: 5 * 1000, // 5 seconds
@@ -63,12 +60,16 @@ app.use(limiter);
 // --- Routes ---
 
 // Web routes (rendering pages)
-app.use('/', require('./routes/index'));
-app.use('/', require('./routes/auth.web'));
-app.use('/auth', require('./routes/auth.oauth.js')); // <--- ADDED THIS LINE
-app.use('/', require('./routes/devices.web'));
-app.use('/', require('./routes/settings.web'));
-app.use('/', require('./routes/administration.web'));
+const webRoutes = express.Router();
+webRoutes.use(checkPasswordPrompt); // Apply password prompt check only to web routes
+webRoutes.use('/', require('./routes/index'));
+webRoutes.use('/', require('./routes/auth.web'));
+webRoutes.use('/', require('./routes/devices.web'));
+webRoutes.use('/', require('./routes/settings.web'));
+webRoutes.use('/', require('./routes/administration.web'));
+app.use('/', webRoutes);
+
+app.use('/auth', require('./routes/auth.oauth.js')); // OAuth routes
 
 
 

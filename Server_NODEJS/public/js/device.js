@@ -15,6 +15,14 @@ let currentDeviceGeofence = null;
 let useClusters = true;
 let permanentTooltips = false;
 
+// Custom Leaflet Icons
+const defaultIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: '<div style="background-color:#007bff; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #fff;"></div>',
+    iconSize: [12, 12],
+    iconAnchor: [6, 6]
+});
+
 // Configuration
 const API_BASE_URL = window.location.origin;
 const UPDATE_INTERVAL = 5000; // 5 seconds
@@ -253,6 +261,41 @@ function initializeApp() {
     });
 }
 
+async function checkForAlerts() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
+        if (!response.ok) {
+            console.error('Failed to fetch device coordinates for alert check');
+            return;
+        }
+        const devices = await response.json();
+        const devicesWithUnreadAlerts = new Set(
+            devices.filter(d => d.has_unread_alerts).map(d => d.device)
+        );
+
+        document.querySelectorAll('.device-item').forEach(item => {
+            const deviceId = item.dataset.deviceId;
+            const hasAlerts = devicesWithUnreadAlerts.has(deviceId);
+            const alertIcon = item.querySelector('.fa-exclamation-triangle');
+            const clearAlertsButton = item.querySelector('.btn-warning');
+
+            if (hasAlerts) {
+                if (!alertIcon) {
+                    // If the icon isn't there, reload the whole device list to be safe
+                    loadDevices();
+                }
+            } else {
+                if (alertIcon) {
+                    // If the icon is there but shouldn't be, reload the list
+                    loadDevices();
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error checking for alerts:', error);
+    }
+}
+
 function updateGeofenceControls() {
     const saveBtn = document.getElementById('save-geofence-btn');
     const deleteBtn = document.getElementById('delete-geofence-btn');
@@ -389,23 +432,26 @@ async function selectDevice(deviceId) {
         
         if (infoCard) {
             document.getElementById('info-registration-date').textContent = formatTimestamp(settings.created_at);
-            document.getElementById('info-device-type').textContent = settings.device_type || 'N/A';
+            const deviceType = settings.device_type || 'N/A';
+            document.getElementById('info-device-type').textContent = deviceType;
+
+            const satellitesSetting = document.getElementById('satellites-setting');
+            if (deviceType === 'HW') {
+                satellitesSetting.style.display = 'block';
+            } else {
+                satellitesSetting.style.display = 'none';
+            }
         }
         
         const dhms = secondsToDhms(settings.interval_gps || 0);
         document.getElementById('interval-gps-days').value = dhms.d;
-        document.getElementById('interval-gps-hours').value = dhms.h;
-        document.getElementById('interval-gps-minutes').value = dhms.m;
-        document.getElementById('interval-gps-seconds').value = dhms.s;
+//...
         document.getElementById('interval-send').value = settings.interval_send || 1;
         document.getElementById('satellites').value = settings.satellites || 7;
 
         const modeSelect = document.getElementById('mode-select');
         const batchSettings = document.getElementById('batch-settings');
-        const satellitesSetting = document.getElementById('satellites-setting');
-        if (satellitesSetting) {
-            satellitesSetting.style.display = 'block';
-        }
+        
         if (settings.interval_send > 1) {
             modeSelect.value = 'batch';
             batchSettings.style.display = 'block';
@@ -443,22 +489,13 @@ async function selectDevice(deviceId) {
 
 async function loadDeviceData(isInitialLoad = false) {
     if (!selectedDevice) return;
-    
-    showLoadingIndicator(); // <-- ADDED THIS LINE
-
     try {
+        showLoadingIndicator();
         const response = await fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const allData = await response.json();
-
-        // Always update the complete history
         completeDeviceHistory = allData;
-
-        // Always redraw the map with the full history.
-        // The 'isInitialLoad' flag now only controls whether to fit the bounds.
         updateMap(completeDeviceHistory, isInitialLoad);
-        
-        // Update the table with the latest data
         renderPositionTable();
 
     } catch (error) {
@@ -536,40 +573,70 @@ function updateMap(data, fitBounds) {
         polyline = L.polyline(validCoordinates, { color: '#007bff', weight: 2 }).addTo(map);
     }
 
-    // Create markers for all points
-    pointsToDraw.forEach((point) => {
-        let lat, lon;
-        // For clusters, we need to calculate the average position
-        if (useClusters && point.type === 'cluster') {
-            const totalLat = point.originalPoints.reduce((sum, p) => sum + Number(p.latitude), 0);
-            const totalLon = point.originalPoints.reduce((sum, p) => sum + Number(p.longitude), 0);
-            lat = totalLat / point.originalPoints.length;
-            lon = totalLon / point.originalPoints.length;
-        } else {
-            lat = Number(point.latitude);
-            lon = Number(point.longitude);
+        // Create markers for all points
+        let latestPointTimestamp = null;
+        if (completeDeviceHistory.length > 0) {
+            // Find the timestamp of the absolute latest point across all data (including inside clusters)
+            const latestTimestampValue = completeDeviceHistory.reduce((maxTimestamp, item) => {
+                // For clusters, find the max timestamp within originalPoints
+                if (item.type === 'cluster') {
+                    const maxInCluster = item.originalPoints.reduce((max, p) => Math.max(max, new Date(p.timestamp).getTime()), 0);
+                    return Math.max(maxTimestamp, maxInCluster);
+                }
+                // For single points, just use its timestamp
+                return Math.max(maxTimestamp, new Date(item.timestamp).getTime());
+            }, 0);
+            latestPointTimestamp = new Date(latestTimestampValue).toISOString();
         }
+    
+        pointsToDraw.forEach((point) => {
+            let lat, lon;
+            
+            // This block processes both clusters and individual points for marker placement
+            if (useClusters && point.type === 'cluster') {
+                const totalLat = point.originalPoints.reduce((sum, p) => sum + Number(p.latitude), 0);
+                const totalLon = point.originalPoints.reduce((sum, p) => sum + Number(p.longitude), 0);
+                lat = totalLat / point.originalPoints.length;
+                lon = totalLon / point.originalPoints.length;
 
-        // Validate coordinates AFTER they have been determined
-        if (isNaN(lat) || isNaN(lon)) {
-            return; // Skip this point if coords are bad
-        }
+                // A cluster marker itself can't be the "latest" individual point, so it always gets the defaultIcon.
+                const marker = L.marker([lat, lon], { icon: defaultIcon })
+                    .bindTooltip(createDevicePopup(point), {
+                        permanent: permanentTooltips,
+                        direction: 'auto',
+                        className: 'device-tooltip'
+                    });
+                marker.addTo(map);
+                markers[point.endTime] = marker; // Use endTime for cluster key
 
-        const pointTimestamp = useClusters ? (point.startTime || point.timestamp) : point.timestamp;
+            } else {
+                // This handles individual points, whether from the original data or from an un-clustered view
+                const pointsToProcess = (point.type === 'cluster') ? point.originalPoints : [point];
 
-        const marker = L.marker([lat, lon])
-            .bindTooltip(createDevicePopup(point), { 
-                permanent: permanentTooltips, 
-                direction: 'auto',
-                className: 'device-tooltip' // Add a class for styling
-            });
-        
-        marker.addTo(map);
-        if (pointTimestamp) {
-            markers[pointTimestamp] = marker;
-        }
-    });
+                pointsToProcess.forEach(p => {
+                    lat = Number(p.latitude);
+                    lon = Number(p.longitude);
+                    
+                    if (isNaN(lat) || isNaN(lon)) return;
 
+                    const isLatestPoint = (p.timestamp === latestPointTimestamp);
+                    const markerOptions = {};
+                    if (!isLatestPoint) {
+                        markerOptions.icon = defaultIcon;
+                    }
+
+                    const marker = L.marker([lat, lon], markerOptions)
+                        .bindTooltip(createDevicePopup(p), {
+                            permanent: permanentTooltips,
+                            direction: 'auto',
+                            className: 'device-tooltip'
+                        });
+                    
+                    marker.addTo(map);
+                    markers[p.timestamp] = marker;
+                });
+            }
+        });
     // Fit bounds logic on initial load
     if (fitBounds) {
         // The data from the server is sorted by timestamp ASC, so the last point is the latest.
