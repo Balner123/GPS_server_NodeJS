@@ -1,0 +1,19 @@
+PROBLEMS::
+
+UNDONE{
+- logování apk -> neodpovídá skuteènosti , seká se , výchozí stav je po registraci ON ale služba se nespustí
+    - celý systém logování by chtìlo modularizovat a pøesnì definovat, mnoho stavù (specíálních) vyvolá "freeze" hlášek, zùstane viset tøeba "odesílání.." "èekaní na GPS fix" etc.
+    - veškeré možná hlášky by mìly být shromáždovány a vytváøeny na jendom místì (ne jen tak  kde se to hodí)
+    + logování do konzole androidu (pro debug)
+    - konzole zobrazována uživateli (souèást aplikace zùstane nemìnná, její úrovìò je dostaèující) 
+- APK pri cachovani si fetchuje /settings proc ? Namely by komunikovat az do konecne poctu GPS fixu 
+- APK pri vypadku signalu se cachuje do nekoneèna (což nevadí), ale po znovunabytí signalu se APK snazi odeslátcelou cache najednou, pokud je ale dat moho server odpovi error 500,
+    - je tedy nutno stanovat maximální poèet dat v jednou /POST a odesílat postupnì po balících dokud chahce není prázdná, aby server nebyl zahlcen. 
+- nový parametr je posílán v nastavení : sattelites : x , který urèuje ajaký je minimální poèet satelitù které musí být získáno aby se poloha uložila (pøesnost)
+- grafická stránka "login" potøebuje redump, moc tmavé a nevýrazné, +nutné ohraèení prvkù, 
+- samotná modularizace grafických èástí by také byla výhodná.
+}
+
+DONE{
+
+}

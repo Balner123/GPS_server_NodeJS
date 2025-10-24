@@ -1,0 +1,184 @@
+Here is a breakdown of the problems and proposed solutions:
+
+**1. Logging and Service Lifecycle**
+
+*   **Problem:** UI state doesn't reflect the service's actual state. Status messages are inconsistent and can get "stuck".
+*   **Solution:**
+    1.  **Centralize Status Messages:** Create a single object to hold all user-facing status messages for consistency.
+        *   Create a new file `app/src/main/java/com/example/gpsreporterapp/StatusMessages.kt`:
+            ```kotlin
+            package com.example.gpsreporterapp
+
+            object StatusMessages {
+                const val SERVICE_STARTING = "Služba se spouští..."
+                const val SERVICE_STOPPED = "Služba zastavena"
+                // ... add all other messages here
+            }
+            ```
+    2.  **Improve Debug Logging:** Enhance `ConsoleLogger` to also output to Android's Logcat for easier debugging with `adb logcat`.
+        *   Modify `app/src/main/java/com/example/gpsreporterapp/ConsoleLogger.kt`:
+            ```kotlin
+            import android.util.Log
+            // ...
+            fun log(message: String) {
+                Log.d("GPS_App_Debug", message) // Add this line
+                // ... rest of the function
+            }
+            ```
+    3.  **Refine State Handling in `LocationService`:** Ensure the service communicates its state reliably, especially after background tasks.
+        *   In `LocationService.kt`, modify the `WorkManager` observer to clear the "sending" status.
+            ```kotlin
+            // Inside enqueueSyncWorker() in LocationService.kt
+            ...observeForever { workInfo ->
+                if (workInfo != null) {
+                    when (workInfo.state) {
+                        WorkInfo.State.SUCCEEDED -> {
+                            updateAndBroadcastState(connectionStatus = StatusMessages.SYNC_SUCCESS)
+                        }
+                        WorkInfo.State.FAILED -> {
+                            updateAndBroadcastState(connectionStatus = StatusMessages.SYNC_FAILED)
+                        }
+                        // ... other states
+                    }
+                }
+            }
+            ```
+
+**2. Unnecessary `/settings` Fetches**
+
+*   **Problem:** The app fetches settings from the server on every sync, which is inefficient.
+*   **Solution:** Modify `SyncWorker.kt` to only process settings from the server response under specific conditions (e.g., when sending a large batch of cached data), reducing unnecessary network traffic. A simple way is to check the number of locations being sent.
+
+**3. Sending Entire Cache at Once**
+
+*   **Problem:** The app tries to send the entire cache of locations in one go, causing server errors (HTTP 500) if the cache is large.
+*   **Solution:** Implement batching in `SyncWorker.kt`.
+    *   Modify `doWork()` in `app/src/main/java/com/example/gpsreporterapp/SyncWorker.kt`:
+        ```kotlin
+        override suspend fun doWork(): Result {
+            val dao = AppDatabase.getDatabase(applicationContext).locationDao()
+            val batchSize = 50 // Send 50 locations at a time
+
+            while (true) {
+                val cachedLocations = dao.getLocationsBatch(batchSize)
+                if (cachedLocations.isEmpty()) {
+                    break // No more locations to send
+                }
+
+                // ... (The existing logic to build JSON and send the request)
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val idsToDelete = cachedLocations.map { it.id }
+                    dao.deleteLocationsByIds(idsToDelete)
+                } else {
+                    return Result.retry() // If a batch fails, retry the whole worker later
+                }
+            }
+            return Result.success()
+        }
+        ```
+    *   You will also need to add the `getLocationsBatch` function to `LocationDao.kt`:
+        ```kotlin
+        @Query("SELECT * FROM cached_locations ORDER BY timestamp ASC LIMIT :limit")
+        suspend fun getLocationsBatch(limit: Int): List<CachedLocation>
+        ```
+
+**4. New `satellites` Parameter**
+
+*   **Problem:** The app needs to filter GPS fixes by a minimum number of satellites, a value provided by the server.
+*   **Solution:**
+    1.  **Update `ServerResponse.kt`:** Add the new field to the data class.
+        ```kotlin
+        data class ServerResponse(
+            // ... existing fields
+            val satellites: Int?
+        )
+        ```
+    2.  **Update `SyncWorker.kt`:** Save the new setting to `SharedPreferences`.
+        ```kotlin
+        // Inside the success block of the network request in SyncWorker.kt
+        serverResponse.satellites?.let {
+            if (sharedPrefs.getInt("min_satellites", 4) != it) {
+                editor.putInt("min_satellites", it)
+                settingsChanged = true
+                ConsoleLogger.log("Aktualizován minimální počet satelitů na: $it")
+            }
+        }
+        ```
+    3.  **Update `LocationService.kt`:** Check the satellite count before saving a location.
+        ```kotlin
+        // Inside onLocationResult() in LocationService.kt
+        val minSatellites = sharedPrefs.getInt("min_satellites", 4) // Default to 4
+        val currentSatellites = location.extras?.getInt("satellites", 0) ?: 0
+
+        if (currentSatellites >= minSatellites) {
+            sendLocationAndProcessResponse(location)
+        } else {
+            ConsoleLogger.log("Poloha ignorována (satelity: $currentSatellites, požadováno: $minSatellites)")
+        }
+        ```
+
+**5. Login Screen UI/UX**
+
+*   **Problem:** The login screen is visually dated and lacks clarity.
+*   **Solution:** Redesign `activity_login.xml` using Material Design Components for a modern look.
+    *   Replace `EditText` with `com.google.android.material.textfield.TextInputLayout` for better usability (floating labels, error messages).
+    *   Use `com.google.android.material.button.MaterialButton` for an updated button style.
+    *   Wrap input fields in a `com.google.android.material.card.MaterialCardView` to visually group them.
+    *   Here is a sample of what the new `activity_login.xml` could look like:
+        ```xml
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardElevation="8dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/usernameInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Username or email">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/usernameEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/passwordInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:passwordToggleEnabled="true"
+                    android:hint="Password">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/passwordEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPassword" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/loginButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Log in" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        ```
+
+**6. UI Modularization**
+
+*   **Problem:** The UI components are tightly coupled within activities.
+*   **Solution:** This is a broader architectural improvement. The suggestion is to break down UI into smaller, reusable pieces.
+    *   **Use Fragments:** For distinct screens like "Login", "Register", and the main "Dashboard", use Fragments. This is already partially done with `FirstFragment` and `SecondFragment`.
+    *   **Custom Views:** For reusable elements like the status display or the console view, consider creating custom compound views. This encapsulates the view's logic and makes it easy to reuse.

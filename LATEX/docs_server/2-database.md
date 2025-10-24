@@ -35,7 +35,7 @@ Obsahuje informace o registrovaných GPS zařízeních.
   - `device_id`: Unikátní 10místný identifikátor samotného hardwaru.
   - `name`: Uživatelsky definovaný název zařízení.
   - `status`: Stav zařízení (`active`, `inactive`).
-  - `interval_gps`, `interval_send`, `sattelites` : Konfigurace intervalů pro sledování a odesílání dat.
+  - `interval_gps`, `interval_send`, `satellites` : Konfigurace intervalů pro sledování a odesílání dat.
   - `geofence`: Pole typu `JSON` pro uložení souřadnic geografické ohrady.
 
 ### Tabulka `locations`

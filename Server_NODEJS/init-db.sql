@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS devices (
     last_seen TIMESTAMP NULL,
     interval_gps INT DEFAULT 60,
     interval_send INT DEFAULT 1,
+    satellites INT DEFAULT 7,
     geofence JSON NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

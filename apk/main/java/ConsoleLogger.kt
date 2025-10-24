@@ -1,5 +1,6 @@
 package com.example.gpsreporterapp
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import java.text.SimpleDateFormat
@@ -15,6 +16,7 @@ object ConsoleLogger {
     val logs: LiveData<List<String>> = _logs
 
     fun log(message: String) {
+        Log.d("GPS_App_Debug", message)
         val timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
         val logMessage = "[$timestamp] $message"
 

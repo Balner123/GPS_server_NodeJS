@@ -55,7 +55,7 @@ class LocationService : Service() {
                 if (!isLocationEnabled) {
                     ConsoleLogger.log("Poskytovatelé polohy byli deaktivováni. Služba se zastavuje.")
                     updateAndBroadcastState(
-                        status = "Služba zastavena (GPS vypnuto)",
+                        status = StatusMessages.SERVICE_STOPPED_GPS_OFF,
                         connectionStatus = "Kritická chyba",
                         isRunning = false
                     )
@@ -76,7 +76,7 @@ class LocationService : Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
                     ConsoleLogger.log("Nová poloha: lat=${location.latitude}, lon=${location.longitude}")
-                    updateAndBroadcastState(status = "Získána nová poloha")
+                    updateAndBroadcastState(status = StatusMessages.NEW_LOCATION_OBTAINED)
                     sendLocationAndProcessResponse(location)
                 }
             }
@@ -94,7 +94,7 @@ class LocationService : Service() {
         }
 
         ConsoleLogger.log("Služba LocationService spuštěna.")
-        updateAndBroadcastState(status = "Služba se spouští...", isRunning = true)
+        updateAndBroadcastState(status = StatusMessages.SERVICE_STARTING, isRunning = true)
 
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
         gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
@@ -136,15 +136,15 @@ class LocationService : Service() {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
             ConsoleLogger.log("Sledování polohy spuštěno.")
             updateAndBroadcastState(
-                status = "Sledování polohy aktivní",
-                connectionStatus = "Čekání na signál GPS",
+                status = StatusMessages.TRACKING_ACTIVE,
+                connectionStatus = StatusMessages.WAITING_FOR_GPS,
                 nextUpdate = System.currentTimeMillis() + sendIntervalMillis,
                 isRunning = true
             )
         } catch (e: SecurityException) {
             ConsoleLogger.log("Chyba oprávnění při startu sledování polohy.")
             updateAndBroadcastState(
-                status = "Služba zastavena (chyba oprávnění)",
+                status = StatusMessages.SERVICE_STOPPED_PERMISSIONS,
                 connectionStatus = "Chyba oprávnění",
                 isRunning = false
             )
@@ -162,7 +162,7 @@ class LocationService : Service() {
             syncWorkRequest
         )
 
-        updateAndBroadcastState(connectionStatus = "Probíhá odesílání...", isRunning = true)
+        updateAndBroadcastState(connectionStatus = StatusMessages.SYNC_IN_PROGRESS, isRunning = true)
 
         CoroutineScope(Dispatchers.Main).launch {
             WorkManager.getInstance(applicationContext).getWorkInfoByIdLiveData(syncWorkRequest.id)
@@ -171,18 +171,15 @@ class LocationService : Service() {
                         when (workInfo.state) {
                             WorkInfo.State.SUCCEEDED -> {
                                 ConsoleLogger.log("SyncWorker dokončen: Úspěch.")
-                                val statusText = "Sledování polohy aktivní"
-                                updateAndBroadcastState(status = statusText, connectionStatus = "Synchronizace úspěšná", isRunning = true)
+                                updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE, connectionStatus = StatusMessages.SYNC_SUCCESS, isRunning = true)
                             }
                             WorkInfo.State.FAILED -> {
                                 ConsoleLogger.log("SyncWorker selhal.")
-                                val statusText = "Sledování polohy aktivní"
-                                updateAndBroadcastState(status = statusText, connectionStatus = "Chyba synchronizace", isRunning = true)
+                                updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE, connectionStatus = StatusMessages.SYNC_FAILED, isRunning = true)
                             }
                             WorkInfo.State.CANCELLED -> {
                                 ConsoleLogger.log("SyncWorker zrušen.")
-                                val statusText = "Sledování polohy aktivní"
-                                updateAndBroadcastState(status = statusText, connectionStatus = "Synchronizace zrušena", isRunning = true)
+                                updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE, connectionStatus = StatusMessages.SYNC_CANCELLED, isRunning = true)
                             }
                             else -> {
                                 // Stavy ENQUEUED, RUNNING, BLOCKED - necháváme "Probíhá odesílání..."
@@ -199,7 +196,7 @@ class LocationService : Service() {
         val deviceId = sharedPrefs.getString("device_id", null)
 
         if (deviceId == null) {
-            ConsoleLogger.log("Chyba: Device ID není k dispozici. Nelze uložit polohu.")
+            ConsoleLogger.log(StatusMessages.DEVICE_ID_ERROR)
             updateAndBroadcastState()
             return
         }
@@ -229,13 +226,13 @@ class LocationService : Service() {
                 }
 
                 updateAndBroadcastState(
-                    status = "Poloha uložena v mezipaměti",
+                    status = StatusMessages.LOCATION_CACHED,
                     cachedCount = locationsCachedCount
                 )
 
             } catch (e: Exception) {
                 ConsoleLogger.log("Chyba při ukládání polohy do DB: ${e.message}")
-                updateAndBroadcastState(status = "Chyba ukládání do DB")
+                updateAndBroadcastState(status = StatusMessages.DB_SAVE_ERROR)
             }
         }
     }
@@ -300,7 +297,7 @@ class LocationService : Service() {
         unregisterReceiver(locationProviderReceiver)
         // Send final state update to ensure UI is correct
         updateAndBroadcastState(
-            status = "Služba zastavena",
+            status = StatusMessages.SERVICE_STOPPED,
             connectionStatus = "Neaktivní",
             nextUpdate = 0,
             isRunning = false

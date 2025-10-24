@@ -1,0 +1,52 @@
+**UI Modularization Analysis and Plan**
+
+**1. Analysis**
+
+The current UI is primarily built within Activities (`MainActivity`, `LoginActivity`). While functional, this approach has drawbacks for future development:
+
+*   **Tight Coupling:** The UI logic is tightly coupled to the Activity's lifecycle, making it difficult to reuse UI components in different contexts.
+*   **Scalability:** Adding new screens or complex UI elements to the existing Activities will make them bloated and hard to maintain.
+*   **Flexibility:** It is harder to create responsive layouts for different screen sizes (e.g., tablets) using only Activities.
+
+By modularizing the UI, we can create a more robust, scalable, and maintainable application.
+
+**2. Plan**
+
+The goal is to refactor the UI into a Single-Activity architecture using Fragments for different screens and custom Views for reusable components.
+
+**Step 1: Convert `MainActivity`'s content to a `DashboardFragment`**
+
+*   **Action:** Create a new `DashboardFragment` and move the UI elements and logic from `MainActivity` into it.
+*   **Details:**
+    1.  Create a new layout file `fragment_dashboard.xml` and copy the content of `activity_main.xml` into it (the status display, buttons, console, etc.).
+    2.  Create a new Kotlin file `DashboardFragment.kt`.
+    3.  Move the UI handling logic (updating text views, button clicks, observer for logs) from `MainActivity` to `DashboardFragment`.
+    4.  The `MainActivity` will become a simple container that hosts the `DashboardFragment`.
+
+**Step 2: Convert `LoginActivity` to a `LoginFragment`**
+
+*   **Action:** Replace the `LoginActivity` with a `LoginFragment`.
+*   **Details:**
+    1.  Create a new layout file `fragment_login.xml` and use the modern Material Design layout we've already created for `activity_login.xml`.
+    2.  Create a new Kotlin file `LoginFragment.kt`.
+    3.  Move the login logic from `LoginActivity.kt` to `LoginFragment.kt`.
+    4.  Update the navigation graph (`nav_graph.xml`) to handle the navigation between the `LoginFragment` and the `DashboardFragment`.
+    5.  The `MainActivity` will be the single entry point of the app. It will check for authentication and navigate to either the `LoginFragment` or the `DashboardFragment`.
+
+**Step 3: (Optional but recommended) Create a `StatusView` Custom View**
+
+*   **Action:** Encapsulate the status display UI and logic into a reusable custom view.
+*   **Details:**
+    1.  Create a new layout file for the custom view, containing the `statusTextView`, `lastConnectionStatusTextView`, `countdownTextView`, etc.
+    2.  Create a new Kotlin class `StatusView.kt` that extends a `LinearLayout` or `ConstraintLayout`.
+    3.  Move the logic for updating the status from the `DashboardFragment` into the `StatusView`.
+    4.  The `StatusView` can then be easily reused in other parts of the app if needed.
+
+**Step 4: Update Navigation Graph (`nav_graph.xml`)**
+
+*   **Action:** Update the navigation graph to manage the flow between fragments.
+*   **Details:**
+    1.  Define the `LoginFragment` and `DashboardFragment` in the `nav_graph.xml`.
+    2.  Define the navigation actions between them (e.g., from `LoginFragment` to `DashboardFragment` on successful login).
+
+By following this plan, the application's UI will be more modular, easier to maintain, and ready for future expansion.

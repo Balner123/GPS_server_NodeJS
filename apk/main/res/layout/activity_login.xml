@@ -1,58 +1,96 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center"
-    android:orientation="vertical"
     android:padding="16dp">
 
-    <TextView
-        android:id="@+id/app_name"
-        android:layout_width="wrap_content"
-        android:layout_height="42dp"
-        android:text="LOTR System"
-        android:textAppearance="@style/TextAppearance.AppCompat.Display1"
-        android:textSize="24sp"
-        android:textStyle="bold" />
-
-    <ImageView
-        android:id="@+id/imageView"
-        android:layout_width="169dp"
-        android:layout_height="110dp"
-        android:adjustViewBounds="false"
-        android:alpha="1"
-        app:srcCompat="@drawable/compass" />
-
-    <EditText
-        android:id="@+id/usernameEditText"
-        android:layout_width="284dp"
-        android:layout_height="63dp"
-        android:layout_marginBottom="8dp"
-        android:autofillHints="username"
-        android:hint="Username or email"
-        android:inputType="textEmailAddress" />
-
-    <EditText
-        android:id="@+id/passwordEditText"
-        android:layout_width="284dp"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:autofillHints="password"
-        android:hint="Password"
-        android:inputType="textPassword" />
+        android:gravity="center"
+        android:orientation="vertical">
 
-    <Button
-        android:id="@+id/loginButton"
-        android:layout_width="283dp"
-        android:layout_height="wrap_content"
-        android:text="Log in" />
+        <TextView
+            android:id="@+id/app_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="LOTR System"
+            android:textAppearance="@style/TextAppearance.AppCompat.Display1"
+            android:textSize="24sp"
+            android:textStyle="bold" />
 
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:visibility="gone" />
+        <ImageView
+            android:id="@+id/imageView"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginBottom="32dp"
+            app:srcCompat="@drawable/compass" />
 
-</LinearLayout>
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/usernameInputLayout"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Username or email">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/usernameEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textEmailAddress" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/passwordInputLayout"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="Password"
+                    app:passwordToggleEnabled="true">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/passwordEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPassword" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/loginButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:padding="12dp"
+            android:text="Log in" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</RelativeLayout>

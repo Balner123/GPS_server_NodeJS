@@ -30,7 +30,7 @@ Zařízení lze do systému přidat třemi způsoby:
   3.  Pokud ano, všechny platné body (s `latitude` a `longitude`) se uloží do tabulky `locations`.
   4.  U zařízení se aktualizuje časová značka `last_seen`.
   5.  Po uložení se provede kontrola na Geofence (viz níže).
-  6.  V odpovědi server zašle zařízení aktuálně nastavené intervaly (`interval_gps`, `interval_send`, `sattelites`), aby se mohlo přizpůsobit.
+  6.  V odpovědi server zašle zařízení aktuálně nastavené intervaly (`interval_gps`, `interval_send`, `satellites`), aby se mohlo přizpůsobit.
 
 ## 6.3. Zobrazení dat
 
@@ -45,7 +45,7 @@ Uživatel může na stránce `/devices` měnit nastavení pro každé zařízen�
 - **Změna intervalů**: `POST /api/devices/settings`
   - `interval_gps`: Jak často má zařízení zjišťovat polohu.
   - `interval_send`: Po kolika zjištěných polohách má zařízení odeslat data na server (pro dávkový režim).
-  - `sattelites`: Minimální počet satelitů pro fix
+  - `satellites`: Minimální počet satelitů pro fix
 
 ## 6.5. Geofencing (Geografické ohrady)
 

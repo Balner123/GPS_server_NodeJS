@@ -41,7 +41,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 1 // Default: Send after every 1 cycle (simple mode)
     },
-    sattelites: {
+    satellites: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 7
