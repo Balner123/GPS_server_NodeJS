@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS devices (
     interval_send INT DEFAULT 1,
     satellites INT DEFAULT 7,
     geofence JSON NULL,
+    geofence_alert_active BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
