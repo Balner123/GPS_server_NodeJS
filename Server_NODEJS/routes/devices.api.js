@@ -124,7 +124,7 @@ const { isAuthenticated, isUser } = require('../middleware/authorization');
  *       '500':
  *         description: Server error.
  */
-router.post('/input', deviceController.handleDeviceInput);
+router.post('/input', isAuthenticated, deviceController.handleDeviceInput);
 
 /**
  * @swagger

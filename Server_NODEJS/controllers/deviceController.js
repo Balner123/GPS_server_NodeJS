@@ -169,10 +169,24 @@ const handleDeviceInput = async (req, res) => {
         return res.status(400).json({ error: 'Device ID is missing in the payload.' });
     }
 
-    const device = await db.Device.findOne({ where: { device_id: deviceId } });
+    const device = await db.Device.findOne({ 
+      where: { 
+        device_id: deviceId,
+        user_id: req.session.user.id 
+      } 
+    });
 
     if (!device) {
-      return res.status(403).json({ 
+      // Check if the device exists at all to give a more specific error
+      const deviceExists = await db.Device.findOne({ where: { device_id: deviceId } });
+      if (deviceExists) {
+        // Device exists but doesn't belong to this user
+        return res.status(403).json({ 
+          error: `Forbidden. You do not have permission to send data for device ID ${deviceId}.` 
+        });
+      }
+      // Device is not registered at all
+      return res.status(404).json({ 
         registered: false,
         message: `Device with ID ${deviceId} is not registered.` 
       });
