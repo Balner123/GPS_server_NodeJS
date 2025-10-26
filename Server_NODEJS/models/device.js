@@ -34,7 +34,7 @@ module.exports = (sequelize, DataTypes) => {
     interval_gps: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      defaultValue: 60 // Default: 60 seconds between GPS fixes
+      defaultValue: 60 // Default: 60 seconds
     },
     interval_send: {
       type: DataTypes.INTEGER,

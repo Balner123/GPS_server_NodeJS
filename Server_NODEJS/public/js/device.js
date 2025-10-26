@@ -792,7 +792,14 @@ async function handleSettingsUpdate(e) {
             })
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Failed to update settings.');
+        if (!response.ok) {
+            // If the backend sends specific validation details, use them.
+            let errorMessage = result.error || 'Failed to update settings.';
+            if (result.details && Array.isArray(result.details)) {
+                errorMessage = result.details.map(d => d.msg).join('; ');
+            }
+            throw new Error(errorMessage);
+        }
         displayAlert(result.message || 'Settings updated successfully!', 'success');
     } catch (error) {
         displayAlert(`Error: ${error.message}`, 'danger');

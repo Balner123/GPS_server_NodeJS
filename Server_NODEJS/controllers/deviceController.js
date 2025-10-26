@@ -126,7 +126,8 @@ const updateDeviceSettings = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      // Surface a clear error message for the frontend while preserving details
+      return res.status(400).json({ success: false, error: 'Validation failed', details: errors.array() });
     }
     const { deviceId, interval_gps, interval_send, satellites } = req.body;
 
@@ -143,10 +144,14 @@ const updateDeviceSettings = async (req, res) => {
     }
 
     // If nothing changes, return a 200 with an informative message to avoid confusing the UI
+    const nextIntervalGps = Number(interval_gps);
+    const nextIntervalSend = Number(interval_send);
+    const nextSatellites = Number(satellites);
+
     const noChanges = (
-      Number(device.interval_gps) === Number(interval_gps) &&
-      Number(device.interval_send) === Number(interval_send) &&
-      Number(device.satellites) === Number(satellites)
+      Number(device.interval_gps) === nextIntervalGps &&
+      Number(device.interval_send) === nextIntervalSend &&
+      Number(device.satellites) === nextSatellites
     );
 
     if (noChanges) {
@@ -154,7 +159,7 @@ const updateDeviceSettings = async (req, res) => {
     }
 
     await db.Device.update(
-      { interval_gps, interval_send, satellites },
+      { interval_gps: nextIntervalGps, interval_send: nextIntervalSend, satellites: nextSatellites },
       {
         where: {
           device_id: deviceId,
@@ -726,7 +731,6 @@ const updateGeofence = async (req, res) => {
     }
 }
 
-    res.json({ success: true, message: 'Geofence updated successfully.' });
 
   } catch (err) {
     console.error("Error updating geofence:", err);

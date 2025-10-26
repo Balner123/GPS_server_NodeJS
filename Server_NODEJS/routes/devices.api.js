@@ -257,7 +257,6 @@ router.get('/export/gpx/:deviceId', isAuthenticated, isUser, deviceController.ex
  *         schema:
  *           type: string
  *         required: true
- *         description: The hardware ID of the device to delete.
  *         description: The hardware ID of the device.
  *     responses:
  *       '200':
