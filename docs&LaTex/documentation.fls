@@ -1,6 +1,6 @@
-PWD c:\Users\Repete\Desktop\PROJEKTGPS2025\GPS_server_NodeJS\LATEX
+PWD c:\Users\Repete\Desktop\PROJEKTGPS2025\GPS_server_NodeJS\docs&LaTex
 INPUT C:\Users\Repete\AppData\Local\MiKTeX\miktex\data\le\pdftex\pdflatex.fmt
-INPUT c:\Users\Repete\Desktop\PROJEKTGPS2025\GPS_server_NodeJS\LATEX\documentation.tex
+INPUT c:\Users\Repete\Desktop\PROJEKTGPS2025\GPS_server_NodeJS\docs&LaTex\documentation.tex
 OUTPUT documentation.log
 INPUT C:\Program Files\MiKTeX\tex\latex\base\report.cls
 INPUT C:\Program Files\MiKTeX\tex\latex\base\report.cls
@@ -132,11 +132,67 @@ INPUT C:\Users\Repete\AppData\Roaming\MiKTeX\tex\latex\rerunfilecheck\rerunfilec
 INPUT C:\Users\Repete\AppData\Roaming\MiKTeX\tex\latex\rerunfilecheck\rerunfilecheck.sty
 INPUT C:\Users\Repete\AppData\Roaming\MiKTeX\tex\generic\uniquecounter\uniquecounter.sty
 INPUT C:\Users\Repete\AppData\Roaming\MiKTeX\tex\generic\uniquecounter\uniquecounter.sty
+INPUT C:\Users\Repete\AppData\Roaming\MiKTeX\tex\latex\tocbibind\tocbibind.sty
+INPUT C:\Users\Repete\AppData\Roaming\MiKTeX\tex\latex\tocbibind\tocbibind.sty
 INPUT C:\Program Files\MiKTeX\tex\latex\l3backend\l3backend-pdftex.def
 INPUT C:\Program Files\MiKTeX\tex\latex\l3backend\l3backend-pdftex.def
 INPUT .\documentation.aux
 INPUT .\documentation.aux
 INPUT documentation.aux
+INPUT .\chapters\01-uvod.aux
+INPUT .\chapters\01-uvod.aux
+INPUT chapters\01-uvod.aux
+INPUT .\chapters\02-systemovy-prehled.aux
+INPUT .\chapters\02-systemovy-prehled.aux
+INPUT chapters\02-systemovy-prehled.aux
+INPUT .\chapters\03-architektura.aux
+INPUT .\chapters\03-architektura.aux
+INPUT chapters\03-architektura.aux
+INPUT .\chapters\04-server-backend.aux
+INPUT .\chapters\04-server-backend.aux
+INPUT chapters\04-server-backend.aux
+INPUT .\chapters\05-databaze.aux
+INPUT .\chapters\05-databaze.aux
+INPUT chapters\05-databaze.aux
+INPUT .\chapters\06-api-a-autentizace.aux
+INPUT .\chapters\06-api-a-autentizace.aux
+INPUT chapters\06-api-a-autentizace.aux
+INPUT .\chapters\07-zarizeni-a-hardware.aux
+INPUT .\chapters\07-zarizeni-a-hardware.aux
+INPUT chapters\07-zarizeni-a-hardware.aux
+INPUT .\chapters\08-firmware.aux
+INPUT .\chapters\08-firmware.aux
+INPUT chapters\08-firmware.aux
+INPUT .\chapters\09-aplikace-android.aux
+INPUT .\chapters\09-aplikace-android.aux
+INPUT chapters\09-aplikace-android.aux
+INPUT .\chapters\10-zpracovani-gps-dat.aux
+INPUT .\chapters\10-zpracovani-gps-dat.aux
+INPUT chapters\10-zpracovani-gps-dat.aux
+INPUT .\chapters\11-frontend-a-admin.aux
+INPUT .\chapters\11-frontend-a-admin.aux
+INPUT chapters\11-frontend-a-admin.aux
+INPUT .\chapters\12-testovani-a-kvalita.aux
+INPUT .\chapters\12-testovani-a-kvalita.aux
+INPUT chapters\12-testovani-a-kvalita.aux
+INPUT .\chapters\13-nasazeni-a-provoz.aux
+INPUT .\chapters\13-nasazeni-a-provoz.aux
+INPUT chapters\13-nasazeni-a-provoz.aux
+INPUT .\chapters\14-bezpecnost-a-soukromi.aux
+INPUT .\chapters\14-bezpecnost-a-soukromi.aux
+INPUT chapters\14-bezpecnost-a-soukromi.aux
+INPUT .\chapters\15-zaver-a-rozvoj.aux
+INPUT .\chapters\15-zaver-a-rozvoj.aux
+INPUT chapters\15-zaver-a-rozvoj.aux
+INPUT .\chapters\appendix-a-api-priklady.aux
+INPUT .\chapters\appendix-a-api-priklady.aux
+INPUT chapters\appendix-a-api-priklady.aux
+INPUT .\chapters\appendix-b-schema-zapojeni.aux
+INPUT .\chapters\appendix-b-schema-zapojeni.aux
+INPUT chapters\appendix-b-schema-zapojeni.aux
+INPUT .\chapters\appendix-c-troubleshooting.aux
+INPUT .\chapters\appendix-c-troubleshooting.aux
+INPUT chapters\appendix-c-troubleshooting.aux
 OUTPUT documentation.aux
 INPUT C:\Program Files\MiKTeX\tex\context\base\mkii\supp-pdf.mkii
 INPUT C:\Program Files\MiKTeX\tex\context\base\mkii\supp-pdf.mkii
@@ -167,22 +223,6 @@ INPUT C:\Program Files\MiKTeX\fonts\tfm\jknappen\ec\ecrm2488.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\jknappen\ec\ecbx2488.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\jknappen\ec\ecti1200.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\jknappen\ec\ecbx1200.tfm
-INPUT .\documentation.toc
-INPUT .\documentation.toc
-INPUT documentation.toc
-INPUT C:\Program Files\MiKTeX\fonts\tfm\jknappen\ec\ecbx1440.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\cm\cmr8.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\cm\cmr6.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\cm\cmmi12.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\cm\cmmi8.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\cm\cmmi6.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\cm\cmsy10.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\cm\cmsy8.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\cm\cmsy6.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\cm\cmex10.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\amsfonts\cmextra\cmex8.tfm
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\amsfonts\cmextra\cmex7.tfm
-OUTPUT documentation.toc
 INPUT .\documentation.lof
 INPUT .\documentation.lof
 INPUT documentation.lof
@@ -191,15 +231,188 @@ INPUT .\documentation.lot
 INPUT .\documentation.lot
 INPUT documentation.lot
 OUTPUT documentation.lot
+INPUT .\documentation.lol
+INPUT .\documentation.lol
+INPUT documentation.lol
+OUTPUT documentation.lol
+INPUT .\chapters\01-uvod.tex
+INPUT .\chapters\01-uvod.tex
+OUTPUT chapters\01-uvod.aux
+INPUT .\chapters\01-uvod.tex
+INPUT .\chapters\01-uvod.tex
+INPUT chapters\01-uvod.tex
 INPUT C:\Program Files\MiKTeX\fonts\tfm\jknappen\ec\ecrm1728.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\jknappen\ec\ecbx1728.tfm
+INPUT C:\Program Files\MiKTeX\fonts\tfm\jknappen\ec\tcrm1200.tfm
+INPUT .\chapters\02-systemovy-prehled.tex
+INPUT .\chapters\02-systemovy-prehled.tex
+OUTPUT chapters\02-systemovy-prehled.aux
+INPUT .\chapters\02-systemovy-prehled.tex
+INPUT .\chapters\02-systemovy-prehled.tex
+INPUT chapters\02-systemovy-prehled.tex
+INPUT .\chapters\03-architektura.tex
+INPUT .\chapters\03-architektura.tex
+OUTPUT chapters\03-architektura.aux
+INPUT .\chapters\03-architektura.tex
+INPUT .\chapters\03-architektura.tex
+INPUT chapters\03-architektura.tex
+INPUT .\chapters\04-server-backend.tex
+INPUT .\chapters\04-server-backend.tex
+OUTPUT chapters\04-server-backend.aux
+INPUT .\chapters\04-server-backend.tex
+INPUT .\chapters\04-server-backend.tex
+INPUT chapters\04-server-backend.tex
+INPUT .\chapters\05-databaze.tex
+INPUT .\chapters\05-databaze.tex
+OUTPUT chapters\05-databaze.aux
+INPUT .\chapters\05-databaze.tex
+INPUT .\chapters\05-databaze.tex
+INPUT chapters\05-databaze.tex
+INPUT .\chapters\06-api-a-autentizace.tex
+INPUT .\chapters\06-api-a-autentizace.tex
+OUTPUT chapters\06-api-a-autentizace.aux
+INPUT .\chapters\06-api-a-autentizace.tex
+INPUT .\chapters\06-api-a-autentizace.tex
+INPUT chapters\06-api-a-autentizace.tex
+INPUT .\chapters\07-zarizeni-a-hardware.tex
+INPUT .\chapters\07-zarizeni-a-hardware.tex
+OUTPUT chapters\07-zarizeni-a-hardware.aux
+INPUT .\chapters\07-zarizeni-a-hardware.tex
+INPUT .\chapters\07-zarizeni-a-hardware.tex
+INPUT chapters\07-zarizeni-a-hardware.tex
+INPUT .\chapters\08-firmware.tex
+INPUT .\chapters\08-firmware.tex
+OUTPUT chapters\08-firmware.aux
+INPUT .\chapters\08-firmware.tex
+INPUT .\chapters\08-firmware.tex
+INPUT chapters\08-firmware.tex
+INPUT .\chapters\09-aplikace-android.tex
+INPUT .\chapters\09-aplikace-android.tex
+OUTPUT chapters\09-aplikace-android.aux
+INPUT .\chapters\09-aplikace-android.tex
+INPUT .\chapters\09-aplikace-android.tex
+INPUT chapters\09-aplikace-android.tex
+INPUT .\chapters\10-zpracovani-gps-dat.tex
+INPUT .\chapters\10-zpracovani-gps-dat.tex
+OUTPUT chapters\10-zpracovani-gps-dat.aux
+INPUT .\chapters\10-zpracovani-gps-dat.tex
+INPUT .\chapters\10-zpracovani-gps-dat.tex
+INPUT chapters\10-zpracovani-gps-dat.tex
+INPUT .\chapters\11-frontend-a-admin.tex
+INPUT .\chapters\11-frontend-a-admin.tex
+OUTPUT chapters\11-frontend-a-admin.aux
+INPUT .\chapters\11-frontend-a-admin.tex
+INPUT .\chapters\11-frontend-a-admin.tex
+INPUT chapters\11-frontend-a-admin.tex
+INPUT .\chapters\12-testovani-a-kvalita.tex
+INPUT .\chapters\12-testovani-a-kvalita.tex
+OUTPUT chapters\12-testovani-a-kvalita.aux
+INPUT .\chapters\12-testovani-a-kvalita.tex
+INPUT .\chapters\12-testovani-a-kvalita.tex
+INPUT chapters\12-testovani-a-kvalita.tex
+INPUT .\chapters\13-nasazeni-a-provoz.tex
+INPUT .\chapters\13-nasazeni-a-provoz.tex
+OUTPUT chapters\13-nasazeni-a-provoz.aux
+INPUT .\chapters\13-nasazeni-a-provoz.tex
+INPUT .\chapters\13-nasazeni-a-provoz.tex
+INPUT chapters\13-nasazeni-a-provoz.tex
+INPUT .\chapters\14-bezpecnost-a-soukromi.tex
+INPUT .\chapters\14-bezpecnost-a-soukromi.tex
+OUTPUT chapters\14-bezpecnost-a-soukromi.aux
+INPUT .\chapters\14-bezpecnost-a-soukromi.tex
+INPUT .\chapters\14-bezpecnost-a-soukromi.tex
+INPUT chapters\14-bezpecnost-a-soukromi.tex
+INPUT .\chapters\15-zaver-a-rozvoj.tex
+INPUT .\chapters\15-zaver-a-rozvoj.tex
+OUTPUT chapters\15-zaver-a-rozvoj.aux
+INPUT .\chapters\15-zaver-a-rozvoj.tex
+INPUT .\chapters\15-zaver-a-rozvoj.tex
+INPUT chapters\15-zaver-a-rozvoj.tex
+INPUT .\chapters\appendix-a-api-priklady.tex
+INPUT .\chapters\appendix-a-api-priklady.tex
+OUTPUT chapters\appendix-a-api-priklady.aux
+INPUT .\chapters\appendix-a-api-priklady.tex
+INPUT .\chapters\appendix-a-api-priklady.tex
+INPUT chapters\appendix-a-api-priklady.tex
+INPUT C:\Program Files\MiKTeX\tex\latex\base\t1cmtt.fd
+INPUT C:\Program Files\MiKTeX\tex\latex\base\t1cmtt.fd
+INPUT C:\Program Files\MiKTeX\tex\latex\base\t1cmtt.fd
+INPUT C:\Program Files\MiKTeX\fonts\tfm\jknappen\ec\ectt1200.tfm
+INPUT .\chapters\appendix-b-schema-zapojeni.tex
+INPUT .\chapters\appendix-b-schema-zapojeni.tex
+OUTPUT chapters\appendix-b-schema-zapojeni.aux
+INPUT .\chapters\appendix-b-schema-zapojeni.tex
+INPUT .\chapters\appendix-b-schema-zapojeni.tex
+INPUT chapters\appendix-b-schema-zapojeni.tex
+INPUT .\chapters\appendix-c-troubleshooting.tex
+INPUT .\chapters\appendix-c-troubleshooting.tex
+OUTPUT chapters\appendix-c-troubleshooting.aux
+INPUT .\chapters\appendix-c-troubleshooting.tex
+INPUT .\chapters\appendix-c-troubleshooting.tex
+INPUT chapters\appendix-c-troubleshooting.tex
 INPUT documentation.aux
+INPUT .\chapters\01-uvod.aux
+INPUT .\chapters\01-uvod.aux
+INPUT chapters\01-uvod.aux
+INPUT .\chapters\02-systemovy-prehled.aux
+INPUT .\chapters\02-systemovy-prehled.aux
+INPUT chapters\02-systemovy-prehled.aux
+INPUT .\chapters\03-architektura.aux
+INPUT .\chapters\03-architektura.aux
+INPUT chapters\03-architektura.aux
+INPUT .\chapters\04-server-backend.aux
+INPUT .\chapters\04-server-backend.aux
+INPUT chapters\04-server-backend.aux
+INPUT .\chapters\05-databaze.aux
+INPUT .\chapters\05-databaze.aux
+INPUT chapters\05-databaze.aux
+INPUT .\chapters\06-api-a-autentizace.aux
+INPUT .\chapters\06-api-a-autentizace.aux
+INPUT chapters\06-api-a-autentizace.aux
+INPUT .\chapters\07-zarizeni-a-hardware.aux
+INPUT .\chapters\07-zarizeni-a-hardware.aux
+INPUT chapters\07-zarizeni-a-hardware.aux
+INPUT .\chapters\08-firmware.aux
+INPUT .\chapters\08-firmware.aux
+INPUT chapters\08-firmware.aux
+INPUT .\chapters\09-aplikace-android.aux
+INPUT .\chapters\09-aplikace-android.aux
+INPUT chapters\09-aplikace-android.aux
+INPUT .\chapters\10-zpracovani-gps-dat.aux
+INPUT .\chapters\10-zpracovani-gps-dat.aux
+INPUT chapters\10-zpracovani-gps-dat.aux
+INPUT .\chapters\11-frontend-a-admin.aux
+INPUT .\chapters\11-frontend-a-admin.aux
+INPUT chapters\11-frontend-a-admin.aux
+INPUT .\chapters\12-testovani-a-kvalita.aux
+INPUT .\chapters\12-testovani-a-kvalita.aux
+INPUT chapters\12-testovani-a-kvalita.aux
+INPUT .\chapters\13-nasazeni-a-provoz.aux
+INPUT .\chapters\13-nasazeni-a-provoz.aux
+INPUT chapters\13-nasazeni-a-provoz.aux
+INPUT .\chapters\14-bezpecnost-a-soukromi.aux
+INPUT .\chapters\14-bezpecnost-a-soukromi.aux
+INPUT chapters\14-bezpecnost-a-soukromi.aux
+INPUT .\chapters\15-zaver-a-rozvoj.aux
+INPUT .\chapters\15-zaver-a-rozvoj.aux
+INPUT chapters\15-zaver-a-rozvoj.aux
+INPUT .\chapters\appendix-a-api-priklady.aux
+INPUT .\chapters\appendix-a-api-priklady.aux
+INPUT chapters\appendix-a-api-priklady.aux
+INPUT .\chapters\appendix-b-schema-zapojeni.aux
+INPUT .\chapters\appendix-b-schema-zapojeni.aux
+INPUT chapters\appendix-b-schema-zapojeni.aux
+INPUT .\chapters\appendix-c-troubleshooting.aux
+INPUT .\chapters\appendix-c-troubleshooting.aux
+INPUT chapters\appendix-c-troubleshooting.aux
 INPUT .\documentation.out
 INPUT .\documentation.out
+INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\ectt1200.pk
+INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\ectt1200.pk
+INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\tcrm1200.pk
+INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\tcrm1200.pk
 INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\ecbx1728.pk
 INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\ecbx1728.pk
-INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\ecbx1440.pk
-INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\ecbx1440.pk
 INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\ecbx1200.pk
 INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\ecbx1200.pk
 INPUT C:\Users\Repete\AppData\Local\MiKTeX\fonts\pk\ljfour\jknappen\ec\dpi600\ecti1200.pk

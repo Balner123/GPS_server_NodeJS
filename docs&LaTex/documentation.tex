@@ -20,6 +20,7 @@
 \usepackage{listings} % Pro výpisy kódu
 \usepackage{xcolor} % Pro barvy v kódu
 \usepackage{hyperref} % Pro klikatelné odkazy
+\usepackage{tocbibind} % Přidá seznamy do obsahu automaticky
 \hypersetup{
     colorlinks=true,
     linkcolor=blue,
@@ -55,9 +56,13 @@
 }
 \lstset{style=mystyle}
 
+% --- Hloubka číslování a obsahu ---
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+
 
 % --- Informace o dokumentu ---
-\title{Technická dokumentace \\ GPS Tracking Systém "LOTR"}
+\title{Technická dokumentace \\ GPS Tracking Systém ``LOTR''}
 \author{Tým LOTR}
 \date{\today}
 
@@ -85,63 +90,47 @@ Děkujeme všem, kteří se podíleli na tomto projektu.
 
 \begin{abstract}
 \addcontentsline{toc}{chapter}{Abstrakt}
-Tento dokument poskytuje komplexní technický přehled systému pro sledování GPS zařízení "LOTR". Popisuje architekturu backendu, hardwarových komponent a mobilní aplikace.
+Tento dokument poskytuje komplexní technický přehled systému pro sledování GPS zařízení ``LOTR''. Popisuje architekturu backendu, hardwarových komponent a mobilní aplikace.
 \end{abstract}
 
-\tableofcontents
+	ableofcontents
 \listoffigures
 \listoftables
+\lstlistoflistings
 
 \cleardoublepage
 \pagenumbering{arabic}
 
 % --- Hlavní část dokumentu ---
 
-
 \part{Analytická část}
-\chapter{Úvod do problematiky}
-\section{Cíle projektu}
-\section{Analýza existujících řešení}
-\section{Technologický stack}
+\include{chapters/01-uvod}
+\include{chapters/02-systemovy-prehled}
+\include{chapters/03-architektura}
 
-\chapter{Architektura systému}
-\section{Celkový přehled}
-\section{Komunikační diagramy}
+\part{Návrh a implementace}
+\include{chapters/04-server-backend}
+\include{chapters/05-databaze}
+\include{chapters/06-api-a-autentizace}
+\include{chapters/07-zarizeni-a-hardware}
+\include{chapters/08-firmware}
+\include{chapters/09-aplikace-android}
+\include{chapters/10-zpracovani-gps-dat}
+\include{chapters/11-frontend-a-admin}
 
+\part{Kvalita, provoz a bezpečnost}
+\include{chapters/12-testovani-a-kvalita}
+\include{chapters/13-nasazeni-a-provoz}
+\include{chapters/14-bezpecnost-a-soukromi}
 
-\part{Návrhová a implementační část}
-\chapter{Backend Server (Node.js)}
-\section{Přehled a technologie}
-\section{Databázové schéma (ERD)}
-\section{API a routy}
-\section{Zpracování GPS dat}
-\section{Autentizace a autorizace}
-
-
-\chapter{Hardware (GPS Tracker)}
-\section{Popis komponent}
-\section{Schéma zapojení}
-\section{Firmware a provozní režimy}
-
-\chapter{Mobilní aplikace (Android)}
-\section{Architektura a použité knihovny}
-\section{Uživatelské rozhraní a funkce}
-
-\chapter{Testování}
-\section{Unit testy}
-\section{Integrační testy}
-\section{Uživatelské testování}
-
-\chapter{Závěr}
-\section{Shrnutí výsledků}
-\section{Možnosti dalšího rozvoje}
-
+\part{Závěr}
+\include{chapters/15-zaver-a-rozvoj}
 
 % --- Přílohy ---
 \appendix
-\chapter{Příklady API volání}
-\chapter{Výpisy zdrojových kódů}
-\chapter{Obsah přiloženého CD/úložiště}
+\include{chapters/appendix-a-api-priklady}
+\include{chapters/appendix-b-schema-zapojeni}
+\include{chapters/appendix-c-troubleshooting}
 
 % --- Bibliografie ---
 \cleardoublepage
