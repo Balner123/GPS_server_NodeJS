@@ -130,19 +130,40 @@ const updateDeviceSettings = async (req, res) => {
     }
     const { deviceId, interval_gps, interval_send, satellites } = req.body;
 
-    const [affectedRows] = await db.Device.update(
+    // Find device to disambiguate between "not found" and "no changes"
+    const device = await db.Device.findOne({
+      where: {
+        device_id: deviceId,
+        user_id: req.session.user.id
+      }
+    });
+
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    // If nothing changes, return a 200 with an informative message to avoid confusing the UI
+    const noChanges = (
+      Number(device.interval_gps) === Number(interval_gps) &&
+      Number(device.interval_send) === Number(interval_send) &&
+      Number(device.satellites) === Number(satellites)
+    );
+
+    if (noChanges) {
+      return res.status(200).json({ success: true, message: 'No changes detected.' });
+    }
+
+    await db.Device.update(
       { interval_gps, interval_send, satellites },
-      { where: {
+      {
+        where: {
           device_id: deviceId,
-          user_id: req.session.user.id 
-        } 
+          user_id: req.session.user.id
+        }
       }
     );
 
-    if (affectedRows === 0) {
-      return res.status(404).json({ error: 'Device not found or no changes made' });
-    }
-    res.json({ success: true, message: 'Settings updated successfully' }); 
+    res.json({ success: true, message: 'Settings updated successfully.' });
   } catch (err) {
     console.error("Error in updateDeviceSettings:", err);
     res.status(500).json({ error: err.message });

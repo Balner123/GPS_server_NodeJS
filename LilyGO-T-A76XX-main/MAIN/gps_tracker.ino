@@ -24,7 +24,7 @@
 #define GPS_TX_PIN    33  // ESP32 TX -> GPS RX
 #define GPS_POWER_PIN 5   // ESP32 pin to control power to GPS module (via transistor)
 #define GPS_BAUD_RATE 9600
-#define SAT_THRESHOLD 7   // Minimum satellites for a valid fix
+#define SAT_THRESHOLD 1   // Minimum satellites for a valid fix
 int minSatellitesForFix = SAT_THRESHOLD;
 // --- GPRS Configuration ---
 // Default values. These will be overwritten by values from Preferences if they exist.
