@@ -49,8 +49,7 @@ The server will respond with a JSON object with the following structure:
   "success": "boolean",
   "message": "string",
   "interval_gps": "number",
-  "interval_send": "number",
-  "satellites": "number"
+  "interval_send": "number"
 }
 ```
 
@@ -60,13 +59,15 @@ The server will respond with a JSON object with the following structure:
 - `message`: A message from the server.
 - `interval_gps`: The interval in seconds at which the device should acquire a GPS fix.
 - `interval_send`: The interval in seconds at which the device should send data to the server.
-- `satellites`: The minimum number of satellites required for a valid GPS fix.
+  
+Notes:
+- The app expects optional `interval_gps` and `interval_send` and ignores other fields in this response.
 
 ## 2. Device Registration
 
 Before a device can submit data, it must be registered with a user account on the server. This can be done through the web interface or via the API.
 
-**Endpoint:** `/api/devices/register/apk`
+**Endpoint:** `/api/apk/register-device`
 
 **Method:** `POST`
 
@@ -88,6 +89,8 @@ Before a device can submit data, it must be registered with a user account on th
 ```json
 {
   "success": "boolean",
-  "message": "string"
+  "message": "string",
+  "gps_interval": "number",
+  "interval_send": "number"
 }
 ```

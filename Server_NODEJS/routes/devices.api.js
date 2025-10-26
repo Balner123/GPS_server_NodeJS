@@ -108,15 +108,27 @@ const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/a
  *             $ref: '#/components/schemas/DeviceInput'
  *     responses:
  *       '200':
- *         description: Data received successfully. Returns the sleep interval for the device.
+ *         description: Data received successfully. Returns device interval configuration.
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 sleep_interval:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "1 location(s) recorded."
+ *                 interval_gps:
  *                   type: integer
  *                   example: 60
+ *                 interval_send:
+ *                   type: integer
+ *                   example: 1
+ *                 satellites:
+ *                   type: integer
+ *                   example: 7
  *       '400':
  *         description: Bad request (e.g., invalid coordinates, missing 'id').
  *       '404':
@@ -144,8 +156,9 @@ router.post('/input', authenticateDevice, deviceController.handleDeviceInput);
  *               items:
  *                 type: object
  *                 properties:
- *                   device_id:
+ *                   device:
  *                     type: string
+ *                     description: The hardware ID of the device.
  *                     example: "DEV123"
  *                   name:
  *                     type: string
@@ -159,6 +172,9 @@ router.post('/input', authenticateDevice, deviceController.handleDeviceInput);
  *                   timestamp:
  *                     type: string
  *                     format: date-time
+ *                   has_unread_alerts:
+ *                     type: boolean
+ *                     example: false
  *       '401':
  *         description: Unauthorized.
  *       '500':
@@ -178,9 +194,9 @@ router.get('/coordinates', isAuthenticated, deviceController.getCurrentCoordinat
  *       - in: query
  *         name: id
  *         schema:
- *           type: integer
+ *           type: string
  *         required: true
- *         description: The database ID of the device.
+ *         description: The hardware ID of the device (device_id).
  *     responses:
  *       '200':
  *         description: An array of location history points.
@@ -239,9 +255,9 @@ router.get('/export/gpx/:deviceId', isAuthenticated, isUser, deviceController.ex
  *       - in: path
  *         name: deviceId
  *         schema:
- *           type: integer
+ *           type: string
  *         required: true
- *         description: The database ID of the device.
+ *         description: The hardware ID of the device to delete.
  *     responses:
  *       '200':
  *         description: Device settings.

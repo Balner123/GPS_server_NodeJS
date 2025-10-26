@@ -52,7 +52,8 @@ uint64_t sleepTimeSeconds = DEFAULT_SLEEP_SECONDS;
 
 // --- OTA Configuration ---
 const int otaPin = 23; // GPIO pin for OTA mode switch (connect to 3.3V for OTA mode)
-String ota_ssid = "lotrTrackerOTA" + String(deviceID);
+// Default OTA SSID will be finalized after DeviceID is known in setup()
+String ota_ssid = "lotrTrackerOTA";
 String ota_password = "password";
 
 WebServer otaServer(80);
@@ -227,6 +228,12 @@ void setup() {
   deviceID = strdup(shortMac.c_str());
   SerialMon.print(F("Device ID (last 10 of MAC): "));
   SerialMon.println(deviceID);
+
+  // Finalize default OTA SSID if not customized yet
+  // If no value has been saved in Preferences, loadConfiguration() left ota_ssid as default "lotrTrackerOTA"
+  if (ota_ssid.length() == 0 || ota_ssid == "lotrTrackerOTA") {
+    ota_ssid = String("lotrTrackerOTA_") + deviceID;
+  }
 
   // Check OTA Pin state
   // Add a small delay to allow the pin state to stabilize after power-on, especially with physical switches.
@@ -429,8 +436,15 @@ String sendPostRequest(const char* resource, const String& payload) {
     return "";
   }
 
-  String fullUrl = "https://";
-  fullUrl += server;
+  // Build full URL adaptively based on configured port
+  // - If port == 80 -> use http
+  // - Else -> use https by default
+  String scheme = (port == 80) ? String("http") : String("https");
+  String fullUrl = scheme + "://" + server;
+  if ((scheme == "http" && port != 80) || (scheme == "https" && port != 443)) {
+    fullUrl += ":";
+    fullUrl += String(port);
+  }
   fullUrl += resource;
   
   SerialMon.print(F("Set URL: ")); SerialMon.println(fullUrl);

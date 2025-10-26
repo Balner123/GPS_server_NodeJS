@@ -17,50 +17,42 @@ const { isAuthenticated, isUser } = require('../middleware/authorization');
  *     UpdateUsername:
  *       type: object
  *       required:
- *         - newUsername
+ *         - username
  *       properties:
- *         newUsername:
+ *         username:
  *           type: string
  *           description: The new desired username.
  *           example: "myNewUsername"
  *     UpdatePassword:
  *       type: object
  *       required:
- *         - currentPassword
+ *         - oldPassword
  *         - newPassword
- *         - confirmNewPassword
+ *         - confirmPassword
  *       properties:
- *         currentPassword:
+ *         oldPassword:
  *           type: string
  *           description: The user's current password.
  *         newPassword:
  *           type: string
  *           description: The new password.
- *         confirmNewPassword:
+ *         confirmPassword:
  *           type: string
  *           description: Confirmation of the new password.
+ *         use_weak_password:
+ *           type: boolean
+ *           description: If true, relaxes the password policy (min length 3).
  *     UpdateEmail:
  *       type: object
  *       required:
- *         - newEmail
- *         - password
+ *         - email
  *       properties:
- *         newEmail:
+ *         email:
  *           type: string
  *           format: email
  *           description: The new desired email address.
  *           example: "new.email@example.com"
- *         password:
- *           type: string
- *           description: The user's current password to confirm the change.
- *     DeleteAccount:
- *       type: object
- *       required:
- *         - password
- *       properties:
- *         password:
- *           type: string
- *           description: The user's current password to confirm account deletion.
+ *
  */
 
 /**
@@ -145,21 +137,15 @@ router.post('/email', isAuthenticated, isUser, settingsController.updateEmail);
  * @swagger
  * /api/settings/delete-account:
  *   post:
- *     summary: Delete the account of the logged-in user
+ *     summary: Start the account deletion process for the logged-in user
  *     tags: [Settings API]
  *     security:
  *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/DeleteAccount'
  *     responses:
- *       '200':
- *         description: Account deleted successfully. User is logged out and redirected.
+ *       '302':
+ *         description: Redirects to /settings/confirm-delete with a code sent via email.
  *       '400':
- *         description: Bad request (e.g., incorrect password).
+ *         description: Bad request.
  *       '401':
  *         description: Unauthorized.
  *       '500':

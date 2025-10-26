@@ -79,4 +79,4 @@ async function sendGeofenceReturnEmail(to, device, location) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendGeofenceAlertEmail };
+module.exports = { sendVerificationEmail, sendGeofenceAlertEmail, sendGeofenceReturnEmail };

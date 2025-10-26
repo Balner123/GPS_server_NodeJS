@@ -49,9 +49,9 @@ router.post('/delete-user/:userId', isAuthenticated, isRoot, administrationContr
  *       - in: path
  *         name: deviceId
  *         schema:
- *           type: string
+ *           type: integer
  *         required: true
- *         description: The unique string ID (device_id) of the device to delete.
+ *         description: The database numeric ID (id) of the device to delete.
  *     responses:
  *       '302':
  *         description: Redirects to the /administration page on success. The redirect happens even if the device was not found.

@@ -119,9 +119,77 @@ router.post('/login', authController.loginUser);
 router.post('/register', authController.registerUser);
 router.post('/verify-email', authController.verifyEmailCode);
 
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   post:
+ *     summary: Verify email using a code
+ *     description: Verifies the email by checking the provided code for a pending registration or email change.
+ *     tags: [Auth API]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               code:
+ *                 type: string
+ *     responses:
+ *       '302':
+ *         description: Redirects to the appropriate page after verification.
+ *       '400':
+ *         description: Invalid or expired code.
+ *       '500':
+ *         description: Server error.
+ */
 
+/**
+ * @swagger
+ * /api/auth/resend-verification-code:
+ *   post:
+ *     summary: Resend verification code (API)
+ *     description: Resends an email verification code for pending registration or email change.
+ *     tags: [Auth API]
+ *     responses:
+ *       '302':
+ *         description: Redirects back to the verification page.
+ *       '400':
+ *         description: Session expired or invalid state.
+ *       '500':
+ *         description: Server error.
+ */
 router.post('/resend-verification-code', authController.resendVerificationCodeFromPage);
 
+/**
+ * @swagger
+ * /api/auth/set-initial-password:
+ *   post:
+ *     summary: Set the initial password for an OAuth account without a local password
+ *     description: Requires the user to be authenticated. Enforces the same password policy as registration (unless use_weak_password=true).
+ *     tags: [Auth API]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [newPassword, confirmPassword]
+ *             properties:
+ *               newPassword:
+ *                 type: string
+ *               confirmPassword:
+ *                 type: string
+ *               use_weak_password:
+ *                 type: boolean
+ *     responses:
+ *       '302':
+ *         description: Redirects to '/' or '/set-password' depending on outcome.
+ *       '401':
+ *         description: Unauthorized.
+ *       '400':
+ *         description: Validation errors.
+ */
 router.post('/set-initial-password', isAuthenticated, authController.setInitialPassword);
 
 module.exports = router;
