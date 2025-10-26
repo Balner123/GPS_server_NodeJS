@@ -133,6 +133,13 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                     val idsToDelete = cachedLocations.map { it.id }
                     dao.deleteLocationsByIds(idsToDelete)
                     ConsoleLogger.log("Vymazáno ${idsToDelete.size} pozic z mezipaměti.")
+                } else if (responseCode == HttpURLConnection.HTTP_FORBIDDEN) {
+                    ConsoleLogger.log("Chyba 403: Přístup odepřen. Uživatel bude odhlášen.")
+                    val logoutIntent = Intent(LocationService.ACTION_FORCE_LOGOUT).apply {
+                        putExtra(LocationService.EXTRA_LOGOUT_MESSAGE, "Vaše přihlášení vypršelo nebo bylo zrušeno. Prosím, přihlaste se znovu.")
+                    }
+                    applicationContext.sendBroadcast(logoutIntent)
+                    return Result.failure() // Stop further execution
                 } else {
                     ConsoleLogger.log("Chyba serveru: ($responseCode). Pokus bude opakován.")
                     return Result.retry()

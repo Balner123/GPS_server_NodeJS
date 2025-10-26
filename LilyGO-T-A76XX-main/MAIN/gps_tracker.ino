@@ -27,21 +27,22 @@
 #define SAT_THRESHOLD 7   // Minimum satellites for a valid fix
 int minSatellitesForFix = SAT_THRESHOLD;
 // --- GPRS Configuration ---
-const char apn[]      = "internet.t-mobile.cz"; // Replace with your APN
-const char gprsUser[] = "gprs";                 // Replace with your GPRS username
-const char gprsPass[] = "gprs";                 // Replace with your GPRS password
+// Default values. These will be overwritten by values from Preferences if they exist.
+String apn      = "internet.t-mobile.cz";
+String gprsUser = "gprs";
+String gprsPass = "gprs";
 
 // --- Server Configuration ---
-const char server[]       = "lotr-system.xyz"; // Your server IP or hostname
-const int  port           = 443;              // Your server port
-const char resourcePost[] = "/api/devices/input";     // Your server endpoint
+String server  = "lotr-system.xyz";
+int    port      = 443;
+const char resourcePost[] = "/api/devices/input";
 
 #define CACHE_FILE "/gps_cache.log"
 #define PREFERENCES_NAMESPACE "gps-tracker"
 #define KEY_BATCH_SIZE "batch_size"
 
 // --- Device & GPS Configuration ---
-const char* deviceName = "NEO-6M_A7670E"; // Device name for the payload
+String deviceName = "NEO-6M_A7670E";
 const char* deviceID = ""; // Device ID for the payload
 const unsigned long GPS_ACQUISITION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for GPS fix attempt
 
@@ -51,8 +52,8 @@ uint64_t sleepTimeSeconds = DEFAULT_SLEEP_SECONDS;
 
 // --- OTA Configuration ---
 const int otaPin = 23; // GPIO pin for OTA mode switch (connect to 3.3V for OTA mode)
-const char* ota_ssid = "GPS_Tracker_OTA";
-const char* ota_password = "password"; // Change or set to NULL for an open network
+String ota_ssid = "lotrTrackerOTA" + String(deviceID);
+String ota_password = "password";
 
 WebServer otaServer(80);
 
@@ -78,20 +79,24 @@ const char* update_form_page = R"rawliteral(
       input[type='text'], input[type='password'], input[type='file'] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; } /* Added input[type='file'] */
       input[type='submit'] { background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; width: 100%; } /* Changed color to green */
       input[type='submit']:hover { background-color: #218838; } /* Changed hover color */
-      .update-link { margin-top: 20px; }
-      a { color: #007bff; text-decoration: none; }
-      a:hover { text-decoration: underline; }
+      .nav-menu { margin-top: 20px; padding-top: 10px; border-top: 1px solid #eee; }
+      .nav-menu a { margin: 0 10px; color: #007bff; text-decoration: none; }
+      .nav-menu a:hover { text-decoration: underline; }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>GPS Tracker OTA Update</h1>
+      <h1> GPSTracker Update</h1>
       <p><b>Device ID:</b> %id%</p>
       <p>Connect to Wi-Fi: <b>%s</b></p>
       <form method='POST' action='/update' enctype='multipart/form-data'>
         <input type='file' name='update' accept='.bin' required><br>
         <input type='submit' value='Upload and Update'>
       </form>
+      <div class="nav-menu">
+        <a href="/">Main Page</a> | 
+        <a href="/settings">Settings</a>
+      </div>
     </div>
   </body>
   </html>
@@ -191,6 +196,7 @@ bool waitForGPSFix(unsigned long timeout);
 
 // --- OTA Function Prototypes ---
 void startOTAMode();
+void loadConfiguration();
 
 // ------------------------- Function Prototypes (Modem A7670E & System) -------------
 bool initializeModem();
@@ -209,6 +215,9 @@ void setup() {
   
   SerialMon.begin(115200);
   delay(100); // Wait for serial monitor to connect
+
+  // Load configuration from Preferences
+  loadConfiguration();
 
   // Set Device ID from MAC Address, this is permanent and unique
   String mac = WiFi.macAddress();
@@ -231,7 +240,7 @@ void setup() {
     // as modem initialization is skipped.
     startOTAMode(); // This function will loop indefinitely, program will not proceed beyond this.
   } else {
-    SerialMon.println(F("GPS Tracker Mode Activated."));
+    SerialMon.println(F("GPSTracker Mode Activated."));
 
     // 1. Initialize Filesystem and Preferences
     if(!LittleFS.begin()){
@@ -294,6 +303,7 @@ void setup() {
     }
 
     // 5. Go to sleep
+    preferences.end(); // Close preferences before sleeping
     if (isRegistered) {
       SerialMon.print(F("Device is registered. Next update in approx. ")); SerialMon.print(sleepTimeSeconds); SerialMon.println(F(" seconds."));
       enterDeepSleep(sleepTimeSeconds);
@@ -399,7 +409,7 @@ bool connectGPRS() {
   SerialMon.println(F(" success"));
 
   SerialMon.print(F("Connecting to GPRS: ")); SerialMon.print(apn);
-  if (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
+  if (!modem.gprsConnect(apn.c_str(), gprsUser.c_str(), gprsPass.c_str())) {
     SerialMon.println(F(" fail"));
     return false;
   }
@@ -424,7 +434,7 @@ String sendPostRequest(const char* resource, const String& payload) {
   fullUrl += resource;
   
   SerialMon.print(F("Set URL: ")); SerialMon.println(fullUrl);
-  if (!modem.https_set_url(fullUrl)) {
+  if (!modem.https_set_url(fullUrl.c_str())) {
     SerialMon.println(F("Failed to set URL."));
     modem.https_end();
     return "";
@@ -555,6 +565,29 @@ void enterDeepSleep(uint64_t seconds) {
   SerialMon.flush(); 
   esp_sleep_enable_timer_wakeup(seconds * 1000000ULL);
   esp_deep_sleep_start();
+}
+
+// --- Load Configuration ---
+void loadConfiguration() {
+    preferences.begin(PREFERENCES_NAMESPACE, false); // false for read/write
+
+    // Load GPRS settings
+    apn = preferences.getString("apn", apn);
+    gprsUser = preferences.getString("gprsUser", gprsUser);
+    gprsPass = preferences.getString("gprsPass", gprsPass);
+
+    // Load Server settings
+    server = preferences.getString("server", server);
+    port = preferences.getUInt("port", port);
+
+    // Load Device settings
+    deviceName = preferences.getString("deviceName", deviceName);
+
+    // Load OTA settings
+    ota_ssid = preferences.getString("ota_ssid", ota_ssid);
+    ota_password = preferences.getString("ota_password", ota_password);
+
+    // Note: preferences are not closed here, setup() will close it.
 }
 
 // --- Cache Handling Functions ---
@@ -813,9 +846,9 @@ const char* ota_main_page_template = R"rawliteral(
       input[type='text'], input[type='password'] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
       input[type='submit'] { background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; width: 100%; }
       input[type='submit']:hover { background-color: #218838; }
-      .update-link { margin-top: 20px; }
-      a { color: #007bff; text-decoration: none; }
-      a:hover { text-decoration: underline; }
+      .nav-menu { margin-top: 20px; padding-top: 10px; border-top: 1px solid #eee; }
+      .nav-menu a { margin: 0 10px; color: #007bff; text-decoration: none; }
+      .nav-menu a:hover { text-decoration: underline; }
     </style>
   </head>
   <body>
@@ -837,10 +870,203 @@ const char* ota_main_page_template = R"rawliteral(
         </div>
         <input type='submit' value='Register Device'>
       </form>
-      <div class="update-link">
-        <a href="/update">Go to Firmware Update Page &raquo;</a>
+      <div class="nav-menu">
+        <a href="/settings">Settings</a> | 
+        <a href="/update">Firmware Update</a>
       </div>
     </div>
+  </body>
+  </html>
+)rawliteral";
+
+// --- HTML for Settings Page ---
+const char* settings_page_template = R"rawliteral(
+  <html>
+  <head>
+    <title>Device Settings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+      .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+      h1, h2 { color: #333; text-align: center; }
+      .form-group { margin-bottom: 15px; }
+      label { display: block; margin-bottom: 5px; font-weight: bold; }
+      input[type='text'], input[type='password'], input[type='number'] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+      input[type='submit'] { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; width: 100%; }
+      input[type='submit']:hover { background-color: #0056b3; }
+      .nav-menu { margin-top: 20px; text-align: center; padding-top: 10px; border-top: 1px solid #eee; }
+      .nav-menu a { margin: 0 10px; color: #007bff; text-decoration: none; }
+      .nav-menu a:hover { text-decoration: underline; }
+      hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+      .section-header { display: flex; justify-content: space-between; align-items: center; }
+      .test-btn { padding: 5px 10px; font-size: 0.9em; cursor: pointer; }
+      .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #3498db; width: 16px; height: 16px; animation: spin 2s linear infinite; display: none; margin-left: 10px; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      .section-container { padding: 20px; border-radius: 5px; transition: background-color 0.5s ease; }
+      .section-container.success { background-color: #d4edda; }
+      .section-container.failure { background-color: #f8d7da; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Device Settings</h1>
+      <form method='POST' action='/savesettings' onsubmit="return validatePasswords()">
+        
+        <div id="gprs-section" class="section-container">
+          <div class="section-header">
+            <h2>GPRS Configuration</h2>
+            <div style="display: flex; align-items: center;">
+              <button type="button" id="test-gprs-btn" class="test-btn" onclick="testGPRS()">Test</button>
+              <div id="gprs-loader" class="loader"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="apn">APN:</label>
+            <input type='text' id="apn" name='apn' value='%apn%'>
+          </div>
+          <div class="form-group">
+            <label for="gprsUser">GPRS User:</label>
+            <input type='text' id="gprsUser" name='gprsUser' value='%gprsUser%'>
+          </div>
+          <div class="form-group">
+            <label for="gprsPass">GPRS Password:</label>
+            <input type='text' id="gprsPass" name='gprsPass' value='%gprsPass%'>
+          </div>
+          <div class="form-group">
+            <label for="gprsPassConfirm">Confirm GPRS Password:</label>
+            <input type='text' id="gprsPassConfirm" name='gprsPassConfirm' value='%gprsPass%'>
+          </div>
+        </div>
+
+        <hr>
+
+        <div id="server-section" class="section-container">
+          <div class="section-header">
+            <h2>Server Configuration</h2>
+            <div style="display: flex; align-items: center;">
+              <button type="button" id="test-server-btn" class="test-btn" onclick="testServer()">Test</button>
+              <div id="server-loader" class="loader"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="server">Server Hostname/IP:</label>
+            <input type='text' id="server" name='server' value='%server%'>
+          </div>
+          <div class="form-group">
+            <label for="port">Server Port:</label>
+            <input type='number' id="port" name='port' value='%port%'>
+          </div>
+        </div>
+
+        <hr>
+        <h2>Device Configuration</h2>
+        <div class="form-group">
+          <label for="deviceName">Device Name:</label>
+          <input type='text' id="deviceName" name='deviceName' value='%deviceName%'>
+        </div>
+        <hr>
+        <h2>OTA Hotspot Configuration</h2>
+        <div class="form-group">
+          <label for="ota_ssid">OTA WiFi SSID:</label>
+          <input type='text' id="ota_ssid" name='ota_ssid' value='%ota_ssid%'>
+        </div>
+        <div class="form-group">
+          <label for="ota_password">OTA WiFi Password:</label>
+          <input type='text' id="ota_password" name='ota_password' value='%ota_password%'>
+        </div>
+        <div class="form-group">
+          <label for="ota_password_confirm">Confirm OTA WiFi Password:</label>
+          <input type='text' id="ota_password_confirm" name='ota_password_confirm' value='%ota_password%'>
+        </div>
+        <br>
+        <input type='submit' value='Save Settings'>
+      </form>
+      <div class="nav-menu">
+        <a href="/">Main Page</a> | 
+        <a href="/update">Firmware Update</a>
+      </div>
+    </div>
+    <script>
+      function validatePasswords() {
+        var gprsPass = document.getElementById('gprsPass').value;
+        var gprsPassConfirm = document.getElementById('gprsPassConfirm').value;
+        var otaPass = document.getElementById('ota_password').value;
+        var otaPassConfirm = document.getElementById('ota_password_confirm').value;
+
+        if (gprsPass !== gprsPassConfirm) {
+          alert('GPRS passwords do not match!');
+          return false;
+        }
+        if (otaPass !== otaPassConfirm) {
+          alert('OTA WiFi passwords do not match!');
+          return false;
+        }
+        return true;
+      }
+
+      function testGPRS() {
+        const btn = document.getElementById('test-gprs-btn');
+        const loader = document.getElementById('gprs-loader');
+        const section = document.getElementById('gprs-section');
+        
+        btn.disabled = true;
+        loader.style.display = 'block';
+        section.className = 'section-container';
+
+        const apn = document.getElementById('apn').value;
+        const user = document.getElementById('gprsUser').value;
+        const pass = document.getElementById('gprsPass').value;
+
+        fetch(`/testgprs?apn=${encodeURIComponent(apn)}&user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              section.classList.add('success');
+            } else {
+              section.classList.add('failure');
+            }
+          })
+          .catch(err => {
+            section.classList.add('failure');
+            console.error('Error:', err);
+          })
+          .finally(() => {
+            btn.disabled = false;
+            loader.style.display = 'none';
+          });
+      }
+
+      function testServer() {
+        const btn = document.getElementById('test-server-btn');
+        const loader = document.getElementById('server-loader');
+        const section = document.getElementById('server-section');
+
+        btn.disabled = true;
+        loader.style.display = 'block';
+        section.className = 'section-container';
+
+        const host = document.getElementById('server').value;
+        const port = document.getElementById('port').value;
+
+        fetch(`/testserver?host=${encodeURIComponent(host)}&port=${encodeURIComponent(port)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              section.classList.add('success');
+            } else {
+              section.classList.add('failure');
+            }
+          })
+          .catch(err => {
+            section.classList.add('failure');
+            console.error('Error:', err);
+          })
+          .finally(() => {
+            btn.disabled = false;
+            loader.style.display = 'none';
+          });
+      }
+    </script>
   </body>
   </html>
 )rawliteral";
@@ -863,7 +1089,7 @@ void startOTAMode() {
   SerialMon.println(F("Starting WiFi AP..."));
   WiFi.disconnect(true);
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(ota_ssid, ota_password);
+  WiFi.softAP(ota_ssid.c_str(), ota_password.c_str());
   IPAddress apIP = WiFi.softAPIP();
   SerialMon.print(F("AP IP address: ")); SerialMon.println(apIP);
 
@@ -887,8 +1113,121 @@ void startOTAMode() {
   otaServer.on("/update", HTTP_GET, []() {
     String page_content = String(update_form_page);
     page_content.replace("%id%", deviceID);
-    page_content.replace("%s", ota_ssid);
+    page_content.replace("%s", ota_ssid.c_str());
     otaServer.send(200, "text/html", page_content);
+  });
+
+  // Handler for the settings page
+  otaServer.on("/settings", HTTP_GET, []() {
+    String page_content = String(settings_page_template);
+    page_content.replace("%apn%", apn);
+    page_content.replace("%gprsUser%", gprsUser);
+    page_content.replace("%gprsPass%", gprsPass);
+    page_content.replace("%server%", server);
+    page_content.replace("%port%", String(port));
+    page_content.replace("%deviceName%", deviceName);
+    page_content.replace("%ota_ssid%", ota_ssid);
+    page_content.replace("%ota_password%", ota_password);
+    otaServer.send(200, "text/html", page_content);
+  });
+
+  // Handler for saving settings
+  otaServer.on("/savesettings", HTTP_POST, []() {
+    preferences.begin(PREFERENCES_NAMESPACE, false);
+
+    // GPRS
+    if (otaServer.hasArg("apn")) preferences.putString("apn", otaServer.arg("apn"));
+    if (otaServer.hasArg("gprsUser")) preferences.putString("gprsUser", otaServer.arg("gprsUser"));
+    
+    String gprsPass = otaServer.arg("gprsPass");
+    String gprsPassConfirm = otaServer.arg("gprsPassConfirm");
+    if (gprsPass == gprsPassConfirm) {
+        preferences.putString("gprsPass", gprsPass);
+    }
+
+    // Server
+    if (otaServer.hasArg("server")) preferences.putString("server", otaServer.arg("server"));
+    if (otaServer.hasArg("port")) preferences.putUInt("port", otaServer.arg("port").toInt());
+
+    // Device
+    if (otaServer.hasArg("deviceName")) preferences.putString("deviceName", otaServer.arg("deviceName"));
+
+    // OTA
+    if (otaServer.hasArg("ota_ssid")) preferences.putString("ota_ssid", otaServer.arg("ota_ssid"));
+
+    String otaPass = otaServer.arg("ota_password");
+    String otaPassConfirm = otaServer.arg("ota_password_confirm");
+    if (otaPass == otaPassConfirm) {
+        preferences.putString("ota_password", otaPass);
+    }
+    
+    preferences.end();
+
+    // Reload config to apply immediately for things like OTA SSID
+    loadConfiguration();
+
+    // Redirect back to settings page with a success message (or a dedicated success page)
+    otaServer.sendHeader("Location", "/settings", true);
+    otaServer.send(302, "text/plain", "");
+  });
+
+  // Handler for testing GPRS connection
+  otaServer.on("/testgprs", HTTP_GET, []() {
+    String test_apn = otaServer.arg("apn");
+    String test_user = otaServer.arg("user");
+    String test_pass = otaServer.arg("pass");
+
+    SerialMon.println("--- Testing GPRS Connection ---");
+    SerialMon.printf("APN: %s, User: %s\n", test_apn.c_str(), test_user.c_str());
+
+    modem.gprsDisconnect();
+    SerialMon.println("GPRS disconnected for test.");
+    delay(1000);
+
+    bool success = modem.gprsConnect(test_apn.c_str(), test_user.c_str(), test_pass.c_str());
+
+    if (success) {
+      SerialMon.println("GPRS test connection successful.");
+      otaServer.send(200, "application/json", "{\"success\":true}");
+      modem.gprsDisconnect(); // Disconnect after test
+    } else {
+      SerialMon.println("GPRS test connection failed.");
+      otaServer.send(200, "application/json", "{\"success\":false}");
+    }
+
+    // Reconnect with original settings
+    SerialMon.println("Reconnecting to GPRS with saved settings...");
+    gprsConnectedOTA = connectGPRS();
+    if (gprsConnectedOTA) {
+      SerialMon.println("Reconnected successfully.");
+    } else {
+      SerialMon.println("Failed to reconnect to GPRS with saved settings.");
+    }
+  });
+
+  // Handler for testing server connection
+  otaServer.on("/testserver", HTTP_GET, []() {
+    if (!gprsConnectedOTA) {
+      otaServer.send(200, "application/json", "{\"success\":false, \"reason\":\"GPRS not connected\"}");
+      return;
+    }
+
+    String test_host = otaServer.arg("host");
+    int test_port = otaServer.arg("port").toInt();
+
+    SerialMon.println("--- Testing Server Connection ---");
+    SerialMon.printf("Host: %s, Port: %d\n", test_host.c_str(), test_port);
+
+    bool success = client.connect(test_host.c_str(), test_port);
+
+    if (success) {
+      SerialMon.println("Server test connection successful.");
+      client.stop();
+      otaServer.send(200, "application/json", "{\"success\":true}");
+    } else {
+      SerialMon.println("Server test connection failed.");
+      otaServer.send(200, "application/json", "{\"success\":false}");
+    }
   });
 
   // Handler for the registration form submission
@@ -970,4 +1309,4 @@ void startOTAMode() {
     otaServer.handleClient();
     delay(1);
   }
-} 
+}

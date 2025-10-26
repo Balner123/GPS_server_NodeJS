@@ -10,9 +10,10 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-
+import com.google.android.material.textfield.TextInputLayout
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -27,8 +28,13 @@ class LoginActivity : AppCompatActivity() {
 
     private lateinit var usernameEditText: EditText
     private lateinit var passwordEditText: EditText
+    private lateinit var serverUrlEditText: EditText
     private lateinit var loginButton: Button
     private lateinit var progressBar: ProgressBar
+    private lateinit var appNameTextView: TextView
+    private lateinit var serverUrlInputLayout: TextInputLayout
+    private lateinit var serverUrlLabel: TextView
+
 
     private val executorService = Executors.newSingleThreadExecutor()
 
@@ -39,8 +45,25 @@ class LoginActivity : AppCompatActivity() {
         // Inicializace UI prvků
         usernameEditText = findViewById(R.id.usernameEditText)
         passwordEditText = findViewById(R.id.passwordEditText)
+        serverUrlEditText = findViewById(R.id.serverUrlEditText)
         loginButton = findViewById(R.id.loginButton)
         progressBar = findViewById(R.id.progressBar)
+        appNameTextView = findViewById(R.id.app_name)
+        serverUrlInputLayout = findViewById(R.id.serverUrlInputLayout)
+        serverUrlLabel = findViewById(R.id.serverUrlLabel)
+
+        // Načtení uložené URL serveru
+        val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
+        val savedUrl = sharedPrefs.getString("server_url", BuildConfig.API_BASE_URL)
+        serverUrlEditText.setText(savedUrl)
+
+        // Zobrazení/skrytí pole pro URL serveru po dlouhém stisku
+        appNameTextView.setOnLongClickListener {
+            val isVisible = serverUrlInputLayout.visibility == View.VISIBLE
+            serverUrlInputLayout.visibility = if (isVisible) View.GONE else View.VISIBLE
+            serverUrlLabel.visibility = if (isVisible) View.GONE else View.VISIBLE
+            true
+        }
 
         // Zajistíme, že máme unikátní ID instalace
         getInstallationId()
@@ -48,6 +71,16 @@ class LoginActivity : AppCompatActivity() {
         loginButton.setOnClickListener {
             performLogin()
         }
+    }
+
+    private fun getApiBaseUrl(): String {
+        val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
+        val urlFromField = serverUrlEditText.text.toString().trim()
+        if (urlFromField.isNotEmpty() && urlFromField != sharedPrefs.getString("server_url", null)) {
+            sharedPrefs.edit().putString("server_url", urlFromField).apply()
+            Log.i("LoginActivity", "Server URL updated to: $urlFromField")
+        }
+        return sharedPrefs.getString("server_url", BuildConfig.API_BASE_URL) ?: BuildConfig.API_BASE_URL
     }
 
     private fun getInstallationId(): String {
@@ -75,6 +108,7 @@ class LoginActivity : AppCompatActivity() {
         val username = usernameEditText.text.toString()
         val password = passwordEditText.text.toString()
         val installationId = getInstallationId()
+        val apiBaseUrl = getApiBaseUrl()
 
         if (username.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, "Prosím, zadejte uživatelské jméno a heslo.", Toast.LENGTH_SHORT).show()
@@ -85,7 +119,7 @@ class LoginActivity : AppCompatActivity() {
 
         executorService.execute {
             try {
-                val url = URL("${BuildConfig.API_BASE_URL}/api/apk/login")
+                val url = URL("$apiBaseUrl/api/apk/login")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -160,10 +194,11 @@ class LoginActivity : AppCompatActivity() {
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
         val sessionCookie = sharedPrefs.getString("session_cookie", null)
+        val apiBaseUrl = getApiBaseUrl()
 
         executorService.execute {
             try {
-                val url = URL("${BuildConfig.API_BASE_URL}/api/apk/register-device")
+                val url = URL("$apiBaseUrl/api/apk/register-device")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")

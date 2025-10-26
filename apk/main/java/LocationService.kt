@@ -28,7 +28,9 @@ class LocationService : Service() {
     companion object {
         const val ACTION_BROADCAST_STATUS = "com.example.gpsreporterapp.BROADCAST_STATUS"
         const val ACTION_REQUEST_STATUS_UPDATE = "com.example.gpsreporterapp.REQUEST_STATUS_UPDATE"
+        const val ACTION_FORCE_LOGOUT = "com.example.gpsreporterapp.FORCE_LOGOUT"
         const val EXTRA_SERVICE_STATE = "extra_service_state"
+        const val EXTRA_LOGOUT_MESSAGE = "extra_logout_message"
     }
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient

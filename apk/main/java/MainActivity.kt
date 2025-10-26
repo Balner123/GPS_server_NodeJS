@@ -43,6 +43,13 @@ class MainActivity : AppCompatActivity() {
     private val gson = Gson()
     private var isServiceRunning = false
 
+    private val logoutReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val message = intent?.getStringExtra(LocationService.EXTRA_LOGOUT_MESSAGE) ?: "Došlo k chybě přihlášení."
+            showLogoutDialog(message)
+        }
+    }
+
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             intent?.takeIf { it.action == LocationService.ACTION_BROADCAST_STATUS }?.let {
@@ -141,6 +148,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showLogoutDialog(message: String) {
+        if (!isFinishing) {
+            AlertDialog.Builder(this)
+                .setTitle("Odhlášení")
+                .setMessage(message)
+                .setPositiveButton("OK") { _, _ -> performLogout() }
+                .setCancelable(false)
+                .show()
+        }
+    }
+
     private fun performLogout() {
         stopLocationService()
         val sharedPrefs = getEncryptedSharedPreferences()
@@ -166,8 +184,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        val filter = IntentFilter(LocationService.ACTION_BROADCAST_STATUS)
-        LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, filter)
+        val statusFilter = IntentFilter(LocationService.ACTION_BROADCAST_STATUS)
+        LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, statusFilter)
+
+        val logoutFilter = IntentFilter(LocationService.ACTION_FORCE_LOGOUT)
+        registerReceiver(logoutReceiver, logoutFilter)
+
 
         // Požádáme službu o poslání aktuálního stavu
         val intent = Intent(this, LocationService::class.java).apply {
@@ -179,6 +201,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         LocalBroadcastManager.getInstance(this).unregisterReceiver(statusReceiver)
+        unregisterReceiver(logoutReceiver)
         countdownTimer?.cancel()
     }
 
