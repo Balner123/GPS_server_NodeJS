@@ -114,7 +114,8 @@ const getDeviceSettings = async (req, res) => {
       satellites: device.satellites,
       geofence: device.geofence,
       created_at: device.created_at,
-      device_type: device.device_type
+      device_type: device.device_type,
+      mode: device.mode
     });
   } catch (err) {
     console.error("Error getting device settings:", err);
@@ -129,7 +130,7 @@ const updateDeviceSettings = async (req, res) => {
       // Surface a clear error message for the frontend while preserving details
       return res.status(400).json({ success: false, error: 'Validation failed', details: errors.array() });
     }
-    const { deviceId, interval_gps, interval_send, satellites } = req.body;
+    const { deviceId, interval_gps, interval_send, satellites, mode } = req.body;
 
     // Find device to disambiguate between "not found" and "no changes"
     const device = await db.Device.findOne({
@@ -151,7 +152,8 @@ const updateDeviceSettings = async (req, res) => {
     const noChanges = (
       Number(device.interval_gps) === nextIntervalGps &&
       Number(device.interval_send) === nextIntervalSend &&
-      Number(device.satellites) === nextSatellites
+      Number(device.satellites) === nextSatellites &&
+      device.mode === mode
     );
 
     if (noChanges) {
@@ -159,7 +161,7 @@ const updateDeviceSettings = async (req, res) => {
     }
 
     await db.Device.update(
-      { interval_gps: nextIntervalGps, interval_send: nextIntervalSend, satellites: nextSatellites },
+      { interval_gps: nextIntervalGps, interval_send: nextIntervalSend, satellites: nextSatellites, mode: mode },
       {
         where: {
           device_id: deviceId,

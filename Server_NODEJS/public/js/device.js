@@ -209,11 +209,6 @@ function initializeApp() {
             } else {
                 batchSettings.style.display = 'none';
                 document.getElementById('interval-send').value = 1;
-
-                const satellitesSetting = document.getElementById('satellites-setting');
-                if (satellitesSetting) {
-                    satellitesSetting.style.display = 'none';
-                }
             }
         });
     }
@@ -443,20 +438,28 @@ async function selectDevice(deviceId) {
             }
         }
         
+        originalSettings = {
+            interval_gps: settings.interval_gps || 0,
+            interval_send: settings.interval_send || 1,
+            satellites: settings.satellites || 7
+        };
+
         const dhms = secondsToDhms(settings.interval_gps || 0);
         document.getElementById('interval-gps-days').value = dhms.d;
-//...
+        document.getElementById('interval-gps-hours').value = dhms.h;
+        document.getElementById('interval-gps-minutes').value = dhms.m;
+        document.getElementById('interval-gps-seconds').value = dhms.s;
         document.getElementById('interval-send').value = settings.interval_send || 1;
         document.getElementById('satellites').value = settings.satellites || 7;
 
         const modeSelect = document.getElementById('mode-select');
         const batchSettings = document.getElementById('batch-settings');
         
-        if (settings.interval_send > 1) {
-            modeSelect.value = 'batch';
+        modeSelect.value = settings.mode || 'simple';
+
+        if (modeSelect.value === 'batch') {
             batchSettings.style.display = 'block';
         } else {
-            modeSelect.value = 'simple';
             batchSettings.style.display = 'none';
         }
         currentDeviceGeofence = settings.geofence;
@@ -522,6 +525,7 @@ function clearMapAndData() {
     updateGeofenceControls();
 }
 
+
 function updateMap(data, fitBounds) {
     if (!data) return;
 
@@ -530,134 +534,68 @@ function updateMap(data, fitBounds) {
     Object.values(markers).forEach(marker => map.removeLayer(marker));
     markers = {};
 
+    // Find the absolute latest point from the complete history
+    let latestPoint = null;
+    if (completeDeviceHistory.length > 0) {
+        latestPoint = completeDeviceHistory.reduce((latest, current) => {
+            const currentTime = new Date(current.timestamp || current.endTime);
+            const latestTime = new Date(latest.timestamp || latest.endTime);
+            return currentTime > latestTime ? current : latest;
+        });
+    }
+
     let pointsToDraw = [];
     if (useClusters) {
         pointsToDraw = data;
     } else {
-        // Unroll clusters into individual points
-        const rawPoints = [];
         data.forEach(p => {
             if (p.type === 'cluster') {
-                rawPoints.push(...p.originalPoints);
+                pointsToDraw.push(...p.originalPoints);
             } else {
-                rawPoints.push(p);
+                pointsToDraw.push(p);
             }
         });
-        pointsToDraw = rawPoints;
     }
 
-    // Create polyline from all points in the current view
-    const coordinates = [];
-    pointsToDraw.forEach(p => {
-        if (p.type === 'cluster' && p.originalPoints && p.originalPoints.length > 0) {
-            // For a cluster, we need to connect the line to its first and last actual points
-            // to ensure the polyline flows correctly into and out of the clustered section.
-            const sortedOriginals = [...p.originalPoints].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-            const firstPoint = sortedOriginals[0];
-            const lastPoint = sortedOriginals[sortedOriginals.length - 1];
-            
-            // We only add the first and last points of the cluster to the polyline path
-            coordinates.push([Number(firstPoint.latitude), Number(firstPoint.longitude)]);
-            if (sortedOriginals.length > 1) {
-                 coordinates.push([Number(lastPoint.latitude), Number(lastPoint.longitude)]);
-            }
-        } else {
-            // For a regular point, just add its coordinates.
-            coordinates.push([Number(p.latitude), Number(p.longitude)]);
-        }
+    // Create polyline from all points
+    const coordinates = pointsToDraw.map(p => [Number(p.latitude), Number(p.longitude)]).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
+    if (coordinates.length > 0) {
+        polyline = L.polyline(coordinates, { color: '#007bff', weight: 2 }).addTo(map);
+    }
+
+    // Create markers
+    pointsToDraw.forEach((point) => {
+        const isLatest = point === latestPoint;
+        const lat = Number(point.latitude);
+        const lon = Number(point.longitude);
+
+        if (isNaN(lat) || isNaN(lon)) return;
+
+        const markerOptions = {
+            icon: isLatest ? L.divIcon({
+                className: 'custom-div-icon last-position',
+                html: '<div style="background-color:#ff0000; width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff;"></div>',
+                iconSize: [17, 17],
+                iconAnchor: [8, 8]
+            }) : defaultIcon
+        };
+
+        const marker = L.marker([lat, lon], markerOptions)
+            .bindTooltip(createDevicePopup(point), {
+                permanent: permanentTooltips,
+                direction: 'auto',
+                className: 'device-tooltip'
+            });
+
+        marker.addTo(map);
+        markers[point.timestamp || point.endTime] = marker;
     });
 
-    const validCoordinates = coordinates.filter(c => c && !isNaN(c[0]) && !isNaN(c[1]));
-
-    if (validCoordinates.length > 0) {
-        polyline = L.polyline(validCoordinates, { color: '#007bff', weight: 2 }).addTo(map);
-    }
-
-        // Create markers for all points
-        let latestPointTimestamp = null;
-        if (completeDeviceHistory.length > 0) {
-            // Find the timestamp of the absolute latest point across all data (including inside clusters)
-            const latestTimestampValue = completeDeviceHistory.reduce((maxTimestamp, item) => {
-                // For clusters, find the max timestamp within originalPoints
-                if (item.type === 'cluster') {
-                    const maxInCluster = item.originalPoints.reduce((max, p) => Math.max(max, new Date(p.timestamp).getTime()), 0);
-                    return Math.max(maxTimestamp, maxInCluster);
-                }
-                // For single points, just use its timestamp
-                return Math.max(maxTimestamp, new Date(item.timestamp).getTime());
-            }, 0);
-            latestPointTimestamp = new Date(latestTimestampValue).toISOString();
-        }
-    
-        pointsToDraw.forEach((point) => {
-            let lat, lon;
-            
-            // This block processes both clusters and individual points for marker placement
-            if (useClusters && point.type === 'cluster') {
-                const totalLat = point.originalPoints.reduce((sum, p) => sum + Number(p.latitude), 0);
-                const totalLon = point.originalPoints.reduce((sum, p) => sum + Number(p.longitude), 0);
-                lat = totalLat / point.originalPoints.length;
-                lon = totalLon / point.originalPoints.length;
-
-                // A cluster marker itself can't be the "latest" individual point, so it always gets the defaultIcon.
-                const marker = L.marker([lat, lon], { icon: defaultIcon })
-                    .bindTooltip(createDevicePopup(point), {
-                        permanent: permanentTooltips,
-                        direction: 'auto',
-                        className: 'device-tooltip'
-                    });
-                marker.addTo(map);
-                markers[point.endTime] = marker; // Use endTime for cluster key
-
-            } else {
-                // This handles individual points, whether from the original data or from an un-clustered view
-                const pointsToProcess = (point.type === 'cluster') ? point.originalPoints : [point];
-
-                pointsToProcess.forEach(p => {
-                    lat = Number(p.latitude);
-                    lon = Number(p.longitude);
-                    
-                    if (isNaN(lat) || isNaN(lon)) return;
-
-                    const isLatestPoint = (p.timestamp === latestPointTimestamp);
-                    const markerOptions = {};
-                    if (!isLatestPoint) {
-                        markerOptions.icon = defaultIcon;
-                    }
-
-                    const marker = L.marker([lat, lon], markerOptions)
-                        .bindTooltip(createDevicePopup(p), {
-                            permanent: permanentTooltips,
-                            direction: 'auto',
-                            className: 'device-tooltip'
-                        });
-                    
-                    marker.addTo(map);
-                    markers[p.timestamp] = marker;
-                });
-            }
-        });
-    // Fit bounds logic on initial load
-    if (fitBounds) {
-        // The data from the server is sorted by timestamp ASC, so the last point is the latest.
-        if (data.length > 0) {
-            const latestPoint = data[data.length - 1];
-            let lat, lon;
-
-            // If the latest point is a cluster, use its average position
-            if (latestPoint.type === 'cluster') {
-                const totalLat = latestPoint.originalPoints.reduce((sum, p) => sum + Number(p.latitude), 0);
-                const totalLon = latestPoint.originalPoints.reduce((sum, p) => sum + Number(p.longitude), 0);
-                lat = totalLat / latestPoint.originalPoints.length;
-                lon = totalLon / latestPoint.originalPoints.length;
-            } else {
-                lat = Number(latestPoint.latitude);
-                lon = Number(latestPoint.longitude);
-            }
-
-            if (!isNaN(lat) && !isNaN(lon)) {
-                map.setView([lat, lon], 16); // Center on the last point with a zoom of 16
-            }
+    // Fit bounds on initial load
+    if (fitBounds && completeDeviceHistory.length > 0) {
+        const bounds = L.latLngBounds(completeDeviceHistory.map(p => [Number(p.latitude), Number(p.longitude)]));
+        if (bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.1));
         }
     }
 }
@@ -788,7 +726,8 @@ async function handleSettingsUpdate(e) {
                 deviceId: selectedDevice, 
                 interval_gps: intervalGps,
                 interval_send: parseInt(intervalSend, 10),
-                satellites: parseInt(document.getElementById('satellites').value, 10) || 7
+                satellites: parseInt(document.getElementById('satellites').value, 10) || 7,
+                mode: mode
             })
         });
         const result = await response.json();

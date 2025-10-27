@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS devices (
     interval_gps INT DEFAULT 60,
     interval_send INT DEFAULT 1,
     satellites INT DEFAULT 7,
+    mode ENUM('simple', 'batch') DEFAULT 'simple',
     geofence JSON NULL,
     geofence_alert_active BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
