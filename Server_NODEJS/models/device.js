@@ -40,6 +40,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 1 // Default: Send after every 1 cycle (simple mode)
     },
+    mode: {
+      type: DataTypes.ENUM('simple', 'batch'),
+      allowNull: false,
+      defaultValue: 'simple'
+    },
     satellites: {
       type: DataTypes.INTEGER,
       allowNull: false,

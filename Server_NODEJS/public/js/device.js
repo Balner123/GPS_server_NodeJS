@@ -2,6 +2,7 @@ let map;
 let selectedDevice = null;
 let polyline = null;
 let markers = {}; // Changed from array to object
+let markersLayer = null;
 let lastTimestamp = null;
 let completeDeviceHistory = [];
 let isShowingAllHistory = false;
@@ -69,6 +70,7 @@ function initializeApp() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
+    markersLayer = L.layerGroup().addTo(map);
 
     // --- Info Toggle Listener ---
     const infoToggle = document.getElementById('info-toggle-switch');
@@ -520,10 +522,14 @@ async function loadDeviceData(isInitialLoad = false) {
 }
 
 function clearMapAndData() {
-    if (polyline) map.removeLayer(polyline);
-    polyline = null;
+    if (polyline) {
+        map.removeLayer(polyline);
+        polyline = null;
+    }
     drawnItems.clearLayers();
-    Object.values(markers).forEach(marker => map.removeLayer(marker)); // Updated for object
+    if (markersLayer) {
+        markersLayer.clearLayers();
+    }
     markers = {}; // Reset to empty object
     lastTimestamp = null;
     completeDeviceHistory = [];
@@ -541,8 +547,13 @@ function clearMapAndData() {
 
 function updateMap(fitBounds) {
     // Always clear existing layers before drawing new ones
-    if (polyline) map.removeLayer(polyline);
-    Object.values(markers).forEach(marker => map.removeLayer(marker));
+    if (polyline) {
+        map.removeLayer(polyline);
+        polyline = null;
+    }
+    if (markersLayer) {
+        markersLayer.clearLayers();
+    }
     markers = {};
 
     // 1. Determine the data source based on the cluster setting
@@ -589,7 +600,11 @@ function updateMap(fitBounds) {
                 className: 'device-tooltip'
             });
 
-        marker.addTo(map);
+        if (markersLayer) {
+            markersLayer.addLayer(marker);
+        } else {
+            marker.addTo(map);
+        }
         markers[point.timestamp || point.endTime] = marker;
     });
 
