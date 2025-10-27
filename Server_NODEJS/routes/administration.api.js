@@ -62,4 +62,8 @@ router.post('/delete-user/:userId', isAuthenticated, isRoot, administrationContr
  */
 router.post('/delete-device/:deviceId', isAuthenticated, isRoot, administrationController.deleteDeviceAndData);
 
+router.post('/verify-user/:userId', isAuthenticated, isRoot, administrationController.verifyUser);
+
+router.post('/delete-alert/:alertId', isAuthenticated, isRoot, administrationController.deleteAlert);
+
 module.exports = router;

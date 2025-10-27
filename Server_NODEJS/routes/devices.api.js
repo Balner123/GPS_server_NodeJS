@@ -211,6 +211,8 @@ router.get('/coordinates', isAuthenticated, deviceController.getCurrentCoordinat
  */
 router.get('/data', isAuthenticated, deviceController.getDeviceData);
 
+router.get('/raw-data', isAuthenticated, deviceController.getRawDeviceData);
+
 /**
  * @swagger
  * /api/devices/export/gpx/{deviceId}:

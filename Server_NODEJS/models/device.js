@@ -21,7 +21,6 @@ module.exports = (sequelize, DataTypes) => {
         model: 'users',
         key: 'id'
       }
-      // onDelete: 'CASCADE' // Removed to prevent multiple cascade paths
     },
     last_seen: {
       type: DataTypes.DATE,

@@ -414,8 +414,8 @@ function clusterLocations(locations, distanceThreshold) {
     }
 
     if (cluster.length > 1) {
-      const totalLat = cluster.reduce((sum, point) => sum + point.latitude, 0);
-      const totalLon = cluster.reduce((sum, point) => sum + point.longitude, 0);
+      const totalLat = cluster.reduce((sum, point) => sum + Number(point.latitude), 0);
+      const totalLon = cluster.reduce((sum, point) => sum + Number(point.longitude), 0);
       
       const mergedPoint = {
         latitude: totalLat / cluster.length,
@@ -863,6 +863,33 @@ const exportDeviceDataAsGpx = async (req, res) => {
   }
 };
 
+const getRawDeviceData = async (req, res) => {
+  try {
+    const deviceId = req.query.id;
+    const device = await db.Device.findOne({
+      where: { 
+        device_id: deviceId,
+        user_id: req.session.user.id 
+      }
+    });
+
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    const rawLocations = await db.Location.findAll({
+      where: { device_id: device.id },
+      order: [['timestamp', 'ASC']] 
+    });
+
+    res.json(rawLocations);
+
+  } catch (err) {
+    console.error("Error in getRawDeviceData:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   getDeviceSettings,
   updateDeviceSettings,
@@ -875,6 +902,7 @@ module.exports = {
   handleDeviceInput,
   getCurrentCoordinates,
   getDeviceData,
+  getRawDeviceData, // <-- Add this line
   deleteDevice,
   getDevicesPage,
   removeDeviceFromUser,

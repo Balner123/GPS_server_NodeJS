@@ -163,8 +163,10 @@ class LoginActivity : AppCompatActivity() {
                                 .putInt("sync_interval_count", intervalSend)
                                 .apply()
                             Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
-                            runOnUiThread { Toast.makeText(this, "Přihlášení úspěšné!", Toast.LENGTH_SHORT).show() }
-                            navigateToMain()
+                            runOnUiThread {
+                                Toast.makeText(this, "Přihlášení úspěšné!", Toast.LENGTH_SHORT).show()
+                                navigateToMain()
+                            }
                         } else {
                             // Pokud ne, spustíme proces registrace
                             registerDevice(installationId)
@@ -231,8 +233,10 @@ class LoginActivity : AppCompatActivity() {
                             .putInt("sync_interval_count", intervalSend)
                             .apply()
                         Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
-                        runOnUiThread { Toast.makeText(this, "Zařízení úspěšně registrováno!", Toast.LENGTH_SHORT).show() }
-                        navigateToMain()
+                        runOnUiThread {
+                            Toast.makeText(this, "Zařízení úspěšně registrováno!", Toast.LENGTH_SHORT).show()
+                            navigateToMain()
+                        }
                     } else {
                         val error = jsonResponse.optString("error", "Neznámá chyba registrace.")
                         showError(error)

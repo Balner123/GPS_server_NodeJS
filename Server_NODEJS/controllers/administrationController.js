@@ -3,36 +3,98 @@ const db = require('../database');
 
 const getAdminPage = async (req, res) => {
     try {
+        const userSearch = req.query.userSearch || '';
+        const deviceSearch = req.query.deviceSearch || '';
+        const locationSearch = req.query.locationSearch || '';
+        const alertSearch = req.query.alertSearch || '';
+
+        const userSortBy = req.query.userSortBy || 'created_at';
+        const userSortOrder = req.query.userSortOrder || 'DESC';
+        const deviceSortBy = req.query.deviceSortBy || 'created_at';
+        const deviceSortOrder = req.query.deviceSortOrder || 'DESC';
+        const locationSortBy = req.query.locationSortBy || 'timestamp';
+        const locationSortOrder = req.query.locationSortOrder || 'DESC';
+        const alertSortBy = req.query.alertSortBy || 'created_at';
+        const alertSortOrder = req.query.alertSortOrder || 'DESC';
+
         const users = await db.User.findAll({
+            where: {
+                username: { [db.Sequelize.Op.like]: `%${userSearch}%` }
+            },
             include: [{
                 model: db.Device,
                 as: 'devices'
             }],
-            order: [['created_at', 'DESC']]
+            order: [[userSortBy, userSortOrder]]
         });
         
         const devices = await db.Device.findAll({
+            where: {
+                [db.Sequelize.Op.or]: [
+                    { device_id: { [db.Sequelize.Op.like]: `%${deviceSearch}%` } },
+                    { name: { [db.Sequelize.Op.like]: `%${deviceSearch}%` } }
+                ]
+            },
             include: [
                 { model: db.User, attributes: ['username'] },
                 { model: db.Location, limit: 1, order: [['timestamp', 'DESC']] }
             ],
-            order: [['created_at', 'DESC']]
+            order: [[deviceSortBy, deviceSortOrder]]
         });
 
-        const locations = await db.Location.findAll({
-            limit: 50, // Omezíme na posledních 50 záznamů, aby stránka nebyla přetížená
-            order: [['timestamp', 'DESC']],
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = 50; // Number of locations per page
+        const offset = (page - 1) * pageSize;
+
+        const { count, rows: locations } = await db.Location.findAndCountAll({
+            where: {
+                [db.Sequelize.Op.or]: [
+                    { latitude: { [db.Sequelize.Op.like]: `%${locationSearch}%` } },
+                    { longitude: { [db.Sequelize.Op.like]: `%${locationSearch}%` } }
+                ]
+            },
+            offset: offset,
+            limit: pageSize,
+            order: [[locationSortBy, locationSortOrder]],
             include: [{
                 model: db.Device,
                 attributes: ['device_id', 'name']
             }]
         });
 
+        const totalPages = Math.ceil(count / pageSize);
+
+        const alertsPage = parseInt(req.query.alertsPage) || 1;
+        const alertsPageSize = 50; // Number of alerts per page
+        const alertsOffset = (alertsPage - 1) * alertsPageSize;
+
+        const { count: alertsCount, rows: alerts } = await db.Alert.findAndCountAll({
+            where: {
+                message: { [db.Sequelize.Op.like]: `%${alertSearch}%` }
+            },
+            offset: alertsOffset,
+            limit: alertsPageSize,
+            order: [[alertSortBy, alertSortOrder]],
+            include: [
+                { model: db.Device, attributes: ['device_id', 'name'] },
+                { model: db.User, attributes: ['username'] }
+            ]
+        });
+
+        const alertsTotalPages = Math.ceil(alertsCount / alertsPageSize);
+
         res.render('administration', {
             currentPage: 'administration',
             users,
             devices,
             locations,
+            locationsCurrentPage: page,
+            locationsTotalPages: totalPages,
+            alerts,
+            alertsCurrentPage: alertsPage,
+            alertsTotalPages: alertsTotalPages,
+            userSearch, deviceSearch, locationSearch, alertSearch,
+            userSortBy, userSortOrder, deviceSortBy, deviceSortOrder, locationSortBy, locationSortOrder, alertSortBy, alertSortOrder,
             success: req.flash('success'),
             error: req.flash('error')
         });
@@ -92,8 +154,36 @@ const deleteDeviceAndData = async (req, res) => {
     }
 };
 
+const verifyUser = async (req, res) => {
+    const userId = req.params.userId;
+    try {
+        await db.User.update({ is_verified: true }, { where: { id: userId } });
+        req.flash('success', 'User has been verified successfully.');
+        res.redirect('/administration');
+    } catch (err) {
+        console.error("Error verifying user:", err);
+        req.flash('error', 'An error occurred while verifying the user.');
+        res.redirect('/administration');
+    }
+};
+
+const deleteAlert = async (req, res) => {
+    const alertId = req.params.alertId;
+    try {
+        await db.Alert.destroy({ where: { id: alertId } });
+        req.flash('success', 'Alert has been deleted successfully.');
+        res.redirect('/administration');
+    } catch (err) {
+        console.error("Error deleting alert:", err);
+        req.flash('error', 'An error occurred while deleting the alert.');
+        res.redirect('/administration');
+    }
+};
+
 module.exports = {
     getAdminPage,
     deleteUserAndData,
-    deleteDeviceAndData
+    deleteDeviceAndData,
+    verifyUser,
+    deleteAlert
 };

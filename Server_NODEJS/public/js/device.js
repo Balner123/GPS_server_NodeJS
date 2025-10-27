@@ -76,7 +76,7 @@ function initializeApp() {
          permanentTooltips = infoToggle.checked;
         infoToggle.addEventListener('change', (e) => {
             permanentTooltips = e.target.checked;
-            updateMap(completeDeviceHistory, false); // Redraw map with new tooltip setting
+            updateMap(false); // Redraw map with new tooltip setting
         });
     }
 
@@ -86,7 +86,7 @@ function initializeApp() {
         clusterToggle.addEventListener('change', (e) => {
             useClusters = e.target.checked;
             // Force a redraw of the map with the new setting
-            updateMap(completeDeviceHistory, false);
+            updateMap(false);
         });
     }
 
@@ -490,15 +490,28 @@ async function selectDevice(deviceId) {
     await loadDeviceData(true);
 }
 
+let rawDeviceHistory = [];
+
 async function loadDeviceData(isInitialLoad = false) {
     if (!selectedDevice) return;
     try {
         showLoadingIndicator();
-        const response = await fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const allData = await response.json();
-        completeDeviceHistory = allData;
-        updateMap(completeDeviceHistory, isInitialLoad);
+        const [clusteredResponse, rawResponse] = await Promise.all([
+            fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`),
+            fetch(`${API_BASE_URL}/api/devices/raw-data?id=${selectedDevice}`)
+        ]);
+
+        if (!clusteredResponse.ok || !rawResponse.ok) {
+            throw new Error(`HTTP error! status: ${clusteredResponse.status} or ${rawResponse.status}`);
+        }
+
+        const clusteredData = await clusteredResponse.json();
+        const rawData = await rawResponse.json();
+
+        completeDeviceHistory = clusteredData;
+        rawDeviceHistory = rawData;
+
+        updateMap(isInitialLoad);
         renderPositionTable();
 
     } catch (error) {
@@ -526,59 +539,48 @@ function clearMapAndData() {
 }
 
 
-function updateMap(data, fitBounds) {
-    if (!data) return;
-
+function updateMap(fitBounds) {
     // Always clear existing layers before drawing new ones
     if (polyline) map.removeLayer(polyline);
     Object.values(markers).forEach(marker => map.removeLayer(marker));
     markers = {};
 
-    // Find the absolute latest point from the complete history
-    let latestPoint = null;
-    if (completeDeviceHistory.length > 0) {
-        latestPoint = completeDeviceHistory.reduce((latest, current) => {
-            const currentTime = new Date(current.timestamp || current.endTime);
-            const latestTime = new Date(latest.timestamp || latest.endTime);
-            return currentTime > latestTime ? current : latest;
-        });
-    }
+    // 1. Determine the data source based on the cluster setting
+    const pointsToDraw = useClusters ? completeDeviceHistory : rawDeviceHistory;
 
-    let pointsToDraw = [];
-    if (useClusters) {
-        pointsToDraw = data;
-    } else {
-        data.forEach(p => {
-            if (p.type === 'cluster') {
-                pointsToDraw.push(...p.originalPoints);
-            } else {
-                pointsToDraw.push(p);
-            }
-        });
-    }
-
-    // Create polyline from all points
+    // 2. Draw the polyline from the selected data source
     const coordinates = pointsToDraw.map(p => [Number(p.latitude), Number(p.longitude)]).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
     if (coordinates.length > 0) {
         polyline = L.polyline(coordinates, { color: '#007bff', weight: 2 }).addTo(map);
     }
 
-    // Create markers
+    // 3. Find the latest point from the raw history to ensure it's always highlighted
+    let latestPoint = null;
+    if (rawDeviceHistory.length > 0) {
+        latestPoint = rawDeviceHistory.reduce((latest, current) => {
+            return new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest;
+        });
+    }
+
+    // 4. Create markers from the selected data source
     pointsToDraw.forEach((point) => {
-        const isLatest = point === latestPoint;
         const lat = Number(point.latitude);
         const lon = Number(point.longitude);
 
         if (isNaN(lat) || isNaN(lon)) return;
 
-        const markerOptions = {
-            icon: isLatest ? L.divIcon({
-                className: 'custom-div-icon last-position',
-                html: '<div style="background-color:#ff0000; width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff;"></div>',
-                iconSize: [17, 17],
-                iconAnchor: [8, 8]
-            }) : defaultIcon
-        };
+        // Check if the current point (or a point within a cluster) is the latest point
+        let isLatest = false;
+        if (point.type === 'cluster') {
+            isLatest = point.originalPoints.some(p => p.timestamp === latestPoint.timestamp);
+        } else {
+            isLatest = point.timestamp === latestPoint.timestamp;
+        }
+
+        const markerOptions = {};
+        if (!isLatest) {
+            markerOptions.icon = defaultIcon;
+        }
 
         const marker = L.marker([lat, lon], markerOptions)
             .bindTooltip(createDevicePopup(point), {
@@ -591,9 +593,9 @@ function updateMap(data, fitBounds) {
         markers[point.timestamp || point.endTime] = marker;
     });
 
-    // Fit bounds on initial load
-    if (fitBounds && completeDeviceHistory.length > 0) {
-        const bounds = L.latLngBounds(completeDeviceHistory.map(p => [Number(p.latitude), Number(p.longitude)]));
+    // 5. Fit bounds on initial load
+    if (fitBounds && rawDeviceHistory.length > 0) {
+        const bounds = L.latLngBounds(rawDeviceHistory.map(p => [Number(p.latitude), Number(p.longitude)]));
         if (bounds.isValid()) {
             map.fitBounds(bounds.pad(0.1));
         }
