@@ -89,7 +89,6 @@ const char* update_form_page = R"rawliteral(
     <div class="container">
       <h1> GPSTracker Update</h1>
       <p><b>Device ID:</b> %id%</p>
-      <p>Connect to Wi-Fi: <b>%s</b></p>
       <form method='POST' action='/update' enctype='multipart/form-data'>
         <input type='file' name='update' accept='.bin' required><br>
         <input type='submit' value='Upload and Update'>

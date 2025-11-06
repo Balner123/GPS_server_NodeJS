@@ -1,0 +1,81 @@
+# Popis Struktury a Životního Cyklu Firmwaru GPS Trackeru
+
+## 1. Struktura Kódu
+
+Firmware je navržen jako plně modulární pro snadnou údržbu a rozšiřitelnost. Každá klíčová komponenta má svůj vlastní pár souborů (`.h` a `.cpp`).
+
+*   **`main.ino`**: Hlavní soubor aplikace. Obsahuje pouze nejvyšší logiku – inicializaci a řízení hlavního cyklu.
+
+*   **`config.h`**: Centrální konfigurační soubor. Definuje všechny hardwarové piny, konstanty pro logiku (např. délky stisku tlačítka) a výchozí hodnoty pro GPRS, server a OTA.
+
+*   **`power_management`**: Stará se o napájení a logiku tlačítka.
+    *   Implementuje soft-latch (držení napájení pomocí pinu `EN`).
+    *   Pomocí FreeRTOS a přerušení spolehlivě detekuje krátký a dlouhý stisk tlačítka bez nutnosti neustálé kontroly v hlavní smyčce.
+    *   Zajišťuje bezpečné vypnutí (`graceful_shutdown`) a přechod do hlubokého spánku (`deep_sleep`).
+
+*   **`gps_control`**: Ovládá GPS modul.
+    *   Zapíná a vypíná napájení modulu.
+    *   Inicializuje sériovou komunikaci.
+    *   Získává a parsuje data o poloze.
+
+*   **`modem_control`**: Ovládá modem A76XX.
+    *   Inicializuje modem (AT příkazy).
+    *   Připojuje a odpojuje GPRS.
+    *   Odesílá data na server přes HTTPS POST.
+
+*   **`file_system`**: Spravuje ukládání dat.
+    *   Pracuje se souborovým systémem `LittleFS`.
+    *   Používá `Preferences` pro trvalé ukládání konfigurace (nastavení GPRS, serveru, intervalů atd.).
+    *   Implementuje mezipaměť (cache) pro GPS data, pokud je nelze okamžitě odeslat.
+
+*   **`ota_mode`**: Režim pro bezdrátové aktualizace a konfiguraci.
+    *   Spustí se po dlouhém stisku tlačítka při zapnutí.
+    *   Vytvoří Wi-Fi Access Point.
+    *   Spustí webový server, který umožňuje:
+        *   Nahrát nový firmware (`.bin` soubor).
+        *   Změnit a uložit veškerou konfiguraci (GPRS, server, Wi-Fi hotspot).
+        *   Registrovat zařízení na serveru.
+
+*   **`ota_pages.h`**: Obsahuje HTML a CSS kód pro webové stránky v OTA režimu.
+
+*   **`utilities.h`**: Definuje piny a konstanty specifické pro danou desku (LilyGO T-A76XX).
+
+---
+
+## 2. Životní Cyklus Aplikace
+
+Zařízení funguje v cyklech probuzení, práce a spánku, aby se maximalizovala výdrž baterie.
+
+### Start a Volba Režimu
+
+1.  **Zapnutí**: Uživatel stiskne tlačítko. Tím se sepne napájení a ESP32 se spustí.
+2.  **Power Latch**: Kód v `main.ino` okamžitě nastaví pin `PIN_EN` na `HIGH`, čímž drží napájení aktivní i po puštění tlačítka.
+3.  **Detekce OTA Režimu**: Ihned po startu kód zkontroluje, zda je tlačítko stále drženo. Pokud je drženo déle než 3 sekundy (`BTN_LONG_PRESS_MS`), zařízení se restartuje do **OTA režimu**.
+    *   V OTA režimu se spustí webový server a zařízení čeká na připojení uživatele. Tento režim běží, dokud není zařízení restartováno.
+
+### Normální Pracovní Cyklus (GPS Tracker)
+
+Pokud tlačítko není při startu drženo dlouze, pokračuje normální cyklus:
+
+1.  **Inicializace**: Spustí se `power_init()`, který aktivuje obsluhu tlačítka pro detekci krátkého stisku pro vypnutí.
+2.  **Probuzení**: Zjistí se důvod probuzení (časovač nebo tlačítko).
+3.  **Spuštění `work_cycle()`**:
+    a. **Souborový systém**: Inicializuje se LittleFS a `Preferences`.
+    b. **Načtení Konfigurace**: Z `Preferences` se načtou aktuální nastavení.
+    c. **Získání GPS Pozice**: Zapne se GPS modul, čeká se na platný signál (fix), a poté se modul opět vypne pro úsporu energie.
+    d. **Uložení do Cache**: Pokud byla pozice úspěšně získána, uloží se jako JSON záznam na konec souboru `gps_cache.log` v LittleFS.
+    e. **Pokus o Odeslání Dat**:
+        i. Pokud existuje soubor s cache, zařízení se pokusí odeslat data.
+        ii. Zapne se modem, připojí se k GPRS.
+        iii. Všechny záznamy z cache se odešlou na server v dávce (batch).
+        iv. Pokud server potvrdí úspěšné přijetí, soubor `gps_cache.log` se smaže.
+        v. Pokud odeslání selže, data zůstanou v cache pro příští pokus.
+        vi. Modem se vždy po pokusu o odeslání vypne.
+4.  **Ukončení**: Zavolá se `fs_end()` pro bezpečné ukončení práce se souborovým systémem.
+5.  **Hluboký Spánek**: Zařízení se přepne do režimu hlubokého spánku (`deep_sleep`) na dobu definovanou v konfiguraci (`sleepTimeSeconds`). Probudit ho může buď uplynutí nastaveného času, nebo stisk tlačítka.
+
+### Vypnutí
+
+*   Pokud je zařízení v normálním pracovním cyklu (nebo i v OTA režimu), krátký stisk tlačítka je detekován přerušením.
+*   FreeRTOS úkol `ShutdownTask` obdrží notifikaci a zavolá funkci `graceful_shutdown()`.
+*   Tato funkce bezpečně odpojí GPRS, vypne modem, GPS, ukončí práci s FS a nakonec nastaví `PIN_EN` na `LOW`, čímž dojde k fyzickému odpojení napájení.

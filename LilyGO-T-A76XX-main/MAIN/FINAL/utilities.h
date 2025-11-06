@@ -445,4 +445,3 @@
 // T-Call-A767X V1.0 and V1.1 have different Pinmaps and cannot be used universally , Invalid version
 // #define LILYGO_T_CALL_A7670_V1_1
 // #define LILYGO_T_A7608X_DC_S3
-
