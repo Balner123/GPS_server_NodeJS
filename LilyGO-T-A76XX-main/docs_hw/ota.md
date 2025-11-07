@@ -1,45 +1,52 @@
 # Servisní (OTA) režim
 
-Servisní režim slouží k registraci zařízení, změně nastavení a nahrání nového firmwaru.
+Servisní režim slouží k registraci zařízení, změně nastavení, testu konektivity a nahrání nového firmwaru. Odpovídající kód je v `MAIN/FINAL/ota_mode.cpp`.
 
-## Vstup do OTA
+## Jak vstoupit do OTA režimu
 
-- Přiveďte GPIO23 (otaPin) na 3.3V a zapněte zařízení.
-- Firmware nejprve inicializuje modem a pokusí se připojit k GPRS (kvůli registraci a testům).
-- Založí Wi‑Fi AP s SSID podle nastavení (výchozí `lotrTrackerOTA_<DeviceID>`) a heslem (výchozí `password`).
-- Web běží na `http://192.168.4.1`.
+- Připojte napájení a hned po resetu **držte tlačítko na pinu `PIN_BTN` (GPIO32)**.
+- Pokud tlačítko zůstane stisknuté po dobu `BTN_LONG_PRESS_MS` (2 s), firmware přepne do servisního režimu.
+- Krátké stisky pouze probudí zařízení nebo vyvolají ruční shutdown v běžném režimu, k OTA nedojde.
 
-## Stránky a funkce
+Po úspěšném vstupu OTA provede:
 
-- Úvodní stránka
-  - Zobrazuje `Device ID` (posledních 10 znaků MAC) a stav `GPRS Connected/Failed`.
-  - Odkazy na `Settings` (nastavení) a `Firmware Update` (OTA update).
+1. `power_init()` – aktivuje ISR a RTOS úlohu pro bezpečné vypnutí v případě potřeby.
+2. `fs_load_configuration()` – natáhne posledně uložené nastavení (APN, SSID atd.).
+3. Znovu spočítá `deviceID` (posledních 10 znaků MAC).
+4. Inicializuje modem (`modem_initialize()`) a pokusí se o GPRS připojení s uloženými údaji. Výsledek je zobrazen na titulní stránce.
+5. Spustí Wi‑Fi AP s SSID z konfigurace (výchozí `lotrTrackerOTA_<DeviceID>`) a heslem (výchozí `password`). Web rozhraní běží na `http://192.168.4.1`.
 
-- Register Device (`/doregister` – POST)
-  - Formulář s uživatelským jménem a heslem k vašemu účtu na serveru.
-  - Odesílá JSON na `/api/hw/register-device`: `{username, password, deviceId, name}`.
-  - Po úspěchu restartujte do normálního režimu.
+## Webové rozhraní
 
-- Settings (`/settings`)
-  - APN, GPRS user/pass
-  - Server hostname a port (port je využit jak pro odesílání dat trackerem, tak pro test v této stránce)
-  - Device Name (odesílá se v payloadu)
-  - OTA SSID a heslo (platí od dalšího zapnutí do OTA)
-  - Test GPRS (`/testgprs?apn=...&user=...&pass=...`) – krátké připojení a odpojení
-  - Test serveru (`/testserver?host=...&port=...`) – TCP connect na host:port
+- **Úvodní stránka (`/`)**
+  - Zobrazuje `Device ID`, název zařízení a aktuální stav GPRS (`Connected` / `Connection Failed`).
+  - Poskytuje odkazy na Settings, Firmware Update a Registration.
+  - LED v OTA režimu bliká (250 ms) jako vizuální indikace.
 
-- Firmware Update (`/update`)
-  - Nahrání `.bin` souboru a provedení OTA aktualizace
-  - Po úspěchu je potřeba ručně restartovat a přepnout zpět do běžného režimu
+- **Settings (`/settings`, POST `/savesettings`)**
+  - Formulář pro uložení APN, GPRS user/pass, server hostname a port, název zařízení, OTA SSID/heslo.
+  - Data se ukládají do `Preferences` a okamžitě se načítají zpět (`fs_load_configuration()`), takže změny jsou vidět bez restartu.
+  - `Test GPRS` → endpoint `/testgprs`: provozně odpojí aktuální GPRS, otestuje připojení s hodnotami z formuláře a vrátí JSON (`{"success":true|false}`). Poté se zkusí vrátit k původní konfiguraci.
+  - `Test server` → endpoint `/testserver`: aktuálně vrací pouze simulovaný výsledek; slouží jako šablona pro budoucí implementaci TCP testu.
 
-## Perzistence nastavení
+- **Registrace (`/doregister`)**
+  - Vyžaduje aktivní GPRS připojení, jinak vrací HTTP 503.
+  - POST formulář odesílá JSON na endpoint `RESOURCE_REGISTER` (`/api/devices/register`). Payload obsahuje `client_type`, `username`, `password`, `device_id` a `name`.
+  - Odpověď se zobrazí jako stylovaná stránka – úspěch nebo důvod neúspěchu ze serveru.
 
-Nastavení se ukládá do `Preferences` pod jménem `gps-tracker`:
+- **Firmware Update (`/update`)**
+  - Upload `.bin` souboru přes standardní OTA mechaniku (`Update` API).
+  - Po dokončení se zobrazí informační stránka; restart a návrat do běžného režimu provádí uživatel.
+
+## Co se ukládá do `Preferences`
+
+OTA rozhraní zapisuje stejné klíče, které se používají i v tracker režimu:
 
 - `apn`, `gprsUser`, `gprsPass`
-- `server` (hostname), `port` (zatím jen pro test serveru)
+- `server`, `port`
 - `deviceName`
 - `ota_ssid`, `ota_password`
-- `batch_size` (nastavuje server)
 
-Po uložení nastavení v OTA režimu se okamžitě načte (pro testy), ale změny SSID/hesla Wi‑Fi AP se projeví až při příštím startu do OTA.
+Další klíče (`sleepTime`, `minSats`, `batch_size`, `registered`, `mode`) nastavuje převážně backend během handshaku nebo uploadu; OTA je pouze zobrazuje.
+
+> **Tip:** Po změně SSID/hesla pro OTA zůstane původní AP aktivní až do restartu. Při příštím vstupu do servisního režimu už bude použita nová hodnota.

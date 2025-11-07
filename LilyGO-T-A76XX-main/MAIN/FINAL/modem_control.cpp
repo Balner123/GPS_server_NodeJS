@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "power_management.h"
+#include "file_system.h"
 
 // Global modem objects
 #ifdef DUMP_AT_COMMANDS
@@ -206,7 +207,7 @@ bool modem_connect_gprs(const String& apn_val, const String& user_val, const Str
   return true;
 }
 
-String modem_send_post_request(const char* resource, const String& payload) {
+String modem_send_post_request(const char* resource, const String& payload, int* statusCodeOut) {
   ModemLockGuard lock;
   if (!lock.isLocked()) {
     SerialMon.println(F("[MODEM] Unable to acquire modem lock for HTTPS POST."));
@@ -258,6 +259,9 @@ String modem_send_post_request(const char* resource, const String& payload) {
 
   SerialMon.println(F("[MODEM] Sending POST request..."));
   int statusCode = g_modem.https_post(payload);
+  if (statusCodeOut != nullptr) {
+    *statusCodeOut = statusCode;
+  }
 
   if (statusCode <= 0) {
     SerialMon.print(F("[MODEM] POST request failed with status code: "));
@@ -275,6 +279,86 @@ String modem_send_post_request(const char* resource, const String& payload) {
   SerialMon.println(F("[MODEM] Response Body:"));
   SerialMon.println(response_body);
   return response_body;
+}
+
+bool modem_perform_handshake() {
+  JsonDocument payloadDoc;
+  payloadDoc["device_id"] = deviceID;
+  payloadDoc["client_type"] = CLIENT_TYPE;
+  payloadDoc["power_status"] = power_status_to_string(power_status_get());
+
+  String payload;
+  serializeJson(payloadDoc, payload);
+
+  SerialMon.println(F("[MODEM] Performing device handshake..."));
+  int statusCode = 0;
+  String response = modem_send_post_request(RESOURCE_HANDSHAKE, payload, &statusCode);
+
+  if (statusCode == 404) {
+    SerialMon.println(F("[MODEM] Handshake responded 404 - device not registered."));
+    fs_set_registered(false);
+    return false;
+  }
+
+  if (statusCode == 409) {
+    SerialMon.println(F("[MODEM] Handshake conflict (409) - device claimed by another user."));
+    fs_set_registered(false);
+    power_instruction_clear();
+    return false;
+  }
+
+  if (statusCode >= 500 && statusCode != 0) {
+    SerialMon.print(F("[MODEM] Handshake server error: "));
+    SerialMon.println(statusCode);
+    return false;
+  }
+
+  if (statusCode <= 0 && response.isEmpty()) {
+    SerialMon.println(F("[MODEM] Handshake failed: no response from server."));
+    return false;
+  }
+
+  JsonDocument responseDoc;
+  DeserializationError error = deserializeJson(responseDoc, response);
+  if (statusCode >= 400) {
+    SerialMon.print(F("[MODEM] Handshake HTTP error: "));
+    SerialMon.println(statusCode);
+    return false;
+  }
+
+  if (error) {
+    SerialMon.print(F("[MODEM] Failed to parse handshake response: "));
+    SerialMon.println(error.c_str());
+    return false;
+  }
+
+  if (!responseDoc["registered"].isNull()) {
+    bool registered = responseDoc["registered"].as<bool>();
+    fs_set_registered(registered);
+    if (!registered) {
+      SerialMon.println(F("[MODEM] Handshake indicates device is not registered."));
+    }
+  }
+
+  if (!responseDoc["config"].isNull()) {
+    fs_apply_server_config(responseDoc["config"]);
+  }
+
+  if (!responseDoc["power_instruction"].isNull()) {
+    String instruction = responseDoc["power_instruction"].as<String>();
+    instruction.trim();
+    instruction.toUpperCase();
+    if (instruction == F("TURN_OFF")) {
+      power_instruction_apply(PowerInstruction::TurnOff);
+    } else if (instruction == F("NONE") || instruction.length() == 0) {
+      power_instruction_clear();
+    } else {
+      SerialMon.print(F("[MODEM] Unknown power instruction: "));
+      SerialMon.println(instruction);
+    }
+  }
+
+  return true;
 }
 
 void modem_disconnect_gprs() {

@@ -26,13 +26,8 @@ CREATE TABLE IF NOT EXISTS devices (
     device_id VARCHAR(255) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     device_type VARCHAR(10) DEFAULT NULL,
-    status VARCHAR(50) DEFAULT 'active',
     power_status ENUM('ON','OFF') DEFAULT 'ON',
     power_instruction ENUM('NONE','TURN_OFF') DEFAULT 'NONE',
-    instruction_token VARCHAR(255) DEFAULT NULL,
-    power_instruction_updated_at TIMESTAMP NULL,
-    last_power_ack_at TIMESTAMP NULL,
-    last_seen TIMESTAMP NULL,
     interval_gps INT DEFAULT 60,
     interval_send INT DEFAULT 1,
     satellites INT DEFAULT 7,
@@ -73,10 +68,9 @@ CREATE TABLE IF NOT EXISTS alerts (
 CREATE INDEX idx_device_id_locations ON locations(device_id);
 CREATE INDEX idx_user_id_locations ON locations(user_id);
 CREATE INDEX idx_timestamp_locations ON locations(timestamp);
-CREATE INDEX idx_device_status ON devices(status);
 CREATE INDEX idx_users_provider_id ON users(provider, provider_id);
 CREATE INDEX idx_device_id_alerts ON alerts(device_id);
 CREATE INDEX idx_user_id_alerts ON alerts(user_id);
 
 -- Root user for Admin purposes (testing)
-INSERT INTO users (username, email, is_verified, password) VALUES ('root', 'root', 1, '$2b$10$5JGpNVbNnSSbqs/hn9OW1OqdvhT5gCXh1n984mlPF46k5GHfZ/HwW');
+INSERT INTO users (username, email, is_verified, password) VALUES ('root', 'root', 1, '$2b$10$uEk1Pizo8SF86ETko0fdJ.hxXmTJDhIZLe8Dg.fSDJz75U3cbULFm');

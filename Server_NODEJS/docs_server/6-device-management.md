@@ -21,7 +21,8 @@ Primárně se používá sjednocený endpoint:
 ### Handshake
 
 - **Endpoint**: `POST /api/devices/handshake`
-- **Účel**: Zařízení (HW/APK) získá aktuální konfiguraci (`interval_gps`, `interval_send`, `mode`, `satellites`) a případnou `power_instruction` (`NONE`|`TURN_OFF`).
+- **Účel**: Zařízení (HW/APK) získá aktuální konfiguraci (`interval_gps`, `interval_send`, `mode`, `satellites`) a případnou `power_instruction` (`NONE`|`TURN_OFF`). Pokud zařízení hlásí shodu (`power_status=OFF` po instrukci `TURN_OFF`), server instrukci zruší ještě před odpovědí.
+- **Výstup**: `{ "registered": true|false, "config": { ... }, "power_instruction": "NONE" | "TURN_OFF" }`
 - **Legacy**: `POST /api/hw/handshake` – pouze překlopí volání na unified endpoint.
 
 ## 6.2. Zpracování a ukládání dat
@@ -33,9 +34,8 @@ Primárně se používá sjednocený endpoint:
   3.  Pokud ano, všechny platné body (s `latitude` a `longitude`) se uloží do tabulky `locations`.
   4.  U zařízení se aktualizuje časová značka `last_seen`.
   5.  Po uložení se provede kontrola na Geofence (viz níže).
-  6.  V odpovědi server zašle aktuální konfiguraci a power instrukce (`power_instruction`, `instruction_token`, `power_status`).
-  
-    Pro zpětnou kompatibilitu se intervaly vrací jak na root úrovni (`interval_*`), tak v objektu `config`.
+  6.  Pokud zařízení v payloadu oznámí novou hodnotu `power_status` (např. `OFF` po instrukci `TURN_OFF`), server uloží změnu a nulování instrukce provede atomicky.
+  7.  Odpověď je jednoduché `{ "success": true }`, případné další metadata si zařízení vyžádá až dalším handshake.
 
 ## 6.3. Zobrazení dat
 

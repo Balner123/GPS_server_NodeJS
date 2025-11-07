@@ -37,7 +37,7 @@
 // --- Button Logic Constants ---
 const uint32_t BTN_DEBOUNCE_MS      = 80;    // Debounce time for button press in milliseconds
 const uint32_t BTN_SHORT_PRESS_MS   = 500;   // Minimum duration for a short press (e.g., for shutdown)
-const uint32_t BTN_LONG_PRESS_MS    = 3000;  // Minimum duration for a long press (e.g., for OTA mode)
+const uint32_t BTN_LONG_PRESS_MS    = 2000;  // Minimum duration for a long press (e.g., for OTA mode)
 
 // --- GPS Configuration ---
 #define GPS_BAUD_RATE           9600
@@ -53,7 +53,9 @@ const unsigned long GPS_ACQUISITION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for
 #define DEFAULT_SERVER_HOST     "lotr-system.xyz"
 #define DEFAULT_SERVER_PORT     443
 #define RESOURCE_POST           "/api/devices/input"
-#define RESOURCE_REGISTER       "/api/hw/register-device"
+#define RESOURCE_REGISTER       "/api/devices/register"
+#define RESOURCE_HANDSHAKE      "/api/devices/handshake"
+#define CLIENT_TYPE             "HW"
 
 // --- File System & Preferences ---
 #define CACHE_FILE              "/gps_cache.log"

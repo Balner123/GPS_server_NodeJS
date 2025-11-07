@@ -56,10 +56,22 @@ function createDeviceElement(device) {
     const div = document.createElement('div');
     div.className = 'device-item';
     const displayName = device.name || device.device;
+    const powerMeta = getPowerStatusMeta(device.power_status, device.power_instruction);
+    const statusIndicatorHtml = `
+        <span class="status-chip-inline" title="Power status: ${powerMeta.label}">
+            <span class="status-dot ${powerMeta.dotClass}"></span>
+        </span>
+    `;
     div.innerHTML = `
-        <span class="device-status active"></span>
-        <strong>${displayName}</strong>
-        <div class="timestamp">Last update: ${formatTimestamp(device.timestamp)}</div>
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="d-flex flex-column">
+                <div class="d-flex align-items-center gap-2">
+                    ${statusIndicatorHtml}
+                    <strong>${displayName}</strong>
+                </div>
+            </div>
+            <div class="timestamp text-end">Last update: ${formatTimestamp(device.timestamp)}</div>
+        </div>
     `;
     
     div.addEventListener('click', () => {
@@ -136,8 +148,10 @@ function updateDeviceMarker(device) {
 // Create popup content
 function createIndexPopup(device) {
     const displayName = device.name || device.device;
+    const powerMeta = getPowerStatusMeta(device.power_status, device.power_instruction);
     return `
         <strong>${displayName}</strong><br>
-        <small class="timestamp">${formatTimestamp(device.timestamp)}</small>
+        <small class="timestamp">${formatTimestamp(device.timestamp)}</small><br>
+        <small class="text-muted">Power: ${powerMeta.label}</small>
     `;
 } 

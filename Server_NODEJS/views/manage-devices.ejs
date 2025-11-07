@@ -65,30 +65,27 @@
                     </div>
                     <div class="card-body">
                         <form id="power-instruction-form" class="mb-3">
-                            <div class="mb-3">
-                                <label for="power-instruction-select" class="form-label">Pending Instruction</label>
-                                <select class="form-select" id="power-instruction-select">
-                                    <option value="NONE">No instruction</option>
-                                    <option value="TURN_OFF">Turn device off</option>
-                                </select>
-                            </div>
-                            <div class="d-flex">
-                                <button type="submit" class="btn btn-danger">Apply Instruction</button>
-                                <button type="button" class="btn btn-secondary ms-2" id="clear-power-instruction-btn">Clear Instruction</button>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-danger flex-grow-1" id="power-off-btn">
+                                    <i class="fas fa-power-off me-2"></i>Power OFF
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary"
+                                    id="clear-power-instruction-btn"
+                                    title="Clear pending instruction"
+                                >
+                                    <i class="fas fa-rotate-right"></i>
+                                </button>
                             </div>
                         </form>
-                        <dl class="row small mb-0">
-                            <dt class="col-sm-5">Current Power State</dt>
-                            <dd class="col-sm-7" id="power-state-label">N/A</dd>
-                            <dt class="col-sm-5">Active Instruction</dt>
-                            <dd class="col-sm-7" id="power-instruction-label">N/A</dd>
-                            <dt class="col-sm-5">Instruction Token</dt>
-                            <dd class="col-sm-7" id="instruction-token-label">-</dd>
-                            <dt class="col-sm-5">Instruction Updated</dt>
-                            <dd class="col-sm-7" id="instruction-updated-label">-</dd>
-                            <dt class="col-sm-5">Last ACK</dt>
-                            <dd class="col-sm-7" id="last-ack-label">-</dd>
-                        </dl>
+                        <div class="power-status-wrapper">
+                            <span class="text-uppercase text-muted small d-block mb-1">Status</span>
+                            <div class="power-status-chip" id="power-status-chip">
+                                <span class="status-dot status-dot--neutral" id="power-status-dot"></span>
+                                <span class="power-status-text" id="power-status-text">N/A</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -104,10 +101,6 @@
                             <dd class="col-sm-8" id="info-device-type"></dd>
                             <dt class="col-sm-4">Registration Date</dt>
                             <dd class="col-sm-8" id="info-registration-date"></dd>
-                            <dt class="col-sm-4">Power Status</dt>
-                            <dd class="col-sm-8" id="info-power-status"></dd>
-                            <dt class="col-sm-4">Pending Instruction</dt>
-                            <dd class="col-sm-8" id="info-power-instruction"></dd>
                         </dl>
                         <button id="export-gpx-btn" class="btn btn-success" style="display: none;">Export GPX</button>
                     </div>

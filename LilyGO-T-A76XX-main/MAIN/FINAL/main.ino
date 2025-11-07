@@ -49,12 +49,33 @@ void setup() {
     while ((millis() - press_start_time) < BTN_LONG_PRESS_MS) {
       if (digitalRead(PIN_BTN) != LOW) {
         break; // Released before long-press threshold
+        unsigned long lastBlink = millis();
+        while (digitalRead(PIN_BTN) == LOW) {
+          if (millis() - lastBlink >= 250) {
+            lastBlink = millis();
+            status_led_toggle();
+          }
+          delay(10);
+        }
+        delay(150); // Debounce release
+        status_led_set(true);
       }
       delay(10);
     }
 
     if (digitalRead(PIN_BTN) == LOW) {
       SerialMon.println(F("[BOOT] Long press detected. Entering OTA mode."));
+      // Provide visual feedback while waiting for the button to be released
+      unsigned long lastBlink = millis();
+      while (digitalRead(PIN_BTN) == LOW) {
+        if (millis() - lastBlink >= 250) {
+          lastBlink = millis();
+          status_led_toggle();
+        }
+        delay(10);
+      }
+      delay(150); // Debounce release
+      status_led_set(true);
       start_ota_mode(); // This function will loop indefinitely
       while (true) { delay(1000); } // Should not be reached
     }
@@ -82,6 +103,10 @@ void setup() {
 
   // After work cycle, enter deep sleep
   // This will be replaced by actual sleep time from config
+  if (power_instruction_ack_pending()) {
+    SerialMon.println(F("[MAIN] Power instruction acknowledgement still pending. Staying awake for retry."));
+    return;
+  }
   if (isRegistered) {
     SerialMon.print(F("[MAIN] Device is registered. Next update in approx. ")); SerialMon.print(sleepTimeSeconds); SerialMon.println(F(" seconds."));
     enter_deep_sleep(sleepTimeSeconds);
@@ -124,16 +149,22 @@ void work_cycle() {
   SerialMon.println(deviceID);
 
   // 2. Get GPS Data
-  SerialMon.println(F("[MAIN] --- Initializing External GPS ---"));
-  gps_power_up();
-  gps_init_serial();
-  gps_get_fix(GPS_ACQUISITION_TIMEOUT_MS); // Button presses are handled by ISR now
-  gps_close_serial(); // De-initialize serial pins before cutting power
-  gps_power_down(); // Power down GPS immediately after fix attempt
-  if (shutdown_is_requested()) {
-    SerialMon.println(F("[MAIN] Shutdown requested after GPS stage. Aborting work cycle."));
-    return;
+  if (power_instruction_get() != PowerInstruction::TurnOff) {
+    SerialMon.println(F("[MAIN] --- Initializing External GPS ---"));
+    gps_power_up();
+    gps_init_serial();
+    gps_get_fix(GPS_ACQUISITION_TIMEOUT_MS); // Button presses are handled by ISR now
+    gps_close_serial(); // De-initialize serial pins before cutting power
+    gps_power_down(); // Power down GPS immediately after fix attempt
+    if (shutdown_is_requested()) {
+      SerialMon.println(F("[MAIN] Shutdown requested after GPS stage. Aborting work cycle."));
+      return;
+    }
+  } else {
+    gpsFixObtained = false;
   }
+
+  bool statusAckQueued = false;
 
   // 3. Cache the data point if a fix was obtained
   if (gpsFixObtained) {
@@ -151,6 +182,10 @@ void work_cycle() {
       sprintf(timestamp, "%04d-%02d-%02dT%02d:%02d:%02dZ", gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
       jsonDoc["timestamp"] = timestamp;
     }
+    if (power_status_report_pending()) {
+      jsonDoc["power_status"] = power_status_to_string(power_status_get());
+      statusAckQueued = true;
+    }
     String jsonData;
     serializeJson(jsonDoc, jsonData);
     append_to_cache(jsonData);
@@ -158,34 +193,87 @@ void work_cycle() {
     SerialMon.printf("[MAIN] Cycle %d complete. Batch size will be determined by server.\n", cycleCounter);
   }
 
-  // 4. Decide whether to send data
-  // The logic for batch size and sending is now handled within send_cached_data()
-  // We just need to call it if there's any data in cache or if it's time to send.
-  // For simplicity, we'll attempt to send if cycleCounter > 0 or cache file exists.
-  bool shouldSend = false;
-  if (!shutdown_is_requested()) {
-    shouldSend = (cycleCounter > 0) || fs_cache_exists();
+  bool statusReportPending = power_status_report_pending();
+  if (!gpsFixObtained && statusReportPending) {
+    JsonDocument statusDoc;
+    statusDoc["device"] = deviceID;
+    statusDoc["power_status"] = power_status_to_string(power_status_get());
+    String statusJson;
+    serializeJson(statusDoc, statusJson);
+    append_to_cache(statusJson);
+    statusAckQueued = true;
   }
 
-  if (shouldSend) {
-    if (shutdown_is_requested()) {
-      SerialMon.println(F("[MAIN] Shutdown requested. Skipping modem send."));
-    } else {
-      SerialMon.println(F("[MAIN] Data in cache or cycle counter > 0. Attempting to send."));
+  // 4. Perform handshake and optionally send data in a single modem session
+  if (shutdown_is_requested()) {
+    SerialMon.println(F("[MAIN] Shutdown requested before modem session. Skipping network operations."));
+  } else {
+    SerialMon.println(F("[MAIN] Starting modem session (handshake + optional upload)."));
+    bool modemInitialized = false;
+    bool gprsConnected = false;
 
-      if (modem_initialize() && modem_connect_gprs(apn, gprsUser, gprsPass)) {
-        if (send_cached_data()) {
-          cycleCounter = 0; // Reset counter only on successful send of all cached data
+    if (modem_initialize()) {
+      modemInitialized = true;
+      if (modem_connect_gprs(apn, gprsUser, gprsPass)) {
+        gprsConnected = true;
+        bool handshakeSuccess = modem_perform_handshake();
+        if (!handshakeSuccess) {
+          SerialMon.println(F("[MAIN] Handshake did not complete successfully."));
         }
+
+        if (!isRegistered) {
+          SerialMon.println(F("[MAIN] Device reported as unregistered during handshake. Entering shutdown."));
+          modem_disconnect_gprs();
+          modem_power_off();
+          graceful_shutdown();
+          return;
+        }
+
+        if (power_status_report_pending() && !statusAckQueued) {
+          JsonDocument statusDoc;
+          statusDoc["device"] = deviceID;
+          statusDoc["power_status"] = power_status_to_string(power_status_get());
+          String statusJson;
+          serializeJson(statusDoc, statusJson);
+          append_to_cache(statusJson);
+          statusAckQueued = true;
+        }
+
+        bool hasDataToSend = fs_cache_exists();
+        if (hasDataToSend) {
+          SerialMon.println(F("[MAIN] Data available for upload. Attempting to send."));
+          if (send_cached_data()) {
+            cycleCounter = 0;
+          }
+        } else {
+          SerialMon.println(F("[MAIN] No data pending after handshake."));
+        }
+
         modem_disconnect_gprs();
+        gprsConnected = false;
       } else {
         SerialMon.println(F("[MAIN] Failed to connect to GPRS. Data remains cached."));
       }
+
       modem_power_off();
+      modemInitialized = false;
+    } else {
+      SerialMon.println(F("[MAIN] Failed to initialize modem for network session."));
     }
 
-  } else {
-     SerialMon.println(F("[MAIN] No data to send yet. Going to sleep."));
+    if (gprsConnected) {
+      modem_disconnect_gprs();
+    }
+    if (modemInitialized) {
+      modem_power_off();
+    }
+  }
+
+  if (power_instruction_should_shutdown()) {
+    SerialMon.println(F("[MAIN] Power instruction acknowledged. Shutting down device."));
+    power_instruction_clear();
+    graceful_shutdown();
+    return;
   }
 
   // 5. Clean up file system resources

@@ -1,444 +1,191 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <%- include('partials/_head.ejs', {title: 'Administration'}) %>
-    <style>
-        .table-responsive {
-            max-height: 400px;
-        }
-        .card-header h5 {
-            margin-bottom: 0;
-        }
-        .admin-table-container {
-            width: 95vw;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        #usersTableContainer table,
-        #devicesTableContainer table,
-        #locationsTableContainer table,
-        #alertsTableContainer table {
-            table-layout: fixed;
-            width: 100%;
-        }
-        #usersTableContainer td,
-        #usersTableContainer th {
-            word-wrap: break-word;
-            white-space: normal;
-            font-size: 0.85em;
-        }
-        #usersTableContainer th:nth-child(1) { width: 5%; } /* ID */
-        #usersTableContainer th:nth-child(2) { width: 10%; } /* Username */
-        #usersTableContainer th:nth-child(3) { width: 15%; } /* Email */
-        #usersTableContainer th:nth-child(4) { width: 8%; } /* Verified */
-        #usersTableContainer th:nth-child(5) { width: 8%; } /* Provider */
-        #usersTableContainer th:nth-child(6) { width: 10%; font-size: 0.7em; } /* Provider ID */
-        #usersTableContainer th:nth-child(7) { width: 10%; } /* Pending Email */
-        #usersTableContainer th:nth-child(8) { width: 15%; font-size: 0.7em; } /* Password Hash */
-        #usersTableContainer th:nth-child(9) { width: 5%; } /* Devices */
-        #usersTableContainer th:nth-child(10) { width: 10%; } /* Created At */
-        #usersTableContainer th:nth-child(11) { width: 10%; } /* Actions */
-
-        #devicesTableContainer td,
-        #devicesTableContainer th {
-            word-wrap: break-word;
-            white-space: normal;
-            font-size: 0.85em;
-        }
-        #devicesTableContainer th:nth-child(1) { width: 10%; } /* Device ID */
-        #devicesTableContainer th:nth-child(2) { width: 15%; } /* Name */
-        #devicesTableContainer th:nth-child(3) { width: 10%; } /* Owner */
-        #devicesTableContainer th:nth-child(4) { width: 8%; } /* Status */
-        #devicesTableContainer th:nth-child(5) { width: 10%; } /* GPS Interval */
-        #devicesTableContainer th:nth-child(6) { width: 10%; } /* Send Interval */
-        #devicesTableContainer th:nth-child(7) { width: 8%; } /* Satellites */
-        #devicesTableContainer th:nth-child(8) { width: 8%; } /* Mode */
-        #devicesTableContainer th:nth-child(9) { width: 10%; } /* Last Seen */
-        #devicesTableContainer th:nth-child(10) { width: 10%; } /* Actions */
-
-        #locationsTableContainer td,
-        #locationsTableContainer th {
-            word-wrap: break-word;
-            white-space: normal;
-            font-size: 0.85em;
-        }
-        #locationsTableContainer th:nth-child(1) { width: 15%; } /* Device ID */
-        #locationsTableContainer th:nth-child(2) { width: 15%; } /* Coordinates */
-        #locationsTableContainer th:nth-child(3) { width: 10%; } /* Speed */
-        #locationsTableContainer th:nth-child(4) { width: 10%; } /* Altitude */
-        #locationsTableContainer th:nth-child(5) { width: 10%; } /* Accuracy */
-        #locationsTableContainer th:nth-child(6) { width: 10%; } /* Satellites */
-        #locationsTableContainer th:nth-child(7) { width: 20%; } /* Timestamp */
-
-        #alertsTableContainer td,
-        #alertsTableContainer th {
-            word-wrap: break-word;
-            white-space: normal;
-            font-size: 0.85em;
-        }
-        #alertsTableContainer th:nth-child(1) { width: 5%; } /* ID */
-        #alertsTableContainer th:nth-child(2) { width: 10%; } /* Device ID */
-        #alertsTableContainer th:nth-child(3) { width: 10%; } /* User */
-        #alertsTableContainer th:nth-child(4) { width: 8%; } /* Type */
-        #alertsTableContainer th:nth-child(5) { width: 25%; } /* Message */
-        #alertsTableContainer th:nth-child(6) { width: 8%; } /* Read */
-        #alertsTableContainer th:nth-child(7) { width: 15%; } /* Created At */
-        #alertsTableContainer th:nth-child(8) { width: 10%; } /* Actions */
-
-    </style>
+    <%- include('partials/_head.ejs', { title: 'Administration' }) %>
 </head>
 <body>
-    <%- include('partials/_preloader.ejs') %>
     <%- include('partials/_navbar.ejs') %>
 
-    <div class="container-fluid mt-4">
+    <div class="container-fluid py-4">
         <h2 class="mb-4">Database Administration</h2>
 
-        <% if (locals.error && error.length > 0) { %>
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <%= error %>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <% const errorMsg = Array.isArray(error) ? error[0] : error; %>
+        <% if (errorMsg) { %>
+            <div class="alert alert-danger" role="alert">
+                <%= errorMsg %>
             </div>
         <% } %>
-        <% if (locals.success && success.length > 0) { %>
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <%= success %>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <% const successMsg = Array.isArray(success) ? success[0] : success; %>
+        <% if (successMsg) { %>
+            <div class="alert alert-success" role="alert">
+                <%= successMsg %>
             </div>
         <% } %>
 
-    <!-- Users -->
-    <div class="card mb-4 admin-table-container fade-in-on-load" style="animation-delay: 0.2s;">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5>Users</h5>
-            <span class="badge bg-success rounded-pill"><%= users.length %></span>
-        </div>
-        <div class="card-body">
-            <div class="mb-3">
-                <input type="text" class="form-control" id="userSearch" placeholder="Search users..." value="<%= userSearch %>">
-            </div>
+        <section class="mb-5">
+            <h3 class="mb-3">Users (<%= users.length %>)</h3>
             <div class="table-responsive">
-                <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th data-sort-by="id" data-sort-order="<%= userSortBy === 'id' ? (userSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">ID <i class="fas fa-sort<%= userSortBy === 'id' ? (userSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="username" data-sort-order="<%= userSortBy === 'username' ? (userSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Username <i class="fas fa-sort<%= userSortBy === 'username' ? (userSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="email" data-sort-order="<%= userSortBy === 'email' ? (userSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Email <i class="fas fa-sort<%= userSortBy === 'email' ? (userSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="is_verified" data-sort-order="<%= userSortBy === 'is_verified' ? (userSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Verified <i class="fas fa-sort<%= userSortBy === 'is_verified' ? (userSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="provider" data-sort-order="<%= userSortBy === 'provider' ? (userSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Provider <i class="fas fa-sort<%= userSortBy === 'provider' ? (userSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="provider_id" data-sort-order="<%= userSortBy === 'provider_id' ? (userSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Provider ID <i class="fas fa-sort<%= userSortBy === 'provider_id' ? (userSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="pending_email" data-sort-order="<%= userSortBy === 'pending_email' ? (userSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Pending Email <i class="fas fa-sort<%= userSortBy === 'pending_email' ? (userSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th>Password Hash</th>
-                                    <th>Devices</th>
-                                    <th data-sort-by="created_at" data-sort-order="<%= userSortBy === 'created_at' ? (userSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Created At <i class="fas fa-sort<%= userSortBy === 'created_at' ? (userSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% users.forEach(user => { %>
-                                    <tr>
-                                        <td><%= user.id %></td>
-                                        <td><%= user.username %></td>
-                                        <td><%= user.email %></td>
-                                        <td>
-                                            <% if (user.is_verified) { %>
-                                                <i class="fa-solid fa-circle-check text-success" title="Yes"></i>
-                                            <% } else { %>
-                                                <i class="fa-solid fa-circle-xmark text-danger" title="No"></i>
-                                                <form action="/api/admin/verify-user/<%= user.id %>" method="POST" style="display:inline;">
-                                                    <button type="submit" class="btn btn-success btn-sm">Verify</button>
-                                                </form>
-                                            <% } %>
-                                        </td>
-                                        <td><%= user.provider %></td>
-                                        <td><%= user.provider_id %></td>
-                                        <td><%= user.pending_email %></td>
-                                        <td style="font-size: 0.7em; word-wrap: break-word;"><%= user.password %></td>
-                                        <td><%= user.devices ? user.devices.length : 0 %></td>
-                                        <td><%= new Date(user.created_at).toLocaleString() %></td>
-                                        <td>
-                                            <% if (user.username !== 'root') { %>
-                                                <form action="/api/admin/delete-user/<%= user.id %>" method="POST" style="display:inline;" id="deleteUserForm-<%= user.id %>">
-                                                    <button type="button" class="btn btn-danger btn-sm delete-user-btn" data-user-id="<%= user.id %>" data-user-name="<%= user.username %>">Delete</button>
-                                                </form>
-                                            <% } %>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                            </tbody>
-                        </table>        
-            </div>
-        </div>
-    </div>
-    <!-- Zařízení -->
-    <div class="card mb-4 admin-table-container fade-in-on-load" style="animation-delay: 0.2s;">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5>Devices</h5>
-            <span class="badge bg-success rounded-pill"><%= devices.length %></span>
-        </div>
-        <div class="card-body">
-            <div class="mb-3">
-                <input type="text" class="form-control" id="deviceSearch" placeholder="Search devices..." value="<%= deviceSearch %>">
-            </div>
-            <div class="table-responsive">
-                <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th data-sort-by="device_id" data-sort-order="<%= deviceSortBy === 'device_id' ? (deviceSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Device ID <i class="fas fa-sort<%= deviceSortBy === 'device_id' ? (deviceSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="name" data-sort-order="<%= deviceSortBy === 'name' ? (deviceSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Name <i class="fas fa-sort<%= deviceSortBy === 'name' ? (deviceSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th>Owner</th>
-                                    <th data-sort-by="status" data-sort-order="<%= deviceSortBy === 'status' ? (deviceSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Status <i class="fas fa-sort<%= deviceSortBy === 'status' ? (deviceSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="interval_gps" data-sort-order="<%= deviceSortBy === 'interval_gps' ? (deviceSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">GPS Interval <i class="fas fa-sort<%= deviceSortBy === 'interval_gps' ? (deviceSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="interval_send" data-sort-order="<%= deviceSortBy === 'interval_send' ? (deviceSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Send Interval <i class="fas fa-sort<%= deviceSortBy === 'interval_send' ? (deviceSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="satellites" data-sort-order="<%= deviceSortBy === 'satellites' ? (deviceSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Satellites <i class="fas fa-sort<%= deviceSortBy === 'satellites' ? (deviceSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="mode" data-sort-order="<%= deviceSortBy === 'mode' ? (deviceSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Mode <i class="fas fa-sort<%= deviceSortBy === 'mode' ? (deviceSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="last_seen" data-sort-order="<%= deviceSortBy === 'last_seen' ? (deviceSortOrder === 'ASC' ? '-up' : '-down') : '' %>">Last Seen <i class="fas fa-sort<%= deviceSortBy === 'last_seen' ? (deviceSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% devices.forEach(device => { %>
-                                    <tr>
-                                        <td><code><%= device.device_id %></code></td>
-                                        <td><%= device.name || 'N/A' %></td>
-                                        <td><%= device.User ? device.User.username : 'N/A' %></td>
-                                        <td><%= device.status %></td>
-                                        <td><%= device.interval_gps %>s</td>
-                                        <td><%= device.interval_send %></td>
-                                        <td><%= device.satellites %></td>
-                                        <td><%= device.mode %></td>
-                                        <td><%= device.last_seen ? new Date(device.last_seen).toLocaleString() : 'Never' %></td>
-                                        <td>
-                                            <form action="/api/admin/delete-device/<%= device.id %>" method="POST" style="display:inline;" id="deleteDeviceForm-<%= device.id %>">
-                                                <button type="button" class="btn btn-warning btn-sm delete-device-btn" data-device-id="<%= device.id %>" data-device-name="<%= device.name || device.device_id %>">Delete</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Lokace -->
-    <!-- Lokace -->
-    <div class="card mb-4 admin-table-container fade-in-on-load" style="animation-delay: 0.3s;">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5>Latest Locations</h5>
-            <span class="badge bg-info rounded-pill"><%= locations.length %></span>
-        </div>
-        <div class="card-body">
-            <div class="mb-3">
-                <input type="text" class="form-control" id="locationSearch" placeholder="Search locations..." value="<%= locationSearch %>">
-            </div>
-            <div class="table-responsive">
-                <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th data-sort-by="device_id" data-sort-order="<%= locationSortBy === 'device_id' ? (locationSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Device ID <i class="fas fa-sort<%= locationSortBy === 'device_id' ? (locationSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th>Coordinates</th>
-                                    <th data-sort-by="speed" data-sort-order="<%= locationSortBy === 'speed' ? (locationSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Speed <i class="fas fa-sort<%= locationSortBy === 'speed' ? (locationSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="altitude" data-sort-order="<%= locationSortBy === 'altitude' ? (locationSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Altitude <i class="fas fa-sort<%= locationSortBy === 'altitude' ? (locationSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="accuracy" data-sort-order="<%= locationSortBy === 'accuracy' ? (locationSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Accuracy <i class="fas fa-sort<%= locationSortBy === 'accuracy' ? (locationSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="satellites" data-sort-order="<%= locationSortBy === 'satellites' ? (locationSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Satellites <i class="fas fa-sort<%= locationSortBy === 'satellites' ? (locationSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="timestamp" data-sort-order="<%= locationSortBy === 'timestamp' ? (locationSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Timestamp <i class="fas fa-sort<%= locationSortBy === 'timestamp' ? (locationSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% locations.forEach(location => { %>
-                                    <tr>
-                                        <td><code><%= location.Device.device_id %></code></td>
-                                        <td><%= location.latitude %>, <%= location.longitude %></td>
-                                        <td><%= location.speed || 'N/A' %></td>
-                                        <td><%= location.altitude || 'N/A' %></td>
-                                        <td><%= location.accuracy || 'N/A' %></td>
-                                        <td><%= location.satellites || 'N/A' %></td>
-                                        <td><%= new Date(location.timestamp).toLocaleString() %></td>
-                                    </tr>
-                                <% }); %>
-                            </tbody>
-                        </table>
-                    </div>
-                    <nav aria-label="Locations pagination">
-                        <ul class="pagination justify-content-center">
-                            <li class="page-item <%= locationsCurrentPage === 1 ? 'disabled' : '' %>">
-                                <a class="page-link" href="/administration?page=<%= locationsCurrentPage - 1 %>&userSearch=<%= userSearch %>&deviceSearch=<%= deviceSearch %>&locationSearch=<%= locationSearch %>&alertSearch=<%= alertSearch %>&userSortBy=<%= userSortBy %>&userSortOrder=<%= userSortOrder %>&deviceSortBy=<%= deviceSortBy %>&deviceSortOrder=<%= deviceSortOrder %>&locationSortBy=<%= locationSortBy %>&locationSortOrder=<%= locationSortOrder %>&alertSortBy=<%= alertSortBy %>&alertSortOrder=<%= alertSortOrder %>" tabindex="-1" aria-disabled="true">Previous</a>
-                            </li>
-                            <% for (let i = 1; i <= locationsTotalPages; i++) { %>
-                                <li class="page-item <%= locationsCurrentPage === i ? 'active' : '' %>">
-                                    <a class="page-link" href="/administration?page=<%= i %>&userSearch=<%= userSearch %>&deviceSearch=<%= deviceSearch %>&locationSearch=<%= locationSearch %>&alertSearch=<%= alertSearch %>&userSortBy=<%= userSortBy %>&userSortOrder=<%= userSortOrder %>&deviceSortBy=<%= deviceSortBy %>&deviceSortOrder=<%= deviceSortOrder %>&locationSortBy=<%= locationSortBy %>&locationSortOrder=<%= locationSortOrder %>&alertSortBy=<%= alertSortBy %>&alertSortOrder=<%= alertSortOrder %>"><%= i %></a>
-                                </li>
-                            <% } %>
-                            <li class="page-item <%= locationsCurrentPage === locationsTotalPages ? 'disabled' : '' %>">
-                                <a class="page-link" href="/administration?page=<%= locationsCurrentPage + 1 %>&userSearch=<%= userSearch %>&deviceSearch=<%= deviceSearch %>&locationSearch=<%= locationSearch %>&alertSearch=<%= alertSearch %>&userSortBy=<%= userSortBy %>&userSortOrder=<%= userSortOrder %>&deviceSortBy=<%= deviceSortBy %>&deviceSortOrder=<%= deviceSortOrder %>&locationSortBy=<%= locationSortBy %>&locationSortOrder=<%= locationSortOrder %>&alertSortBy=<%= alertSortBy %>&alertSortOrder=<%= alertSortOrder %>">Next</a>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-
-            <!-- Alerts -->
-            <div class="card mb-4 admin-table-container fade-in-on-load" style="animation-delay: 0.4s;">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5>Alerts</h5>
-                    <span class="badge bg-danger rounded-pill"><%= alerts.length %></span>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <input type="text" class="form-control" id="alertSearch" placeholder="Search alerts..." value="<%= alertSearch %>">
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th data-sort-by="id" data-sort-order="<%= alertSortBy === 'id' ? (alertSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">ID <i class="fas fa-sort<%= alertSortBy === 'id' ? (alertSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="device_id" data-sort-order="<%= alertSortBy === 'device_id' ? (alertSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Device ID <i class="fas fa-sort<%= alertSortBy === 'device_id' ? (alertSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="user_id" data-sort-order="<%= alertSortBy === 'user_id' ? (alertSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">User <i class="fas fa-sort<%= alertSortBy === 'user_id' ? (alertSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="type" data-sort-order="<%= alertSortBy === 'type' ? (alertSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Type <i class="fas fa-sort<%= alertSortBy === 'type' ? (alertSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="message" data-sort-order="<%= alertSortBy === 'message' ? (alertSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Message <i class="fas fa-sort<%= alertSortBy === 'message' ? (alertSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="is_read" data-sort-order="<%= alertSortBy === 'is_read' ? (alertSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Read <i class="fas fa-sort<%= alertSortBy === 'is_read' ? (alertSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th data-sort-by="created_at" data-sort-order="<%= alertSortBy === 'created_at' ? (alertSortOrder === 'ASC' ? 'DESC' : 'ASC') : 'ASC' %>">Created At <i class="fas fa-sort<%= alertSortBy === 'created_at' ? (alertSortOrder === 'ASC' ? '-up' : '-down') : '' %>"></i></th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% alerts.forEach(alert => { %>
-                                    <tr>
-                                        <td><%= alert.id %></td>
-                                        <td><code><%= alert.Device ? alert.Device.device_id : 'N/A' %></code></td>
-                                        <td><%= alert.User ? alert.User.username : 'N/A' %></td>
-                                        <td><%= alert.type %></td>
-                                        <td><%= alert.message %></td>
-                                    <td>
-                                        <% if (alert.is_read) { %>
-                                            <i class="fa-solid fa-circle-check text-success" title="Yes"></i>
-                                        <% } else { %>
-                                            <i class="fa-solid fa-circle-xmark text-danger" title="No"></i>
-                                        <% } %>
-                                    </td>
-                                    <td><%= new Date(alert.created_at).toLocaleString() %></td>
-                                    <td>
-                                        <form action="/api/admin/delete-alert/<%= alert.id %>" method="POST" style="display:inline;" id="deleteAlertForm-<%= alert.id %>">
-                                            <button type="button" class="btn btn-danger btn-sm delete-alert-btn" data-alert-id="<%= alert.id %>">Delete</button>
+                <table class="table table-striped table-sm" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Verified</th>
+                            <th>Provider</th>
+                            <th>Provider ID</th>
+                            <th>Pending Email</th>
+                            <th>Password Hash</th>
+                            <th>Devices</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% users.forEach(user => { %>
+                            <tr>
+                                <td><%= user.id %></td>
+                                <td><%= user.username %></td>
+                                <td><%= user.email %></td>
+                                <td><%= user.is_verified ? 'Yes' : 'No' %></td>
+                                <td><%= user.provider || '' %></td>
+                                <td><%= user.provider_id || '' %></td>
+                                <td><%= user.pending_email || '' %></td>
+                                <td style="font-size: 0.75em; word-break: break-all;"><%= user.password %></td>
+                                <td><%= user.devices ? user.devices.length : 0 %></td>
+                                <td><%= new Date(user.created_at).toLocaleString() %></td>
+                                <td>
+                                    <% if (user.username !== 'root') { %>
+                                        <form action="/api/admin/delete-user/<%= user.id %>" method="POST" onsubmit="return confirm('Delete this user and all related data?');">
+                                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                                         </form>
-                                    </td>
-                                </tr>
-                            <% }); %>
-                        </tbody>
-                    </table>
-                </div>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
             </div>
-        </div>
+        </section>
+
+        <section class="mb-5">
+            <h3 class="mb-3">Devices (<%= devices.length %>)</h3>
+            <div class="table-responsive">
+                <table class="table table-striped table-sm" id="devicesTable">
+                    <thead>
+                        <tr>
+                            <th>Device ID</th>
+                            <th>Name</th>
+                            <th>Owner</th>
+                            <th>Power Status</th>
+                            <th>Instruction</th>
+                            <th>GPS Interval</th>
+                            <th>Send Interval</th>
+                            <th>Satellites</th>
+                            <th>Mode</th>
+                            <th>Last Seen</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% devices.forEach(device => { %>
+                            <tr>
+                                <td><code><%= device.device_id %></code></td>
+                                <td><%= device.name || 'N/A' %></td>
+                                <td><%= device.User ? device.User.username : 'N/A' %></td>
+                                <td><%= (device.power_status || 'UNKNOWN').toUpperCase() %></td>
+                                <td><%= (device.power_instruction || 'NONE').toUpperCase() %></td>
+                                <td><%= device.interval_gps %>s</td>
+                                <td><%= device.interval_send %>s</td>
+                                <td><%= device.satellites %></td>
+                                <td><%= device.mode %></td>
+                                <td><%= device.last_seen ? new Date(device.last_seen).toLocaleString() : 'Never' %></td>
+                                <td>
+                                    <form action="/api/admin/delete-device/<%= device.id %>" method="POST" onsubmit="return confirm('Delete this device and all related data?');">
+                                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="mb-5">
+            <h3 class="mb-3">Latest Locations (<%= locations.length %>)</h3>
+            <div class="table-responsive">
+                <table class="table table-striped table-sm" id="locationsTable">
+                    <thead>
+                        <tr>
+                            <th>Device ID</th>
+                            <th>Latitude</th>
+                            <th>Longitude</th>
+                            <th>Speed</th>
+                            <th>Altitude</th>
+                            <th>Accuracy</th>
+                            <th>Satellites</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% locations.forEach(location => { %>
+                            <tr>
+                                <td><code><%= location.Device ? location.Device.device_id : '' %></code></td>
+                                <td><%= location.latitude %></td>
+                                <td><%= location.longitude %></td>
+                                <td><%= location.speed != null ? location.speed : 'N/A' %></td>
+                                <td><%= location.altitude != null ? location.altitude : 'N/A' %></td>
+                                <td><%= location.accuracy != null ? location.accuracy : 'N/A' %></td>
+                                <td><%= location.satellites != null ? location.satellites : 'N/A' %></td>
+                                <td><%= new Date(location.timestamp).toLocaleString() %></td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="mb-5">
+            <h3 class="mb-3">Alerts (<%= alerts.length %>)</h3>
+            <div class="table-responsive">
+                <table class="table table-striped table-sm" id="alertsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Device ID</th>
+                            <th>User</th>
+                            <th>Type</th>
+                            <th>Message</th>
+                            <th>Read</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% alerts.forEach(alert => { %>
+                            <tr>
+                                <td><%= alert.id %></td>
+                                <td><code><%= alert.Device ? alert.Device.device_id : '' %></code></td>
+                                <td><%= alert.User ? alert.User.username : '' %></td>
+                                <td><%= alert.type %></td>
+                                <td><%= alert.message %></td>
+                                <td><%= alert.is_read ? 'Yes' : 'No' %></td>
+                                <td><%= new Date(alert.created_at).toLocaleString() %></td>
+                                <td>
+                                    <form action="/api/admin/delete-alert/<%= alert.id %>" method="POST" onsubmit="return confirm('Delete this alert?');">
+                                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 
     <%- include('partials/_footer.ejs') %>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // User delete buttons
-        const deleteUserButtons = document.querySelectorAll('.delete-user-btn');
-        deleteUserButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const userId = this.dataset.userId;
-                const userName = this.dataset.userName;
-                showConfirmationModal({
-                    title: 'Confirm User Deletion',
-                    body: `Do you really want to delete the user '<strong>${userName}</strong>' and all their data?`,
-                    confirmText: 'Delete User',
-                    confirmClass: 'btn-danger',
-                    onConfirm: () => {
-                        document.getElementById(`deleteUserForm-${userId}`).submit();
-                    }
-                });
-            });
-        });
-
-        // Device delete buttons
-        const deleteDeviceButtons = document.querySelectorAll('.delete-device-btn');
-        deleteDeviceButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const deviceId = this.dataset.deviceId;
-                const deviceName = this.dataset.deviceName;
-                showConfirmationModal({
-                    title: 'Confirm Device Deletion',
-                    body: `Do you really want to delete the device '<strong>${deviceName}</strong>' and all its data?`,
-                    confirmText: 'Delete Device',
-                    confirmClass: 'btn-danger',
-                    onConfirm: () => {
-                        document.getElementById(`deleteDeviceForm-${deviceId}`).submit();
-                    }
-                });
-            });
-        });
-
-        // Alert delete buttons
-        const deleteAlertButtons = document.querySelectorAll('.delete-alert-btn');
-        deleteAlertButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const alertId = this.dataset.alertId;
-                showConfirmationModal({
-                    title: 'Confirm Alert Deletion',
-                    body: 'Do you really want to delete this alert?',
-                    confirmText: 'Delete Alert',
-                    confirmClass: 'btn-danger',
-                    onConfirm: () => {
-                        document.getElementById(`deleteAlertForm-${alertId}`).submit();
-                    }
-                });
-            });
-        });
-
-
-        // Search functionality
-        const userSearchInput = document.getElementById('userSearch');
-        const deviceSearchInput = document.getElementById('deviceSearch');
-        const locationSearchInput = document.getElementById('locationSearch');
-        const alertSearchInput = document.getElementById('alertSearch');
-
-        function applySearch() {
-            const url = new URL(window.location.href);
-            url.searchParams.set('userSearch', userSearchInput.value);
-            url.searchParams.set('deviceSearch', deviceSearchInput.value);
-            // For locations and alerts, we need to reset the page number when searching
-            url.searchParams.set('locationSearch', locationSearchInput.value);
-            url.searchParams.set('page', 1); 
-            url.searchParams.set('alertSearch', alertSearchInput.value);
-            url.searchParams.set('alertsPage', 1);
-
-            window.location.href = url.toString();
-        }
-
-        userSearchInput.addEventListener('change', applySearch);
-        deviceSearchInput.addEventListener('change', applySearch);
-        locationSearchInput.addEventListener('change', applySearch);
-        alertSearchInput.addEventListener('change', applySearch);
-
-        // Sorting functionality
-        document.querySelectorAll('th[data-sort-by]').forEach(header => {
-            header.style.cursor = 'pointer';
-            header.addEventListener('click', function() {
-                const sortBy = this.dataset.sortBy;
-                let sortOrder = this.dataset.sortOrder;
-                const url = new URL(window.location.href);
-
-                if (this.closest('table').id === 'usersTable') {
-                    url.searchParams.set('userSortBy', sortBy);
-                    url.searchParams.set('userSortOrder', sortOrder);
-                } else if (this.closest('table').id === 'devicesTable') {
-                    url.searchParams.set('deviceSortBy', sortBy);
-                    url.searchParams.set('deviceSortOrder', sortOrder);
-                } else if (this.closest('table').id === 'locationsTable') {
-                    url.searchParams.set('locationSortBy', sortBy);
-                    url.searchParams.set('locationSortOrder', sortOrder);
-                } else if (this.closest('table').id === 'alertsTable') {
-                    url.searchParams.set('alertSortBy', sortBy);
-                    url.searchParams.set('alertSortOrder', sortOrder);
-                }
-                window.location.href = url.toString();
-            });
-        });
-    });
-    </script>
 </body>
 </html>

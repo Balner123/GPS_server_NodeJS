@@ -1,40 +1,60 @@
-# Analýza funkčnosti firmwaru (aktuální stav)
+# Analýza funkčnosti firmwaru (FINAL)
 
-Tento dokument shrnuje klíčové chování `MAIN/gps_tracker.ino` a opravuje dřívější nepřesnosti.
+Tento dokument shrnuje architekturu zdrojů v `MAIN/FINAL` a navazuje na soubory `main.ino`, `power_management.*`, `gps_control.*`, `modem_control.*`, `file_system.*` a `ota_mode.*`.
 
-## Základní princip: probuzení → práce → hluboký spánek
+## Základní režim: probuzení → práce → spánek/vypnutí
 
-- Veškerá logika probíhá v `setup()`; `loop()` se nevyužívá.
-- Zařízení se probudí, provede jednu „práci“ a přejde do hlubokého spánku na nastavený interval.
+- Logika probíhá v `setup()`. `loop()` zůstává prázdná.
+- Po bootu firmware drží napájení (`power_on()`), nastaví UART a kontroluje dlouhé podržení tlačítka (`PIN_BTN`, GPIO32). Dlouhý stisk (≥2 s) aktivuje OTA, jinak pokračuje tracker.
+- Aktivuje se `power_init()` – nastaví LED, ISR pro tlačítko a RTOS úlohu pro ruční shutdown.
+- `work_cycle()` vždy proběhne jednou; na konci se rozhodne o deep-sleepu nebo vypnutí.
 
-## Režimy
+## Moduly a jejich role
 
-1) Tracker (výchozí)
+- **`power_management`**
+  - Řídí vypínání: stavový automat ON/OFF, potvrzení serveru, reakci na tlačítko.
+  - `graceful_shutdown()` koordinuje vypnutí modemu, GPS a FS a následně stáhne `PIN_EN`.
+  - Evidence power-statusu se propisuje do serveru (součást handshake a batch uploadu).
 
-- GPS (externí přes SoftwareSerial na pinech 32/33, napájení pin 5) se zapne, čeká se na fix až 5 minut.
-- Pokud se získá platný fix s minimálním počtem satelitů (výchozí 7; lze změnit ze serveru), hodnoty se uloží jako JSON řádek do `LittleFS` souboru `/gps_cache.log` a počítadlo cyklů se zvýší.
-- Pokud se fix NEzíská, nic se do cache NEpřidá a cyklus se bez odesílání ukončí spánkem. Dřívější dokumentace chybně uváděla, že se odesílá chybová zpráva – v aktuálním kódu se při neúspěšném fixu neodesílá nic.
-- Odesílání probíhá pouze při dosažení „batch size“ (implicitně 1; lze měnit ze serveru) nebo když v cache zůstala stará data. Odesílají se dávky až 50 záznamů ve formátu JSON pole.
-- Server může v odpovědi změnit:
-  - `interval_gps` – interval spánku (sekundy),
-  - `interval_send` – velikost dávky (1–50),
-  - `satellites` – minimální počet satelitů pro uznání fixu.
-- Pokud server vrátí `registered=false`, zařízení po dokončení cyklu usne „na neurčito“ (k probuzení je pak nutné použít servisní režim a registraci).
+- **`file_system`**
+  - Montuje LittleFS, obsluhuje cache (`/gps_cache.log`) a Preferences (`gps-tracker`).
+  - Sdílí globální konfigurační proměnné (APN, server, zařízení registrované/nergistrované, interval spánku atd.).
+  - `send_cached_data()` odesílá data v dávkách, reaguje na HTTP kódy 404/409/5xx a ukládá konfiguraci z odpovědi.
 
-2) Servisní/OTA
+- **`gps_control`**
+  - Spravuje napájení a komunikaci s externím GPS (GPIO5 + SoftwareSerial na GPIO34/33).
+  - `gps_get_fix()` běží do timeoutu 5 minut a validuje satelity ≥ `minSatellitesForFix` (výchozí 1, server může zvýšit).
+  - Ukládané údaje: pozice, rychlost, výška, HDOP, počet satelitů a UTC datum/čas.
 
-- Aktivuje se přivedením GPIO23 (otaPin) na 3.3V při startu.
-- Modem se inicializuje a zařízení se pokusí připojit k GPRS (kvůli registraci a testům). Stav „GPRS Connected/Failed“ je zobrazen na titulní stránce.
-- Spustí se Wi‑Fi AP s konfigurovatelným SSID (výchozí „lotrTrackerOTA“) a heslem („password“). Web běží na `http://192.168.4.1`.
-- Funkce webu:
-  - „Register Device“ – po zadání uživatele/hesla zavolá POST na `/api/hw/register-device` s `deviceId` (posledních 10 znaků MAC),
-  - „Settings“ – nastavení APN, GPRS user/pass, server host, OTA SSID/heslo; včetně tlačítek „Test“ pro GPRS a TCP spojení na zadaný host:port,
-  - „Firmware Update“ – nahrání `.bin` a OTA aktualizace.
+- **`modem_control`**
+  - Operace s SIMCOM A76xx (TinyGSM). Zahrnuje sekvence PWRKEY/RESET, GPRS připojení a HTTPS volání.
+  - `modem_perform_handshake()` volá `/api/devices/handshake`, předává `power_status` a přijímá `config`, `registered`, `power_instruction`.
+  - `modem_send_post_request()` dynamicky staví URL podle portu (HTTP pro 80, jinak HTTPS; port ≠443 se přidá do cesty).
 
-Pozn.: Položka „Server Port“ je v současné verzi použita pouze pro test spojení v servisním režimu. Samotné odesílání dat z tracker režimu probíhá vždy přes HTTPS na portu 443, proměnná `port` se v URL dosud nevyužívá.
+- **`ota_mode`**
+  - WebServer na portu 80 v režimu AP (`lotrTrackerOTA_<DeviceID>` + heslo).
+  - Uchovává přístup k Preferences a sdílí globální stav (APN, server, `deviceName`).
+  - Umožňuje registraci (POST `/api/devices/register`), test GPRS, editaci konfigurace a nahrání firmware.
 
-## Přepínače a napájení
+## Tracker cyklus – detail
 
-- „OTA přepínač“: GPIO23 → 3.3V = servisní/OTA režim.
-- Hlavní vypínač napájení je mimo logiku firmwaru.
-- ESP32 používá hluboký spánek řízený časovačem; výchozí interval je 60 s a může být změněn serverem.
+1. **FS + konfigurace**: mount LittleFS, načti Preferences, spočítej `deviceID`.
+2. **GPS**: pokud není aktivní `PowerInstruction::TurnOff`, zapni GPS, čekej na fix, ulož data do cache.
+3. **Power status**: potřebuje-li server potvrdit vypnutí, přidá se stavový záznam do cache.
+4. **Handshake + upload**: modem session zahrnuje handshake a případný upload. Handshake může změnit interval spánku, batch size, min satelity nebo vyžádat vypnutí.
+5. **Reakce**: pokud server požádal o vypnutí a potvrdil ho (`power_instruction_should_shutdown()`), provede se `graceful_shutdown()`.
+6. **Sleep**: registrované zařízení nastaví timer na `sleepTimeSeconds` a usne (`enter_deep_sleep`). Neregistrované se vypne a čeká na OTA registraci.
+
+## OTA režim (souhrn)
+
+- Aktivace dlouhým podržením tlačítka během bootu.
+- LED bliká, běží WebServer s endpoints `/`, `/settings`, `/savesettings`, `/testgprs`, `/testserver` (zatím simulace), `/doregister`, `/update`.
+- Připojení ke GPRS se pokouší ihned po startu; výsledek se zobrazuje na webu.
+
+## Shrnutí hlavních změn oproti starší dokumentaci
+
+- OTA se spouští tlačítkem, nikoliv externím pinem 23.
+- Nejprve probíhá handshake (`/api/devices/handshake`), který může zařízení vypnout a přepisuje konfiguraci.
+- Upload přidává záznamy `power_status` a podporuje potvrzení serverových instrukcí.
+- `port` z Preferences se používá jak pro handshake, tak pro upload (HTTP vs. HTTPS je určeno hodnotou portu).
+- Výchozí minimum satelitů je 1 (dříve 7).

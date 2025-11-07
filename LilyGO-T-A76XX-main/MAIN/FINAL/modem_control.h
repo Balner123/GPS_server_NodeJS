@@ -27,7 +27,10 @@ bool modem_initialize();
 bool modem_connect_gprs(const String& apn_val, const String& user_val, const String& pass_val);
 
 // Function to send a POST request to the server
-String modem_send_post_request(const char* resource, const String& payload);
+String modem_send_post_request(const char* resource, const String& payload, int* statusCodeOut = nullptr);
+
+// Perform handshake with backend to sync config and power instructions
+bool modem_perform_handshake();
 
 // Function to disconnect from GPRS
 void modem_disconnect_gprs();

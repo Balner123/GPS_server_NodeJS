@@ -256,6 +256,117 @@ a:hover {
     background-color: #dc3545;
 }
 
+.power-status-wrapper {
+    margin-top: 0.5rem;
+}
+
+.power-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background-color: rgba(0, 0, 0, 0.04);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+[data-theme='dark'] .power-status-chip {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.power-status-text {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.status-dot {
+    position: relative;
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.status-dot::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    opacity: 0;
+}
+
+@keyframes status-pulse {
+    0% {
+        transform: scale(0.9);
+        opacity: 0.6;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1.4);
+        opacity: 0;
+    }
+}
+
+.status-dot--neutral {
+    background-color: #6c757d;
+}
+
+.status-dot--on {
+    background-color: #198754;
+}
+
+.status-dot--on::after {
+    background: rgba(25, 135, 84, 0.35);
+    animation: status-pulse 1.6s ease-out infinite;
+}
+
+.status-dot--off {
+    background-color: #dc3545;
+}
+
+.status-dot--off::after {
+    background: rgba(220, 53, 69, 0.35);
+    animation: status-pulse 1.6s ease-out infinite;
+}
+
+.status-dot--pending {
+    background-color: #fd7e14;
+}
+
+.status-dot--pending::after {
+    background: rgba(253, 126, 20, 0.4);
+    animation: status-pulse 1.4s ease-out infinite;
+}
+
+#power-off-btn:disabled,
+#clear-power-instruction-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.status-chip-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--timestamp-color);
+}
+
+.status-chip-inline .status-chip-text {
+    line-height: 1;
+}
+
+[data-theme='dark'] .status-chip-inline {
+    color: var(--timestamp-color);
+}
+
 .info-bubble {
     padding: 0.5rem;
     background-color: var(--info-bubble-bg);

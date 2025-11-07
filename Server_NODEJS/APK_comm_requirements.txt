@@ -30,22 +30,15 @@ APK Communication Requirements
 - Standardní response:
   {
     "registered": true,
-    "device_type": "APK",
-    "power_status": "ON",
     "config": {
       "interval_gps": <int>,
       "interval_send": <int>,
       "satellites": <int>,
-      "mode": "simple|batch",
-      "power_status": "ON"
+      "mode": "simple|batch"
     },
-    "power_instruction": "NONE" | "TURN_OFF",
-    "instruction_token": "uuid",           // pouze pokud je aktivní instrukce
-    "instruction_requested_at": "ISO time", // čas vydání instrukce
-    "last_power_ack_at": "ISO time"         // poslední ACK (pokud existuje)
+    "power_instruction": "NONE" | "TURN_OFF"
   }
-- APK klient musí instrukci interpretovat stejně jako HW – po obdržení `TURN_OFF` přejít do režimu vypnutí/sleep a připravit ACK.
-- `power_status` se vrací jak na top-levelu, tak v `config.power_status`, aby byla zachována kompatibilita se staršími klienty.
+- APK klient musí instrukci interpretovat stejně jako HW – po obdržení `TURN_OFF` přejít do režimu vypnutí/sleep a na další telemetrii hlásit `power_status="OFF"`.
 
 - Endpoint: `POST /api/devices/input`.
 - Payload formát identický s HW (podpora jednotlivého objektu i pole):
@@ -57,28 +50,15 @@ APK Communication Requirements
     "speed": <float>,
     "timestamp": <ISO string>,
     "power_status": "ON|OFF",
-    "power_instruction_ack": "uuid", // pokud potvrzuje převzetí
     "client_type": "APK"
   }
 - Povinná pole: `device`, `latitude`, `longitude`.
 - Volitelná pole: `accuracy`, `speed`, `altitude`, `error`.
-- Pokud došlo k přepnutí do režimu vypnutí, `power_status` musí být `OFF` a `power_instruction_ack` musí odpovídat tokenu z handshake.
+- Pokud došlo k přepnutí do režimu vypnutí, `power_status` musí být `OFF`, aby server mohl instrukci nulovat.
 - Server odpovídá JSONem:
   {
-    "success": true,
-    "message": "n location(s) recorded.",
-    "power_instruction": "NONE" | "TURN_OFF",
-    "instruction_token": "uuid|null",
-    "power_status": "ON|OFF",
-    "config": {
-      "interval_gps": <int>,
-      "interval_send": <int>,
-      "satellites": <int>,
-      "mode": "simple|batch",
-      "power_status": "ON|OFF"
-    }
+    "success": true
   }
-- Pokud server stále drží instrukci, na odpovědi se objeví i poslední token (nutné pro případné retry ACK).
 
 5) Error handling
 -----------------

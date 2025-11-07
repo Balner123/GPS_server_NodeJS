@@ -1,8 +1,6 @@
 const db = require('../database');
 const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
-const randomUUIDFn = crypto.randomUUID ? () => crypto.randomUUID() : null;
 const { sendGeofenceAlertEmail, sendGeofenceReturnEmail } = require('../utils/emailSender');
 
 // --- Geofencing Helper Functions ---
@@ -99,8 +97,7 @@ function buildDeviceConfigPayload(device) {
     interval_gps: Number(device.interval_gps),
     interval_send: Number(device.interval_send),
     satellites: Number(device.satellites),
-    mode: device.mode,
-    power_status: device.power_status
+    mode: device.mode
   };
 }
 
@@ -122,15 +119,38 @@ function normalizeClientType(clientType) {
   return String(clientType).trim().toUpperCase();
 }
 
-function generateInstructionToken() {
-  return randomUUIDFn ? randomUUIDFn() : crypto.randomBytes(16).toString('hex');
+function normalizePowerInstruction(instruction) {
+  if (!instruction) {
+    return null;
+  }
+  const normalized = String(instruction).trim().toUpperCase();
+  if (normalized === 'NONE' || normalized === 'TURN_OFF' || normalized === 'TURN_ON') {
+    return normalized;
+  }
+  return null;
 }
 
-function ensureInstructionToken(device) {
-  if (device.power_instruction !== 'NONE' && !device.instruction_token) {
-    device.instruction_token = generateInstructionToken();
-    device.power_instruction_updated_at = new Date();
+function shouldClearPowerInstruction(instruction, status) {
+  const normalizedInstruction = normalizePowerInstruction(instruction);
+  const normalizedStatus = normalizePowerStatus(status);
+
+  if (!normalizedInstruction || normalizedInstruction === 'NONE') {
+    return false;
   }
+
+  if (!normalizedStatus) {
+    return false;
+  }
+
+  if (normalizedInstruction === 'TURN_OFF' && normalizedStatus === 'OFF') {
+    return true;
+  }
+
+  if (normalizedInstruction === 'TURN_ON' && normalizedStatus === 'ON') {
+    return true;
+  }
+
+  return false;
 }
 
 // --- End Geofencing Helpers ---
@@ -158,10 +178,7 @@ const getDeviceSettings = async (req, res) => {
       device_type: device.device_type,
       mode: device.mode,
       power_status: device.power_status,
-      power_instruction: device.power_instruction,
-      instruction_token: device.instruction_token,
-      power_instruction_updated_at: device.power_instruction_updated_at ? device.power_instruction_updated_at.toISOString() : null,
-      last_power_ack_at: device.last_power_ack_at ? device.last_power_ack_at.toISOString() : null
+      power_instruction: device.power_instruction
     });
   } catch (err) {
     console.error("Error getting device settings:", err);
@@ -236,12 +253,8 @@ const handleDeviceInput = async (req, res) => {
         return res.status(400).json({ error: 'Request body cannot be empty.' });
     }
 
-    const firstPoint = dataPoints[0];
-    const { device: deviceId, name } = firstPoint;
-    const rawPowerInstructionAck = firstPoint.power_instruction_ack || firstPoint.instruction_ack || firstPoint.powerInstructionAck || req.body.power_instruction_ack;
-    const powerInstructionAck = typeof rawPowerInstructionAck === 'string'
-      ? rawPowerInstructionAck.trim()
-      : (typeof rawPowerInstructionAck === 'number' ? String(rawPowerInstructionAck) : null);
+  const firstPoint = dataPoints[0];
+  const { device: deviceId } = firstPoint;
     const reportedPowerStatus = normalizePowerStatus(
       firstPoint.power_status || firstPoint.powerStatus || req.body.power_status || req.body.powerStatus
     );
@@ -308,40 +321,14 @@ const handleDeviceInput = async (req, res) => {
         device.device_type = clientTypeFromPayload;
       }
 
-      const previousInstruction = device.power_instruction;
-      let ackHandled = false;
-
-      if (powerInstructionAck) {
-        if (device.instruction_token && powerInstructionAck === device.instruction_token) {
-          device.power_instruction = 'NONE';
-          device.instruction_token = null;
-          device.last_power_ack_at = now;
-          device.power_instruction_updated_at = now;
-          ackHandled = true;
-
-          if (reportedPowerStatus) {
-            device.power_status = reportedPowerStatus;
-          } else if (previousInstruction === 'TURN_OFF') {
-            device.power_status = 'OFF';
-          }
-        } else if (!device.instruction_token && previousInstruction !== 'NONE') {
-          device.power_instruction = 'NONE';
-          device.last_power_ack_at = now;
-          device.power_instruction_updated_at = now;
-          ackHandled = true;
-
-          if (reportedPowerStatus) {
-            device.power_status = reportedPowerStatus;
-          } else if (previousInstruction === 'TURN_OFF') {
-            device.power_status = 'OFF';
-          }
-        } else if (device.instruction_token) {
-          console.warn(`Power instruction ACK mismatch for device ${device.device_id}: expected ${device.instruction_token}, received ${powerInstructionAck}`);
-        }
+      if (reportedPowerStatus && device.power_status !== reportedPowerStatus) {
+        device.power_status = reportedPowerStatus;
       }
 
-      if (!ackHandled && reportedPowerStatus && device.power_instruction === 'NONE' && device.power_status !== reportedPowerStatus) {
-        device.power_status = reportedPowerStatus;
+      const resolvedPowerStatus = reportedPowerStatus || device.power_status;
+
+      if (shouldClearPowerInstruction(device.power_instruction, resolvedPowerStatus)) {
+        device.power_instruction = 'NONE';
       }
 
       await device.save({ transaction: t });
@@ -386,14 +373,6 @@ const handleDeviceInput = async (req, res) => {
 
       res.status(200).json({ 
         success: true,
-        message: `${locationsToCreate.length} location(s) recorded.`,
-        interval_gps: device.interval_gps,
-        interval_send: device.interval_send,
-        satellites: device.satellites,
-        power_instruction: device.power_instruction,
-        instruction_token: device.power_instruction !== 'NONE' ? device.instruction_token : null,
-        power_status: device.power_status,
-        config: buildDeviceConfigPayload(device)
       });
 
     } catch (err) {
@@ -441,16 +420,10 @@ const updatePowerInstruction = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Device not found or you do not have permission to control it.' });
     }
 
-    const now = new Date();
-
     if (instruction === 'NONE') {
       device.power_instruction = 'NONE';
-      device.instruction_token = null;
-      device.power_instruction_updated_at = now;
     } else {
       device.power_instruction = instruction;
-      device.instruction_token = generateInstructionToken();
-      device.power_instruction_updated_at = now;
     }
 
     await device.save();
@@ -458,9 +431,6 @@ const updatePowerInstruction = async (req, res) => {
     return res.json({
       success: true,
       power_instruction: device.power_instruction,
-      instruction_token: device.instruction_token,
-      power_instruction_updated_at: device.power_instruction_updated_at ? device.power_instruction_updated_at.toISOString() : null,
-      last_power_ack_at: device.last_power_ack_at ? device.last_power_ack_at.toISOString() : null,
       power_status: device.power_status
     });
   } catch (error) {
@@ -493,15 +463,16 @@ const updatePowerInstruction = async (req, res) => {
         shouldSave = true;
       }
 
-      if (reportedPowerStatus && device.power_instruction === 'NONE' && device.power_status !== reportedPowerStatus) {
+      if (reportedPowerStatus && device.power_status !== reportedPowerStatus) {
         device.power_status = reportedPowerStatus;
         shouldSave = true;
       }
 
-      ensureInstructionToken(device);
+      const resolvedPowerStatus = reportedPowerStatus || device.power_status;
 
-      if (device.power_instruction !== 'NONE') {
-        shouldSave = true; // ensure generated token persists
+      if (shouldClearPowerInstruction(device.power_instruction, resolvedPowerStatus)) {
+        device.power_instruction = 'NONE';
+        shouldSave = true;
       }
 
       device.last_seen = new Date();
@@ -511,24 +482,11 @@ const updatePowerInstruction = async (req, res) => {
         await device.save();
       }
 
-      const response = {
+      return res.status(200).json({
         registered: true,
-        device_type: device.device_type,
         config: buildDeviceConfigPayload(device),
-        power_instruction: device.power_instruction,
-        power_status: device.power_status
-      };
-
-      if (device.power_instruction !== 'NONE') {
-        response.instruction_token = device.instruction_token;
-        response.instruction_requested_at = device.power_instruction_updated_at;
-      }
-
-      if (device.last_power_ack_at) {
-        response.last_power_ack_at = device.last_power_ack_at;
-      }
-
-      return res.status(200).json(response);
+        power_instruction: device.power_instruction
+      });
     } catch (error) {
       console.error('Error during device handshake:', error);
       return res.status(500).json({ success: false, error: 'Internal server error.' });
@@ -539,7 +497,6 @@ const getCurrentCoordinates = async (req, res) => {
   try {
     const devices = await db.Device.findAll({
       where: { 
-        status: 'active',
         user_id: req.session.user.id
       },
       include: [

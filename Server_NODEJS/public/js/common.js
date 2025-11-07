@@ -62,6 +62,25 @@ function formatAccuracy(accuracy) {
     return accuracy !== null ? `${Number(accuracy).toFixed(2)} m` : 'N/A';
 } 
 
+function getPowerStatusMeta(powerStatus, powerInstruction) {
+    const instruction = (powerInstruction || 'NONE').toString().toUpperCase();
+    const status = (powerStatus || '').toString().toUpperCase();
+
+    if (instruction !== 'NONE') {
+        return { label: 'PENDING', dotClass: 'status-dot--pending' };
+    }
+
+    if (status === 'ON') {
+        return { label: 'ON', dotClass: 'status-dot--on' };
+    }
+
+    if (status === 'OFF') {
+        return { label: 'OFF', dotClass: 'status-dot--off' };
+    }
+
+    return { label: 'UNKNOWN', dotClass: 'status-dot--neutral' };
+}
+
 /**
  * Shows a confirmation modal and executes a callback on confirmation.
  * @param {object} options - The options for the modal.

@@ -19,8 +19,8 @@
 
 ## „Server Port“ v Settings nic nemění
 
-- V aktuální verzi má vliv pouze na test spojení v OTA režimu (`/testserver`).
-- Odesílání dat (HTTPS) běží vždy na portu 443.
+- Port se používá i v tracker režimu (handshake + upload). Port 80 = HTTP, jinak HTTPS; pokud je port ≠443, přidává se do URL.
+- OTA stránka `/testserver` zatím vrací simulovaný výsledek, proto nemusí odhalit chybu.
 
 ## Nejde se připojit k OTA Wi‑Fi po změně SSID/hesla
 
@@ -28,5 +28,10 @@
 
 ## Nelze nahrát nový firmware
 
-- Ujistěte se, že jste v OTA režimu (GPIO23 na 3.3V) a jste připojeni k AP zařízení.
+- Ujistěte se, že jste v OTA režimu (držte tlačítko na GPIO32 po resetu, dokud LED nezačne blikat) a jste připojeni k AP zařízení.
 - Nahrávejte pouze `.bin` vytvořený pro dané prostředí (`default_envs` v `platformio.ini`).
+
+## Tracker se po handshake vypne
+
+- Server mohl vrátit `registered=false` nebo `power_instruction=TURN_OFF`.
+- Zkontrolujte web administrace, zda je zařízení přiřazeno správnému účtu a zda nebyla odeslána instrukce k vypnutí.

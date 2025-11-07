@@ -99,4 +99,18 @@ FINAL/
 ├── ota_pages.h
 └── utilities.h
 ```
-Tento plán zajistí, že výsledný kód bude robustní, snadno rozšiřitelný a bude správně implementovat požadovanou funkcionalitu tlačítek a správy napájení.
+---
+
+### Fáze 4: Zarovnání se specifikací HW komunikace
+
+1.  **Registrace zařízení:** Upravit `RESOURCE_REGISTER` na `/api/devices/register`, doplnit pole `client_type`, `device_id`, `username`, `password`, `name` a ošetřit odpovědi 401/403/409.
+2.  **Handshake:** Přidat volání `POST /api/devices/handshake` hned po navázání GPRS. Payload bude `{ device_id, client_type, power_status }`. Odpověď (`registered`, `config`, `power_instruction`) uložit do stavu a `Preferences`.
+3.  **Konfigurace:** Přemapovat `config.interval_gps`, `config.interval_send`, `config.satellites`, `config.mode` na interní proměnné (`sleepTimeSeconds`, velikost batch, `minSatellitesForFix`, strategie odesílání) a perzistovat je.
+4.  **Instrukce napájení:** Zavést `current_power_status` + `pending_power_instruction`. Pokud server požádá o `TURN_OFF`, dokončit cyklus a vyvolat `graceful_shutdown()`. Při odesílání dat přibalit `power_status` (pokud se změnil) a při potvrzení instrukci nulovat.
+5.  **Upload dat:** Upravit `send_cached_data()` tak, aby zvládla odpověď `{ "success": true }` bez konfiguračních klíčů (ty nyní přicházejí z handshake). Přidat exponential backoff (≥30 s) pro HTTP 500/timeout, zachovat data v cache.
+6.  **Chybové stavy:** Při 404 nebo `registered=false` přejít do OTA režimu. Při 409 informovat uživatele přes Serial/OTA UI. Zajistit, že všechny požadavky běží přes HTTPS s timeoutem <10 s.
+7.  **Testování:** Vytvořit scénář: registrace → handshake → upload s instrukcí `TURN_OFF`. Ověřit reakci LED a vypnutí.
+
+---
+
+Tento plán zajistí, že výsledný kód bude robustní, snadno rozšiřitelný a bude správně implementovat požadovanou funkcionalitu tlačítek, správy napájení a nově definované komunikace se serverem.

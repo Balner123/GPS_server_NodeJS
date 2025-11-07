@@ -109,10 +109,6 @@ const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/a
  *         name:
  *           type: string
  *           description: Optional friendly name.
- *           example: "My Tracker"
- *         username:
- *           type: string
- *           description: Required for HW registration.
  *           example: "testuser"
  *         password:
  *           type: string
@@ -151,19 +147,6 @@ const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/a
  *           example: 3600
  */
 
-/**
- * @swagger
- * /api/devices/input:
- *   post:
- *     summary: Receive location data from a GPS device
- *     tags: [Devices API]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/DeviceInput'
- *     responses:
 /**
  * @swagger
  * /api/devices/register:
@@ -215,24 +198,6 @@ router.post('/register', deviceController.registerDeviceUnified);
  *                 registered:
  *                   type: boolean
  *                   example: true
- *                 device_type:
- *                   type: string
- *                   example: "HW"
- *                 power_instruction:
- *                   type: string
- *                   example: "TURN_OFF"
- *                 instruction_token:
- *                   type: string
- *                   nullable: true
- *                 instruction_requested_at:
- *                   type: string
- *                   format: date-time
- *                 last_power_ack_at:
- *                   type: string
- *                   format: date-time
- *                 power_status:
- *                   type: string
- *                   example: "ON"
  *                 config:
  *                   type: object
  *                   properties:
@@ -248,9 +213,9 @@ router.post('/register', deviceController.registerDeviceUnified);
  *                     mode:
  *                       type: string
  *                       example: "simple"
- *                     power_status:
- *                       type: string
- *                       example: "ON"
+ *                 power_instruction:
+ *                   type: string
+ *                   example: "NONE"
  *       '500':
  *         description: Server error.
  */
@@ -270,7 +235,7 @@ router.post('/handshake', deviceController.handleDeviceHandshake);
  *             $ref: '#/components/schemas/DeviceInput'
  *     responses:
  *       '200':
- *         description: Data received successfully. Returns device interval configuration.
+ *         description: Data received successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -279,47 +244,6 @@ router.post('/handshake', deviceController.handleDeviceHandshake);
  *                 success:
  *                   type: boolean
  *                   example: true
- *                 message:
- *                   type: string
- *                   example: "1 location(s) recorded."
- *                 interval_gps:
- *                   type: integer
- *                   example: 60
- *                 interval_send:
- *                   type: integer
- *                   example: 1
- *                 satellites:
- *                   type: integer
- *                   example: 7
- *                 power_instruction:
- *                   type: string
- *                   example: "NONE"
- *                 instruction_token:
- *                   type: string
- *                   nullable: true
- *                   example: "550e8400-e29b-41d4-a716-446655440000"
- *                 power_status:
- *                   type: string
- *                   example: "ON"
- *                 config:
- *                   type: object
- *                   description: Consolidated configuration values mirrored in top-level fields for backward compatibility.
- *                   properties:
- *                     interval_gps:
- *                       type: integer
- *                       example: 60
- *                     interval_send:
- *                       type: integer
- *                       example: 1
- *                     satellites:
- *                       type: integer
- *                       example: 7
- *                     mode:
- *                       type: string
- *                       example: "simple"
- *                     power_status:
- *                       type: string
- *                       example: "ON"
  *       '400':
  *         description: Bad request (e.g., invalid coordinates, missing 'id').
  *       '404':

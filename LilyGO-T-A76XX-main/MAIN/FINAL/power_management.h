@@ -16,8 +16,38 @@ void gps_request_abort();
 bool gps_is_active();
 void fs_end();
 
+enum class PowerStatus : uint8_t {
+	Unknown = 0,
+	On,
+	Off,
+};
+
+enum class PowerInstruction : uint8_t {
+	None = 0,
+	TurnOff,
+};
+
 // Query whether a shutdown sequence has been requested
 bool shutdown_is_requested();
+
+// Power status helpers for server handshake/acknowledgement
+PowerStatus power_status_get();
+void power_status_mark_on();
+void power_status_mark_off();
+bool power_status_report_pending();
+void power_status_report_acknowledged();
+const char* power_status_to_string(PowerStatus status);
+
+// Power instruction handling (e.g., TURN_OFF from server)
+PowerInstruction power_instruction_get();
+void power_instruction_apply(PowerInstruction instruction);
+void power_instruction_acknowledged();
+bool power_instruction_should_shutdown();
+bool power_instruction_ack_pending();
+void power_instruction_clear();
+
+// Track OTA mode to disable shutdown button behaviour
+void power_set_ota_mode_active(bool active);
 
 // Function to initialize power management (pins, ISR, FreeRTOS task)
 void power_init();

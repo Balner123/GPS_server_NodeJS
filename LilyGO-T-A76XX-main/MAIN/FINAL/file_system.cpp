@@ -17,6 +17,7 @@ int port = DEFAULT_SERVER_PORT;
 uint64_t sleepTimeSeconds = DEFAULT_SLEEP_SECONDS;
 bool isRegistered = true; // Assume registered until told otherwise by the server
 int minSatellitesForFix = SAT_THRESHOLD;
+String operationMode = "batch";
 
 Preferences preferences;
 
@@ -78,24 +79,74 @@ void fs_load_configuration() {
     return;
   }
   // Load GPRS settings
-  apn = preferences.getString("apn", DEFAULT_APN);
-  gprsUser = preferences.getString("gprsUser", DEFAULT_GPRS_USER);
-  gprsPass = preferences.getString("gprsPass", DEFAULT_GPRS_PASS);
+  if (preferences.isKey("apn")) {
+    apn = preferences.getString("apn");
+  } else {
+    apn = DEFAULT_APN;
+  }
+  if (preferences.isKey("gprsUser")) {
+    gprsUser = preferences.getString("gprsUser");
+  } else {
+    gprsUser = DEFAULT_GPRS_USER;
+  }
+  if (preferences.isKey("gprsPass")) {
+    gprsPass = preferences.getString("gprsPass");
+  } else {
+    gprsPass = DEFAULT_GPRS_PASS;
+  }
 
   // Load Server settings
-  server = preferences.getString("server", DEFAULT_SERVER_HOST);
-  port = preferences.getUInt("port", DEFAULT_SERVER_PORT);
+  if (preferences.isKey("server")) {
+    server = preferences.getString("server");
+  } else {
+    server = DEFAULT_SERVER_HOST;
+  }
+  if (preferences.isKey("port")) {
+    port = preferences.getUInt("port");
+  } else {
+    port = DEFAULT_SERVER_PORT;
+  }
 
   // Load Device settings
-  deviceName = preferences.getString("deviceName", DEFAULT_DEVICE_NAME);
+  if (preferences.isKey("deviceName")) {
+    deviceName = preferences.getString("deviceName");
+  } else {
+    deviceName = DEFAULT_DEVICE_NAME;
+  }
+  if (preferences.isKey("mode")) {
+    operationMode = preferences.getString("mode");
+  } else {
+    operationMode = "batch";
+  }
 
   // Load OTA settings
-  ota_ssid = preferences.getString("ota_ssid", DEFAULT_OTA_SSID);
-  ota_password = preferences.getString("ota_password", DEFAULT_OTA_PASSWORD);
+  if (preferences.isKey("ota_ssid")) {
+    ota_ssid = preferences.getString("ota_ssid");
+  } else {
+    ota_ssid = DEFAULT_OTA_SSID;
+  }
+  if (preferences.isKey("ota_password")) {
+    ota_password = preferences.getString("ota_password");
+  } else {
+    ota_password = DEFAULT_OTA_PASSWORD;
+  }
 
   // Load sleep time and batch size
-  sleepTimeSeconds = preferences.getULong64("sleepTime", DEFAULT_SLEEP_SECONDS);
-  minSatellitesForFix = preferences.getInt("minSats", SAT_THRESHOLD);
+  if (preferences.isKey("sleepTime")) {
+    sleepTimeSeconds = preferences.getULong64("sleepTime");
+  } else {
+    sleepTimeSeconds = DEFAULT_SLEEP_SECONDS;
+  }
+  if (preferences.isKey("minSats")) {
+    minSatellitesForFix = preferences.getInt("minSats");
+  } else {
+    minSatellitesForFix = SAT_THRESHOLD;
+  }
+  if (preferences.isKey("registered")) {
+    isRegistered = preferences.getBool("registered");
+  } else {
+    isRegistered = true;
+  }
 
   SerialMon.println(F("[FS] Configuration loaded from Preferences."));
 }
@@ -155,6 +206,7 @@ bool send_cached_data() {
     bool first = true;
     int recordCount = 0;
     long lastPosition = 0;
+    bool batchContainsPowerStatus = false;
 
     while (file.available() && recordCount < MAX_BATCH_SIZE) {
       String line = file.readStringUntil('\n');
@@ -167,6 +219,9 @@ bool send_cached_data() {
         first = false;
         recordCount++;
         lastPosition = file.position();
+        if (!batchContainsPowerStatus && line.indexOf(F("\"power_status\"")) != -1) {
+          batchContainsPowerStatus = true;
+        }
       }
     }
     payload += "]";
@@ -178,40 +233,57 @@ bool send_cached_data() {
     }
 
     SerialMon.printf("[FS] Sending batch of %d records...\n", recordCount);
-    String response = modem_send_post_request(RESOURCE_POST, payload);
+    int httpStatus = 0;
+    String response = modem_send_post_request(RESOURCE_POST, payload, &httpStatus);
+
+    if (httpStatus == 404) {
+      SerialMon.println(F("[FS] Server returned 404 - device not registered."));
+      fs_set_registered(false);
+      allDataSent = false;
+      file.close();
+      break;
+    }
+
+    if (httpStatus == 409) {
+      SerialMon.println(F("[FS] Server returned 409 - device claimed by another user."));
+      fs_set_registered(false);
+      allDataSent = false;
+      file.close();
+      break;
+    }
+
+    if (httpStatus >= 500) {
+      SerialMon.print(F("[FS] Server error while sending batch: "));
+      SerialMon.println(httpStatus);
+      allDataSent = false;
+      file.close();
+      break;
+    }
 
     JsonDocument serverResponseDoc;
     DeserializationError error = deserializeJson(serverResponseDoc, response);
 
-    if (!error) {
-      if (serverResponseDoc["registered"] == false) {
-        SerialMon.println(F("[FS] Server indicated device is not registered."));
-        isRegistered = false;
+    if (!error && httpStatus < 400) {
+      if (!serverResponseDoc["config"].isNull()) {
+        fs_apply_server_config(serverResponseDoc["config"]);
+      } else {
+        // Backwards compatibility with legacy flat responses
+        fs_apply_server_config(serverResponseDoc.as<JsonVariantConst>());
       }
-      if (!serverResponseDoc["interval_gps"].isNull()) {
-        unsigned int interval_gps = serverResponseDoc["interval_gps"].as<unsigned int>();
-        if (interval_gps > 0) {
-          sleepTimeSeconds = interval_gps;
-          preferences.putULong64("sleepTime", sleepTimeSeconds);
-          SerialMon.print(F("[FS] Server updated sleep interval to: ")); SerialMon.println(sleepTimeSeconds);
+      if (!serverResponseDoc["registered"].isNull()) {
+        fs_set_registered(serverResponseDoc["registered"].as<bool>());
+        if (!isRegistered) {
+          SerialMon.println(F("[FS] Server indicated device is not registered."));
         }
-      }
-      if (!serverResponseDoc["interval_send"].isNull()) {
-        uint8_t newBatchSize = serverResponseDoc["interval_send"].as<uint8_t>();
-        if (newBatchSize == 0) newBatchSize = 1;
-        if (newBatchSize > 50) newBatchSize = 50;
-        preferences.putUChar(KEY_BATCH_SIZE, newBatchSize);
-        SerialMon.print(F("[FS] Server updated batch size to: ")); SerialMon.println(newBatchSize);
-      }
-      if (!serverResponseDoc["satellites"].isNull()) {
-        minSatellitesForFix = serverResponseDoc["satellites"].as<int>();
-        preferences.putInt("minSats", minSatellitesForFix);
-        SerialMon.print(F("[FS] Server updated minimum satellites for fix to: ")); SerialMon.println(minSatellitesForFix);
       }
     }
 
-    if (!error && serverResponseDoc["success"] == true) {
+    if (!error && serverResponseDoc["success"] == true && httpStatus < 400) {
       SerialMon.println(F("[FS] Batch sent successfully. Updating cache file."));
+      if (batchContainsPowerStatus) {
+        power_instruction_acknowledged();
+        power_status_report_acknowledged();
+      }
       
       bool moreData = file.available();
       file.close();
@@ -248,7 +320,7 @@ bool send_cached_data() {
       }
       if (serverResponseDoc["registered"] == false) {
         SerialMon.println(F("[FS] Server indicated device is not registered. Halting."));
-        isRegistered = false;
+        fs_set_registered(false);
       }
       allDataSent = false;
       file.close();
@@ -265,4 +337,63 @@ bool fs_cache_exists() {
     return false;
   }
   return LittleFS.exists(CACHE_FILE);
+}
+
+void fs_apply_server_config(const JsonVariantConst& config) {
+  if (config.isNull()) {
+    return;
+  }
+
+  FsLockGuard lock;
+  if (!lock.isLocked()) {
+    SerialMon.println(F("[FS] Failed to acquire FS lock while applying server config."));
+    return;
+  }
+
+  if (!config["interval_gps"].isNull()) {
+    uint64_t interval = config["interval_gps"].as<uint64_t>();
+    if (interval > 0) {
+      sleepTimeSeconds = interval;
+      preferences.putULong64("sleepTime", sleepTimeSeconds);
+      SerialMon.print(F("[FS] Server set GPS interval to: "));
+      SerialMon.println(sleepTimeSeconds);
+    }
+  }
+
+  if (!config["interval_send"].isNull()) {
+    uint8_t sendInterval = config["interval_send"].as<uint8_t>();
+    if (sendInterval == 0) {
+      sendInterval = 1;
+    }
+    if (sendInterval > 50) {
+      sendInterval = 50;
+    }
+    preferences.putUChar(KEY_BATCH_SIZE, sendInterval);
+    SerialMon.print(F("[FS] Server set send interval (batch size) to: "));
+    SerialMon.println(sendInterval);
+  }
+
+  if (!config["satellites"].isNull()) {
+    minSatellitesForFix = config["satellites"].as<int>();
+    preferences.putInt("minSats", minSatellitesForFix);
+    SerialMon.print(F("[FS] Server set minimum satellites to: "));
+    SerialMon.println(minSatellitesForFix);
+  }
+
+  if (!config["mode"].isNull()) {
+    operationMode = config["mode"].as<String>();
+    preferences.putString("mode", operationMode);
+    SerialMon.print(F("[FS] Server set operation mode to: "));
+    SerialMon.println(operationMode);
+  }
+}
+
+void fs_set_registered(bool registered) {
+  FsLockGuard lock;
+  if (!lock.isLocked()) {
+    SerialMon.println(F("[FS] Failed to acquire FS lock while updating registration state."));
+    return;
+  }
+  isRegistered = registered;
+  preferences.putBool("registered", registered);
 }

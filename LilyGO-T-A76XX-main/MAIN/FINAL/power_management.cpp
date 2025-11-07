@@ -11,11 +11,32 @@ volatile uint32_t g_last_button_edge_time_us = 0;
 static volatile bool g_shutdown_requested = false;
 static bool statusLedState = false;
 static bool statusLedConfigured = false;
+static PowerStatus g_current_power_status = PowerStatus::Unknown;
+static bool g_power_status_dirty = false;
+static PowerInstruction g_pending_power_instruction = PowerInstruction::None;
+static bool g_instruction_ack_pending = false;
+static bool g_instruction_shutdown_ready = false;
+static bool g_ota_mode_active = false;
+
+static void update_power_status(PowerStatus status, bool markDirty) {
+  if (g_current_power_status != status) {
+    g_current_power_status = status;
+    if (markDirty) {
+      g_power_status_dirty = true;
+    }
+  } else if (markDirty) {
+    g_power_status_dirty = true;
+  }
+}
 
 void power_on() {
   pinMode(PIN_EN, OUTPUT);
   digitalWrite(PIN_EN, HIGH); // Hold power ON
   g_shutdown_requested = false;
+  g_instruction_shutdown_ready = false;
+  g_instruction_ack_pending = false;
+  g_pending_power_instruction = PowerInstruction::None;
+  power_status_mark_on();
   status_led_set(true);
   SerialMon.println(F("[POWER] Main power latch ON."));
 }
@@ -92,6 +113,7 @@ void graceful_shutdown() {
   detachInterrupt(digitalPinToInterrupt(PIN_BTN));
 
   g_shutdown_requested = true;
+  power_status_mark_off();
   status_led_set(false);
 
   // Ask long-running tasks to abort before we tear down shared resources
@@ -138,6 +160,78 @@ void enter_deep_sleep(uint64_t seconds) {
 
 bool shutdown_is_requested() {
   return g_shutdown_requested;
+}
+
+PowerStatus power_status_get() {
+  return g_current_power_status;
+}
+
+void power_status_mark_on() {
+  update_power_status(PowerStatus::On, false);
+  g_power_status_dirty = false;
+}
+
+void power_status_mark_off() {
+  update_power_status(PowerStatus::Off, true);
+}
+
+bool power_status_report_pending() {
+  return g_power_status_dirty;
+}
+
+void power_status_report_acknowledged() {
+  g_power_status_dirty = false;
+}
+
+const char* power_status_to_string(PowerStatus status) {
+  switch (status) {
+    case PowerStatus::On: return "ON";
+    case PowerStatus::Off: return "OFF";
+    default: return "UNKNOWN";
+  }
+}
+
+PowerInstruction power_instruction_get() {
+  return g_pending_power_instruction;
+}
+
+void power_instruction_apply(PowerInstruction instruction) {
+  g_pending_power_instruction = instruction;
+  if (instruction == PowerInstruction::TurnOff) {
+    SerialMon.println(F("[POWER] Power instruction received: TURN_OFF."));
+    g_instruction_ack_pending = true;
+    g_instruction_shutdown_ready = false;
+    power_status_mark_off();
+  } else {
+    g_instruction_ack_pending = false;
+    g_instruction_shutdown_ready = false;
+  }
+}
+
+void power_instruction_acknowledged() {
+  if (g_pending_power_instruction == PowerInstruction::TurnOff && (g_instruction_ack_pending || !g_instruction_shutdown_ready)) {
+    g_instruction_ack_pending = false;
+    g_instruction_shutdown_ready = true;
+    SerialMon.println(F("[POWER] Power instruction TURN_OFF acknowledged by server."));
+  }
+}
+
+bool power_instruction_should_shutdown() {
+  return g_instruction_shutdown_ready && !g_instruction_ack_pending && (g_pending_power_instruction == PowerInstruction::TurnOff);
+}
+
+bool power_instruction_ack_pending() {
+  return g_instruction_ack_pending;
+}
+
+void power_instruction_clear() {
+  g_pending_power_instruction = PowerInstruction::None;
+  g_instruction_ack_pending = false;
+  g_instruction_shutdown_ready = false;
+}
+
+void power_set_ota_mode_active(bool active) {
+  g_ota_mode_active = active;
 }
 
 void status_led_set(bool on) {

@@ -17,6 +17,7 @@ void start_ota_mode() {
 
   // Ensure the power-management button ISR/task is active while in OTA mode.
   power_init();
+  power_set_ota_mode_active(true);
 
   // Load configuration from Preferences (needed for OTA SSID/Pass and GPRS settings)
   fs_load_configuration();
@@ -218,14 +219,15 @@ void start_ota_mode() {
     String password = otaServer.arg("password");
 
     JsonDocument regDoc;
-    regDoc["username"] = username;
-    regDoc["password"] = password;
-    regDoc["deviceId"] = deviceID;
-    regDoc["name"] = deviceName;
+  regDoc["client_type"] = CLIENT_TYPE;
+  regDoc["username"] = username;
+  regDoc["password"] = password;
+  regDoc["device_id"] = deviceID;
+  regDoc["name"] = deviceName;
     String registrationPayload;
     serializeJson(regDoc, registrationPayload);
 
-    String response = modem_send_post_request(RESOURCE_REGISTER, registrationPayload);
+  String response = modem_send_post_request(RESOURCE_REGISTER, registrationPayload, nullptr);
 
     // Prepare styled response page
     String page_content = String(ota_response_page_template);
@@ -299,4 +301,6 @@ void start_ota_mode() {
     }
     vTaskDelay(pdMS_TO_TICKS(5)); // Small delay to prevent watchdog timeout and yield to other tasks
   }
+
+  power_set_ota_mode_active(false);
 }

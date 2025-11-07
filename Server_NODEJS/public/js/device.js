@@ -257,9 +257,9 @@ function initializeApp() {
         }
     });
 
-    const powerInstructionForm = document.getElementById('power-instruction-form');
-    if (powerInstructionForm) {
-        powerInstructionForm.addEventListener('submit', handlePowerInstructionSubmit);
+    const powerOffButton = document.getElementById('power-off-btn');
+    if (powerOffButton) {
+        powerOffButton.addEventListener('click', handlePowerOffClick);
     }
 
     const clearPowerInstructionBtn = document.getElementById('clear-power-instruction-btn');
@@ -346,6 +346,12 @@ function createDeviceElement(device) {
     div.dataset.deviceId = device.device;
 
     const displayName = device.name || device.device;
+    const powerMeta = getPowerStatusMeta(device.power_status, device.power_instruction);
+    const statusIndicatorHtml = `
+        <span class="status-chip-inline" title="Power status: ${powerMeta.label}">
+            <span class="status-dot ${powerMeta.dotClass}"></span>
+        </span>
+    `;
 
     const deviceInfo = document.createElement('div');
     deviceInfo.style.flexGrow = '1';
@@ -355,9 +361,14 @@ function createDeviceElement(device) {
     const alertIcon = device.has_unread_alerts ? '<i class="fas fa-exclamation-triangle text-danger ms-2"></i>' : '';
 
     deviceInfo.innerHTML = `
-        <div class="d-flex w-100 justify-content-between">
-            <h6 class="mb-1"><strong>${displayName}</strong>${alertIcon}</h6>
-            <small class="text-muted">${formatTimestamp(device.timestamp)}</small>
+        <div class="d-flex w-100 justify-content-between align-items-start">
+            <div class="d-flex flex-column">
+                <div class="d-flex align-items-center gap-2">
+                    ${statusIndicatorHtml}
+                    <h6 class="mb-0"><strong>${displayName}</strong>${alertIcon}</h6>
+                </div>
+            </div>
+            <small class="text-muted text-end">${formatTimestamp(device.timestamp)}</small>
         </div>
     `;
 
@@ -882,18 +893,27 @@ async function sendGeofenceToBackend(geofenceData) {
     }
 }
 
-async function handlePowerInstructionSubmit(e) {
+async function handlePowerOffClick(e) {
     e.preventDefault();
     if (!selectedDevice) {
         return displayAlert('Please select a device first.', 'warning');
     }
 
-    const instructionSelect = document.getElementById('power-instruction-select');
-    if (!instructionSelect) {
-        return displayAlert('Instruction selector is missing.', 'danger');
+    const button = e.currentTarget;
+    if (button.disabled) {
+        return; // Nothing to do if instruction already pending
     }
 
-    await submitPowerInstruction(instructionSelect.value);
+    button.disabled = true;
+    button.classList.remove('btn-danger');
+    button.classList.add('btn-outline-danger');
+
+    const success = await submitPowerInstruction('TURN_OFF');
+    if (!success) {
+        button.disabled = false;
+        button.classList.remove('btn-outline-danger');
+        button.classList.add('btn-danger');
+    }
 }
 
 async function handleClearInstructionClick() {
@@ -901,7 +921,19 @@ async function handleClearInstructionClick() {
         return displayAlert('Please select a device first.', 'warning');
     }
 
-    await submitPowerInstruction('NONE');
+    const button = document.getElementById('clear-power-instruction-btn');
+    if (button && button.disabled) {
+        return;
+    }
+
+    if (button) {
+        button.disabled = true;
+    }
+
+    const success = await submitPowerInstruction('NONE');
+    if (!success && button) {
+        button.disabled = false;
+    }
 }
 
 async function submitPowerInstruction(instruction) {
@@ -919,67 +951,62 @@ async function submitPowerInstruction(instruction) {
 
         displayAlert('Power instruction updated.', 'success');
         updatePowerSummary(result);
+        return true;
     } catch (error) {
         displayAlert(`Error: ${error.message}`, 'danger');
+        return false;
     }
 }
 
 function updatePowerSummary(data) {
     const instruction = (data.power_instruction || 'NONE').toUpperCase();
     const status = (data.power_status || 'N/A').toUpperCase();
-    const token = data.instruction_token || '-';
-    const updatedAt = data.power_instruction_updated_at ? formatTimestamp(data.power_instruction_updated_at) : 'Never';
-    const lastAck = data.last_power_ack_at ? formatTimestamp(data.last_power_ack_at) : 'Not received yet';
 
-    const infoPowerStatus = document.getElementById('info-power-status');
-    if (infoPowerStatus) {
-        infoPowerStatus.textContent = status;
+    const statusTextEl = document.getElementById('power-status-text');
+    const statusDotEl = document.getElementById('power-status-dot');
+    const powerOffButton = document.getElementById('power-off-btn');
+    const clearButton = document.getElementById('clear-power-instruction-btn');
+
+    const isPending = instruction !== 'NONE';
+    let displayText = 'N/A';
+    let dotClass = 'status-dot--neutral';
+
+    if (isPending) {
+        displayText = 'PENDING';
+        dotClass = 'status-dot--pending';
+    } else if (status === 'ON') {
+        displayText = 'ON';
+        dotClass = 'status-dot--on';
+    } else if (status === 'OFF') {
+        displayText = 'OFF';
+        dotClass = 'status-dot--off';
     }
 
-    const infoPowerInstruction = document.getElementById('info-power-instruction');
-    if (infoPowerInstruction) {
-        infoPowerInstruction.textContent = instruction;
+    if (statusTextEl) {
+        statusTextEl.textContent = displayText;
+    }
+    if (statusDotEl) {
+        statusDotEl.className = `status-dot ${dotClass}`;
     }
 
-    const powerStateLabel = document.getElementById('power-state-label');
-    if (powerStateLabel) {
-        powerStateLabel.textContent = status;
+    const disablePowerOff = isPending || status === 'OFF' || status === 'N/A';
+    if (powerOffButton) {
+        powerOffButton.disabled = disablePowerOff;
+        powerOffButton.classList.toggle('btn-danger', !powerOffButton.disabled);
+        powerOffButton.classList.toggle('btn-outline-danger', powerOffButton.disabled);
+        powerOffButton.title = powerOffButton.disabled ? 'Instruction unavailable' : 'Send Power OFF instruction';
     }
 
-    const powerInstructionLabel = document.getElementById('power-instruction-label');
-    if (powerInstructionLabel) {
-        powerInstructionLabel.textContent = instruction;
-    }
-
-    const tokenLabel = document.getElementById('instruction-token-label');
-    if (tokenLabel) {
-        tokenLabel.textContent = token;
-    }
-
-    const updatedLabel = document.getElementById('instruction-updated-label');
-    if (updatedLabel) {
-        updatedLabel.textContent = updatedAt;
-    }
-
-    const ackLabel = document.getElementById('last-ack-label');
-    if (ackLabel) {
-        ackLabel.textContent = lastAck;
-    }
-
-    const instructionSelect = document.getElementById('power-instruction-select');
-    if (instructionSelect) {
-        instructionSelect.value = instruction;
+    const disableClear = instruction === 'NONE';
+    if (clearButton) {
+        clearButton.disabled = disableClear;
+        clearButton.classList.toggle('disabled', disableClear);
+        clearButton.title = disableClear ? 'Nothing to clear' : 'Clear pending instruction';
     }
 }
 
 function resetPowerSummary() {
-    updatePowerSummary({
-        power_instruction: 'NONE',
-        power_status: 'N/A',
-        instruction_token: '-',
-        power_instruction_updated_at: null,
-        last_power_ack_at: null
-    });
+    updatePowerSummary({ power_instruction: 'NONE', power_status: 'N/A' });
 }
 
 function displayAlert(message, type = 'info') {

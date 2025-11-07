@@ -7,13 +7,7 @@
 #include <Preferences.h>
 #include "config.h"
 #include "ota_pages.h"
-
-// Forward declarations for functions from other modules needed in OTA mode
-// These are for testing GPRS/Server connection from the web interface
-bool modem_initialize();
-bool modem_connect_gprs(const String& apn, const String& user, const String& pass);
-void modem_disconnect_gprs();
-String modem_send_post_request(const char* resource, const String& payload);
+#include "modem_control.h"
 
 // Function to start the OTA web server and handle updates/registration
 void start_ota_mode();
