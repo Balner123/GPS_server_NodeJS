@@ -10,21 +10,22 @@ TEST_PASSWORD = "lotr"
 # Unikátní ID pro naše testovací zařízení
 DEVICE_ID = "0123556789"
 
+# Default power status reported by this test device
+DEFAULT_POWER_STATUS = "ON"
+
 # --- Headers ---
 headers = {
     "Content-Type": "application/json"
 }
 
 def register_device():
-    """
-    Pokusí se zaregistrovat zařízení na serveru pomocí jména a hesla.
-    """
-    # Správná URL pro registraci hardwaru
-    url = f"{BASE_URL}/api/hw/register-device"
+    """Register the device using the unified endpoint."""
+    url = f"{BASE_URL}/api/devices/register"
     payload = {
+        "client_type": "HW",
         "username": TEST_USERNAME,
         "password": TEST_PASSWORD,
-        "deviceId": DEVICE_ID,
+        "device_id": DEVICE_ID,
         "name": "Cluster Test Device"
     }
     
@@ -40,7 +41,7 @@ def register_device():
             print("Tělo odpovědi (není JSON):")
             print(response.text)
             
-        # 200: již zaregistrováno, 201: vytvořeno, 409: již zaregistrováno jinému uživateli
+        # 200: already registered, 201: created, 409: registered to another account
         if response.status_code in [200, 201]:
             print("Registrace úspěšná nebo zařízení již existuje.")
             return True
@@ -54,10 +55,42 @@ def register_device():
         print(f"Během registrace nastala chyba: {e}")
         return False
 
-def send_clustered_location_data():
-    """
-    Odešle 3 velmi blízké GPS polohy a 1 vzdálenou pro otestování shlukování.
-    """
+def perform_handshake(power_status=DEFAULT_POWER_STATUS):
+    """Run the unified handshake to fetch config and potential power instruction."""
+    url = f"{BASE_URL}/api/devices/handshake"
+    payload = {
+        "client_type": "HW",
+        "device_id": DEVICE_ID,
+        "power_status": power_status
+    }
+
+    print(f"\n--- Handshake pro zařízení {DEVICE_ID} ---")
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        print(f"Status Code: {response.status_code}")
+        try:
+            body = response.json()
+            print(json.dumps(body, indent=2))
+        except json.JSONDecodeError:
+            body = None
+            print("Tělo odpovědi (není JSON):")
+            print(response.text)
+
+        if response.status_code == 200 and body:
+            if not body.get("registered", False):
+                print("Zařízení není registrováno – handshake selhal.")
+                return None
+            return body
+        else:
+            print("Handshake selhal.")
+            return None
+    except requests.exceptions.RequestException as exc:
+        print(f"Během handshake nastala chyba: {exc}")
+        return None
+
+
+def send_clustered_location_data(power_instruction=None, instruction_token=None):
+    """Send clustered GPS points, optionally acknowledging a power instruction."""
     url = f"{BASE_URL}/api/devices/input"
     
     # Základní poloha
@@ -79,7 +112,9 @@ def send_clustered_location_data():
             "altitude": 200,
             "accuracy": 1.0,
             "satellites": 10,
-            "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+            "power_status": DEFAULT_POWER_STATUS,
+            "client_type": "HW"
         })
         print(f"Připraven blízký bod {i+1}: lat={lat}, lon={lon}")
         # Krátká pauza pro zajištění unikátního časového razítka
@@ -96,7 +131,9 @@ def send_clustered_location_data():
         "altitude": 210,
         "accuracy": 5.0,
         "satellites": 12,
-        "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        "power_status": DEFAULT_POWER_STATUS,
+        "client_type": "HW"
     })
     print(f"Připraven vzdálený bod: lat={far_lat}, lon={far_lon}")
     time.sleep(2)
@@ -104,8 +141,13 @@ def send_clustered_location_data():
 
     print(f"\n--- Odesílání {len(data_points)} poloh pro zařízení {DEVICE_ID}... ---")
     
+    if power_instruction and instruction_token:
+        print(f"Detekována instrukce {power_instruction} – odešleme ACK {instruction_token} a změníme stav na OFF.")
+        for point in data_points:
+            point["power_instruction_ack"] = instruction_token
+            point["power_status"] = "OFF"
+
     try:
-        # API přijímá jak jeden objekt, tak pole objektů
         response = requests.post(url, headers=headers, data=json.dumps(data_points))
         
         print(f"Status Code: {response.status_code}")
@@ -121,10 +163,17 @@ def send_clustered_location_data():
 
 
 if __name__ == "__main__":
-    print("Spouštím testovací skript pro shlukování poloh...")
-    # 1. Pokus o registraci zařízení
-    if register_device():
-        # 2. Pokud je registrace úspěšná, odešleme testovací data
-        send_clustered_location_data()
-    else:
+    print("Spouštím testovací skript pro shlukování poloh a handshake...")
+    if not register_device():
         print("\nRegistrace selhala. Zkontrolujte přihlašovací údaje a stav serveru.")
+        raise SystemExit(1)
+
+    handshake_info = perform_handshake(DEFAULT_POWER_STATUS)
+    if not handshake_info:
+        print("Handshake se nezdařil, končím.")
+        raise SystemExit(1)
+
+    instruction = handshake_info.get("power_instruction")
+    token = handshake_info.get("instruction_token")
+
+    send_clustered_location_data(power_instruction=instruction, instruction_token=token)

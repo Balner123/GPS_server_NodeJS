@@ -1,6 +1,8 @@
 const db = require('../database');
 const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const randomUUIDFn = crypto.randomUUID ? () => crypto.randomUUID() : null;
 const { sendGeofenceAlertEmail, sendGeofenceReturnEmail } = require('../utils/emailSender');
 
 // --- Geofencing Helper Functions ---
@@ -92,6 +94,45 @@ function generateGpx(deviceName, locations) {
     return gpx;
 }
 
+function buildDeviceConfigPayload(device) {
+  return {
+    interval_gps: Number(device.interval_gps),
+    interval_send: Number(device.interval_send),
+    satellites: Number(device.satellites),
+    mode: device.mode,
+    power_status: device.power_status
+  };
+}
+
+function normalizePowerStatus(status) {
+  if (!status) {
+    return null;
+  }
+  const normalized = String(status).trim().toUpperCase();
+  if (normalized === 'ON' || normalized === 'OFF') {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeClientType(clientType) {
+  if (!clientType) {
+    return null;
+  }
+  return String(clientType).trim().toUpperCase();
+}
+
+function generateInstructionToken() {
+  return randomUUIDFn ? randomUUIDFn() : crypto.randomBytes(16).toString('hex');
+}
+
+function ensureInstructionToken(device) {
+  if (device.power_instruction !== 'NONE' && !device.instruction_token) {
+    device.instruction_token = generateInstructionToken();
+    device.power_instruction_updated_at = new Date();
+  }
+}
+
 // --- End Geofencing Helpers ---
 
 
@@ -115,7 +156,12 @@ const getDeviceSettings = async (req, res) => {
       geofence: device.geofence,
       created_at: device.created_at,
       device_type: device.device_type,
-      mode: device.mode
+      mode: device.mode,
+      power_status: device.power_status,
+      power_instruction: device.power_instruction,
+      instruction_token: device.instruction_token,
+      power_instruction_updated_at: device.power_instruction_updated_at ? device.power_instruction_updated_at.toISOString() : null,
+      last_power_ack_at: device.last_power_ack_at ? device.last_power_ack_at.toISOString() : null
     });
   } catch (err) {
     console.error("Error getting device settings:", err);
@@ -192,6 +238,16 @@ const handleDeviceInput = async (req, res) => {
 
     const firstPoint = dataPoints[0];
     const { device: deviceId, name } = firstPoint;
+    const rawPowerInstructionAck = firstPoint.power_instruction_ack || firstPoint.instruction_ack || firstPoint.powerInstructionAck || req.body.power_instruction_ack;
+    const powerInstructionAck = typeof rawPowerInstructionAck === 'string'
+      ? rawPowerInstructionAck.trim()
+      : (typeof rawPowerInstructionAck === 'number' ? String(rawPowerInstructionAck) : null);
+    const reportedPowerStatus = normalizePowerStatus(
+      firstPoint.power_status || firstPoint.powerStatus || req.body.power_status || req.body.powerStatus
+    );
+    const clientTypeFromPayload = normalizeClientType(
+      firstPoint.client_type || firstPoint.clientType || req.body.client_type || req.body.clientType
+    );
 
     if (!deviceId) {
         return res.status(400).json({ error: 'Device ID is missing in the payload.' });
@@ -199,8 +255,8 @@ const handleDeviceInput = async (req, res) => {
 
     const device = await db.Device.findOne({ 
       where: { 
-        device_id: deviceId,
-        user_id: req.user.id 
+    	device_id: deviceId,
+    	user_id: req.user.id 
       } 
     });
 
@@ -245,7 +301,49 @@ const handleDeviceInput = async (req, res) => {
         lastLocation = locationsToCreate[locationsToCreate.length - 1];
       }
 
-      device.last_seen = new Date();
+      const now = new Date();
+      device.last_seen = now;
+
+      if (clientTypeFromPayload && device.device_type !== clientTypeFromPayload) {
+        device.device_type = clientTypeFromPayload;
+      }
+
+      const previousInstruction = device.power_instruction;
+      let ackHandled = false;
+
+      if (powerInstructionAck) {
+        if (device.instruction_token && powerInstructionAck === device.instruction_token) {
+          device.power_instruction = 'NONE';
+          device.instruction_token = null;
+          device.last_power_ack_at = now;
+          device.power_instruction_updated_at = now;
+          ackHandled = true;
+
+          if (reportedPowerStatus) {
+            device.power_status = reportedPowerStatus;
+          } else if (previousInstruction === 'TURN_OFF') {
+            device.power_status = 'OFF';
+          }
+        } else if (!device.instruction_token && previousInstruction !== 'NONE') {
+          device.power_instruction = 'NONE';
+          device.last_power_ack_at = now;
+          device.power_instruction_updated_at = now;
+          ackHandled = true;
+
+          if (reportedPowerStatus) {
+            device.power_status = reportedPowerStatus;
+          } else if (previousInstruction === 'TURN_OFF') {
+            device.power_status = 'OFF';
+          }
+        } else if (device.instruction_token) {
+          console.warn(`Power instruction ACK mismatch for device ${device.device_id}: expected ${device.instruction_token}, received ${powerInstructionAck}`);
+        }
+      }
+
+      if (!ackHandled && reportedPowerStatus && device.power_instruction === 'NONE' && device.power_status !== reportedPowerStatus) {
+        device.power_status = reportedPowerStatus;
+      }
+
       await device.save({ transaction: t });
       
       await t.commit();
@@ -291,7 +389,11 @@ const handleDeviceInput = async (req, res) => {
         message: `${locationsToCreate.length} location(s) recorded.`,
         interval_gps: device.interval_gps,
         interval_send: device.interval_send,
-        satellites: device.satellites
+        satellites: device.satellites,
+        power_instruction: device.power_instruction,
+        instruction_token: device.power_instruction !== 'NONE' ? device.instruction_token : null,
+        power_status: device.power_status,
+        config: buildDeviceConfigPayload(device)
       });
 
     } catch (err) {
@@ -307,6 +409,131 @@ const handleDeviceInput = async (req, res) => {
       res.status(500).json({ error: 'An unexpected error occurred.' });
   }
 };
+
+const updatePowerInstruction = async (req, res) => {
+  try {
+    const deviceId = req.body.deviceId || req.body.device_id;
+    const rawInstruction = req.body.power_instruction || req.body.powerInstruction;
+
+    if (!deviceId) {
+      return res.status(400).json({ success: false, error: 'Device ID is required.' });
+    }
+
+    if (!rawInstruction) {
+      return res.status(400).json({ success: false, error: 'Power instruction is required.' });
+    }
+
+    const instruction = String(rawInstruction).trim().toUpperCase();
+    const allowedInstructions = ['NONE', 'TURN_OFF'];
+
+    if (!allowedInstructions.includes(instruction)) {
+      return res.status(400).json({ success: false, error: `Unsupported power instruction '${instruction}'.` });
+    }
+
+    const device = await db.Device.findOne({
+      where: {
+        device_id: deviceId,
+        user_id: req.session.user.id
+      }
+    });
+
+    if (!device) {
+      return res.status(404).json({ success: false, error: 'Device not found or you do not have permission to control it.' });
+    }
+
+    const now = new Date();
+
+    if (instruction === 'NONE') {
+      device.power_instruction = 'NONE';
+      device.instruction_token = null;
+      device.power_instruction_updated_at = now;
+    } else {
+      device.power_instruction = instruction;
+      device.instruction_token = generateInstructionToken();
+      device.power_instruction_updated_at = now;
+    }
+
+    await device.save();
+
+    return res.json({
+      success: true,
+      power_instruction: device.power_instruction,
+      instruction_token: device.instruction_token,
+      power_instruction_updated_at: device.power_instruction_updated_at ? device.power_instruction_updated_at.toISOString() : null,
+      last_power_ack_at: device.last_power_ack_at ? device.last_power_ack_at.toISOString() : null,
+      power_status: device.power_status
+    });
+  } catch (error) {
+    console.error('Error updating power instruction:', error);
+    return res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+};
+
+  const handleDeviceHandshake = async (req, res) => {
+    try {
+      const deviceId = req.body.device_id || req.body.deviceId || req.body.device;
+
+      if (!deviceId) {
+        return res.status(400).json({ success: false, error: 'Missing device_id.' });
+      }
+
+      const device = await db.Device.findOne({ where: { device_id: deviceId } });
+
+      if (!device) {
+        return res.status(200).json({ registered: false });
+      }
+
+      const clientType = normalizeClientType(req.body.client_type || req.body.clientType) || device.device_type || null;
+      const reportedPowerStatus = normalizePowerStatus(req.body.power_status || req.body.powerStatus);
+
+      let shouldSave = false;
+
+      if (!device.device_type && clientType) {
+        device.device_type = clientType;
+        shouldSave = true;
+      }
+
+      if (reportedPowerStatus && device.power_instruction === 'NONE' && device.power_status !== reportedPowerStatus) {
+        device.power_status = reportedPowerStatus;
+        shouldSave = true;
+      }
+
+      ensureInstructionToken(device);
+
+      if (device.power_instruction !== 'NONE') {
+        shouldSave = true; // ensure generated token persists
+      }
+
+      device.last_seen = new Date();
+      shouldSave = true;
+
+      if (shouldSave) {
+        await device.save();
+      }
+
+      const response = {
+        registered: true,
+        device_type: device.device_type,
+        config: buildDeviceConfigPayload(device),
+        power_instruction: device.power_instruction,
+        power_status: device.power_status
+      };
+
+      if (device.power_instruction !== 'NONE') {
+        response.instruction_token = device.instruction_token;
+        response.instruction_requested_at = device.power_instruction_updated_at;
+      }
+
+      if (device.last_power_ack_at) {
+        response.last_power_ack_at = device.last_power_ack_at;
+      }
+
+      return res.status(200).json(response);
+    } catch (error) {
+      console.error('Error during device handshake:', error);
+      return res.status(500).json({ success: false, error: 'Internal server error.' });
+    }
+  };
 
 const getCurrentCoordinates = async (req, res) => {
   try {
@@ -341,7 +568,9 @@ const getCurrentCoordinates = async (req, res) => {
         longitude: latestLocation.longitude,
         latitude: latestLocation.latitude,
         timestamp: latestLocation.timestamp,
-        has_unread_alerts: d.Alerts && d.Alerts.length > 0
+        has_unread_alerts: d.Alerts && d.Alerts.length > 0,
+        power_status: d.power_status,
+        power_instruction: d.power_instruction
       };
     });
 
@@ -560,47 +789,76 @@ const getDevicesPage = async (req, res) => {
   }
 };
 
+async function registerDeviceForUser({ user, deviceId, name, deviceType }) {
+  if (!user || !user.id) {
+    throw new Error('registerDeviceForUser requires a valid user with an id');
+  }
+  if (!deviceId) {
+    throw new Error('registerDeviceForUser requires deviceId');
+  }
+
+  const normalizedDeviceType = deviceType || null;
+  const existingDevice = await db.Device.findOne({ where: { device_id: deviceId } });
+
+  if (existingDevice) {
+    if (existingDevice.user_id === user.id) {
+      return { status: 'already-owned', device: existingDevice };
+    }
+    return { status: 'conflict', device: existingDevice };
+  }
+
+  const fallbackName = deviceId.length > 6 ? `Device ${deviceId.slice(0, 6)}` : `Device ${deviceId}`;
+  const deviceName = typeof name === 'string' && name.trim().length > 0 ? name.trim() : fallbackName;
+
+  const device = await db.Device.create({
+    device_id: deviceId,
+    user_id: user.id,
+    name: deviceName,
+    device_type: normalizedDeviceType
+  });
+
+  return { status: 'created', device };
+}
+
 const registerDeviceFromApk = async (req, res) => {
-    const { installationId, deviceName } = req.body;
-    
-    if (!req.session.user || !req.session.user.id) {
-        return res.status(401).json({ success: false, error: 'User is not logged in.' });
+  const { installationId, deviceName } = req.body;
+
+  if (!req.session.user || !req.session.user.id) {
+    return res.status(401).json({ success: false, error: 'User is not logged in.' });
+  }
+
+  if (!installationId || !deviceName) {
+    return res.status(400).json({ success: false, error: 'Missing device ID or name.' });
+  }
+
+  try {
+    const result = await registerDeviceForUser({
+      user: req.session.user,
+      deviceId: installationId,
+      name: deviceName,
+      deviceType: 'APK'
+    });
+
+    if (result.status === 'created') {
+      return res.status(201).json({ success: true, message: 'Device registered successfully.' });
     }
 
-    if (!installationId || !deviceName) {
-        return res.status(400).json({ success: false, error: 'Missing device ID or name.' });
+    if (result.status === 'already-owned') {
+      return res.status(200).json({ success: true, message: 'Device is already registered.' });
     }
 
-    try {
-        const userId = req.session.user.id;
-
-        const existingDevice = await db.Device.findOne({
-            where: {
-                user_id: userId,
-                device_id: installationId
-            }
-        });
-
-        if (existingDevice) {
-            return res.status(200).json({ success: true, message: 'Device is already registered.' });
-        }
-
-        await db.Device.create({
-            user_id: userId,
-            device_id: installationId,
-            name: deviceName,
-            device_type: 'APK' // Set device type
-        });
-
-        res.status(201).json({ success: true, message: 'Device registered successfully.' });
-
-    } catch (error) {
-        console.error('Error during device registration from APK:', error);
-        if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(409).json({ success: false, error: 'This device ID already exists.' });
-        }
-        res.status(500).json({ success: false, error: 'Internal server error.' });
+    if (result.status === 'conflict') {
+      return res.status(409).json({ success: false, error: 'This device ID already exists.' });
     }
+
+    return res.status(500).json({ success: false, error: 'Unexpected registration state.' });
+  } catch (error) {
+    console.error('Error during device registration from APK:', error);
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({ success: false, error: 'This device ID already exists.' });
+    }
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
 };
 
 const registerDeviceFromHardware = async (req, res) => {
@@ -624,30 +882,118 @@ const registerDeviceFromHardware = async (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid credentials.' });
     }
 
-    // 2. Check if device exists
-    const existingDevice = await db.Device.findOne({ where: { device_id: deviceId } });
-
-    if (existingDevice) {
-      if (existingDevice.user_id === user.id) {
-        return res.status(200).json({ success: true, message: 'Device already registered to your account.' });
-      } else {
-        return res.status(409).json({ success: false, error: 'Device already registered to another user.' });
-      }
-    }
-
-    // 3. Register new device
-    await db.Device.create({
-      device_id: deviceId,
-      user_id: user.id,
-      name: name || `Device ${deviceId.slice(0, 6)}`, // Default name if not provided
-      device_type: 'HW' // Set device type
+    const result = await registerDeviceForUser({
+      user,
+      deviceId,
+      name,
+      deviceType: 'HW'
     });
 
-    res.status(201).json({ success: true, message: 'Device registered successfully.' });
+    if (result.status === 'created') {
+      return res.status(201).json({ success: true, message: 'Device registered successfully.' });
+    }
+
+    if (result.status === 'already-owned') {
+      return res.status(200).json({ success: true, message: 'Device already registered to your account.' });
+    }
+
+    if (result.status === 'conflict') {
+      return res.status(409).json({ success: false, error: 'Device already registered to another user.' });
+    }
+
+    return res.status(500).json({ success: false, error: 'Unexpected registration state.' });
 
   } catch (error) {
     console.error('Error during hardware device registration:', error);
     res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+};
+
+const registerDeviceUnified = async (req, res) => {
+  const clientType = normalizeClientType(req.body.client_type || req.body.clientType);
+  const deviceId = req.body.device_id || req.body.deviceId || req.body.device;
+  const providedName = req.body.name || req.body.deviceName;
+
+  if (!clientType) {
+    return res.status(400).json({ success: false, error: 'Missing client_type.' });
+  }
+
+
+
+
+  if (!deviceId) {
+    return res.status(400).json({ success: false, error: 'Missing device_id.' });
+  }
+
+  try {
+    if (clientType === 'APK') {
+      if (!req.session.user || !req.session.user.id) {
+        return res.status(401).json({ success: false, error: 'User is not logged in.' });
+      }
+
+      const result = await registerDeviceForUser({
+        user: req.session.user,
+        deviceId,
+        name: providedName,
+        deviceType: 'APK'
+      });
+
+      if (result.status === 'created') {
+        return res.status(201).json({ success: true, message: 'Device registered successfully.' });
+      }
+      if (result.status === 'already-owned') {
+        return res.status(200).json({ success: true, message: 'Device is already registered.' });
+      }
+      if (result.status === 'conflict') {
+        return res.status(409).json({ success: false, error: 'Device already registered to another user.' });
+      }
+
+      return res.status(500).json({ success: false, error: 'Unexpected registration state.' });
+    }
+
+    if (clientType === 'HW') {
+      const username = req.body.username || req.body.user;
+      const password = req.body.password;
+
+      if (!username || !password) {
+        return res.status(400).json({ success: false, error: 'Missing username or password.' });
+      }
+
+      const user = await db.User.findOne({ where: { username } });
+
+      if (!user || !user.password) {
+        return res.status(401).json({ success: false, error: 'Invalid credentials.' });
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, error: 'Invalid credentials.' });
+      }
+
+      const result = await registerDeviceForUser({
+        user,
+        deviceId,
+        name: providedName,
+        deviceType: 'HW'
+      });
+
+      if (result.status === 'created') {
+        return res.status(201).json({ success: true, message: 'Device registered successfully.' });
+      }
+      if (result.status === 'already-owned') {
+        return res.status(200).json({ success: true, message: 'Device already registered to your account.' });
+      }
+      if (result.status === 'conflict') {
+        return res.status(409).json({ success: false, error: 'Device already registered to another user.' });
+      }
+
+      return res.status(500).json({ success: false, error: 'Unexpected registration state.' });
+    }
+
+    return res.status(400).json({ success: false, error: `Unsupported client_type '${clientType}'.` });
+  } catch (error) {
+    console.error('Error during unified device registration:', error);
+    return res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 };
 
@@ -902,10 +1248,13 @@ module.exports = {
   handleDeviceInput,
   getCurrentCoordinates,
   getDeviceData,
-  getRawDeviceData, // <-- Add this line
+  getRawDeviceData,
   deleteDevice,
   getDevicesPage,
   removeDeviceFromUser,
   registerDeviceFromHardware,
-  exportDeviceDataAsGpx
+  registerDeviceUnified,
+  handleDeviceHandshake,
+  exportDeviceDataAsGpx,
+  updatePowerInstruction
 };

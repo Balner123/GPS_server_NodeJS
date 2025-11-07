@@ -1,0 +1,10 @@
+potřebuji prozkoumat komunikaci serveru se zařízením HW (prozatím , kdyžtak i APK) 
+a vytvořit nový postup který bude více stabilní a adaptivní. 
+
+Princip je následovný : 
+    Hw pošle registration&status_check -> server opoví zda je zařízení registrovano 
+    --> pokud zatím není tak nastaví POWER_status flag na ON, pokud ano tak zařízení poslě data tak jak doposud -> server odpoví s nastavením + POWER_instruction flag (toto bude nové nastavení v db a na webu určující požadavek aby se zařízení vypnulo ) 
+    --> zařízení odpoví confirmací o převzetí nastavení -> poté server bude moci přemazat POWER_instruction flag a aktualizovat POWER_status flag. 
+
+potřebuji zjistit zda by to šlo na serveru implementovat a pokud ano tak jak (PLAN_hw_communiation.txt). 
+Nejdříve Analyzuj dosavadní strukturu a pak vyřkni svůj verdikt

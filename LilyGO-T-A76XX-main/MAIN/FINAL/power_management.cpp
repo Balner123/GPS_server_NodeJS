@@ -26,6 +26,9 @@ void power_init() {
   }
   pinMode(PIN_BTN, INPUT_PULLUP); // Use internal pull-up so button can pull the line low
 
+  // Ensure LED reflects normal run state (solid ON)
+  status_led_set(true);
+
   // Create the FreeRTOS task for button handling
   xTaskCreatePinnedToCore(
     ShutdownTask,     // Task function

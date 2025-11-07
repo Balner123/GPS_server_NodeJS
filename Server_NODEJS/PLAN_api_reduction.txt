@@ -1,0 +1,71 @@
+=========================================
+PLAN: Sjednocení API pro HW a APK klienty
+=========================================
+
+Cíle
+----
+- Minimalizovat počet endpointů udržovaných pro HW a APK.
+- Rozlišovat logiku podle `device_type` (`HW`, `APK`, případně další typy do budoucna).
+- Zajistit zpětnou kompatibilitu do doby, než se klienti přesměrují na nové routy.
+
+1) Současný stav
+----------------
+- Registrace HW: `POST /api/hw/register-device` (username+password+deviceId).
+- Registrace APK: `POST /api/apk/register-device` (session + installationId).
+- Login APK: `POST /api/apk/login`, `POST /api/apk/logout`.
+- Odesílání dat: jednotně `POST /api/devices/input` (HW i APK), middleware `authenticateDevice` rozhoduje podle `device_id`.
+- Chystaný handshake pouze pro HW (`/api/hw/handshake`).
+
+2) Cílová struktura API
+-----------------------
+- Registrace (všechny typy) → `POST /api/devices/register`
+  • Zadní vrstva rozliší typ podle pole `client_type` nebo autorizace.
+- Handshake/status → `POST /api/devices/handshake`
+  • Vrací konfiguraci a instrukce bez ohledu na typ zařízení.
+- Telemetrie + ACK → `POST /api/devices/input`
+  • Zůstává, payload se rozšíří o `instruction_ack`, `power_status`, `client_type` (volitelně).
+- Přihlášení APK → zůstává v `/api/apk/login` (klientská záležitost, netýká se device API).
+- Odhlášení APK → `/api/apk/logout` (stejný důvod).
+
+3) Backend dopady
+-----------------
+- Přidat sloupec `device_type` do validačních logik (už existuje v modelu `Device`).
+- Konsolidovat registraci do jednoho controlleru (`deviceController.registerDeviceUnified`).
+- Zavést pomocnou službu `deviceTypeResolver`:
+  • validuje povolené přechody (`APK` nemůže registrovat `HW` token apod.).
+- Upravit middleware `authenticateDevice` tak, aby do `req.clientType` doplnil typ ze zařízení.
+- Dokumentace (`docs_server`) musí být aktualizovaná: nový handshake / register.
+
+4) Postup migrace
+-----------------
+1. Připravit nové endpointy (`/api/devices/register`, `/api/devices/handshake`).
+2. V controlleru zachovat původní `/api/hw/register-device` + `/api/apk/register-device`, ale interně přesměrovat na sjednocenou logiku.
+3. Přidat varovné logování/telemetrii pro staré endpointy.
+4. Po aktualizaci klientů odstranit staré route definice.
+
+5) Bezpečnost a kompatibilita
+-----------------------------
+- HW registrace musí dál vyžadovat uživatele+heslo; APK využívá session. Unified endpoint musí v závislosti na `device_type` vyžadovat správný způsob autentizace.
+- Handshake pro APK musí odmítnout požadavky bez session/patřičného tokenu (pokud to klient vyžaduje).
+- Dočasně povolit staré endpointy s HTTP 301/307 redirectem nebo s odpovědí, která instruuje klienta přejít na nový endpoint (dle schopností HW).
+
+6) Logování a monitoring
+------------------------
+- Přidat metriky: počet registrací podle `device_type`, handshake response times, `instruction_ack` doručení.
+- Logovat neznámé/nesouladné `client_type` hodnoty.
+
+7) Testování
+------------
+- Jednotkové testy pro unified controller (registrace, handshake, input) s variantami `HW`, `APK`.
+- Integrační test: simulace HW handshake → data → ACK.
+- Integrační test APK: login → registrace → handshake → data.
+- Regression test pro geofence a další sdílené funkce.
+
+8) Timeline návrh
+-----------------
+Týden 1: implementace registrace + refaktor middleware; Týden 2: handshake; Týden 3: úklid starých endpointů, dokumentace, QA.
+
+Poznámky
+--------
+- Pokud se objeví další klient (např. IoT modul), jednoduše se přidá nový `device_type` + validátory.
+- Po sjednocení aktualizovat Swagger (`swaggerDef.js`) a front-endy (admin UI).

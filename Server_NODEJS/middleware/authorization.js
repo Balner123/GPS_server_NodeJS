@@ -51,8 +51,11 @@ const authenticateDevice = async (req, res, next) => {
       return res.status(500).json({ success: false, error: 'Associated user not found for device.' });
     }
 
+    const clientTypeFromRequest = req.body.client_type || req.body.clientType || (Array.isArray(req.body) && req.body[0] ? req.body[0].client_type || req.body[0].clientType : null);
+
     req.device = device;
     req.user = user; // Attach the user object associated with the device
+    req.clientType = device.device_type || (clientTypeFromRequest ? String(clientTypeFromRequest).trim().toUpperCase() : null);
     next();
 
   } catch (error) {

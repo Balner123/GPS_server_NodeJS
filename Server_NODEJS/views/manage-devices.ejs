@@ -59,6 +59,39 @@
                     </div>
                 </div>
 
+                <div class="card mt-4 fade-in-on-load" id="power-control-card" style="display: none; animation-delay: 0.35s;">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Power Control</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="power-instruction-form" class="mb-3">
+                            <div class="mb-3">
+                                <label for="power-instruction-select" class="form-label">Pending Instruction</label>
+                                <select class="form-select" id="power-instruction-select">
+                                    <option value="NONE">No instruction</option>
+                                    <option value="TURN_OFF">Turn device off</option>
+                                </select>
+                            </div>
+                            <div class="d-flex">
+                                <button type="submit" class="btn btn-danger">Apply Instruction</button>
+                                <button type="button" class="btn btn-secondary ms-2" id="clear-power-instruction-btn">Clear Instruction</button>
+                            </div>
+                        </form>
+                        <dl class="row small mb-0">
+                            <dt class="col-sm-5">Current Power State</dt>
+                            <dd class="col-sm-7" id="power-state-label">N/A</dd>
+                            <dt class="col-sm-5">Active Instruction</dt>
+                            <dd class="col-sm-7" id="power-instruction-label">N/A</dd>
+                            <dt class="col-sm-5">Instruction Token</dt>
+                            <dd class="col-sm-7" id="instruction-token-label">-</dd>
+                            <dt class="col-sm-5">Instruction Updated</dt>
+                            <dd class="col-sm-7" id="instruction-updated-label">-</dd>
+                            <dt class="col-sm-5">Last ACK</dt>
+                            <dd class="col-sm-7" id="last-ack-label">-</dd>
+                        </dl>
+                    </div>
+                </div>
+
                 <div class="card mt-4 fade-in-on-load" id="device-info-card" style="display: none; animation-delay: 0.4s;">
                     <div class="card-header">
                         <h5 class="card-title mb-0">Device Information</h5>
@@ -71,6 +104,10 @@
                             <dd class="col-sm-8" id="info-device-type"></dd>
                             <dt class="col-sm-4">Registration Date</dt>
                             <dd class="col-sm-8" id="info-registration-date"></dd>
+                            <dt class="col-sm-4">Power Status</dt>
+                            <dd class="col-sm-8" id="info-power-status"></dd>
+                            <dt class="col-sm-4">Pending Instruction</dt>
+                            <dd class="col-sm-8" id="info-power-instruction"></dd>
                         </dl>
                         <button id="export-gpx-btn" class="btn btn-success" style="display: none;">Export GPX</button>
                     </div>

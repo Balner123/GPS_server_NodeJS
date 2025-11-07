@@ -1,0 +1,102 @@
+===================================
+APK Communication Requirements
+===================================
+
+1) Auth & Session
+------------------
+- APK klient využívá existující login endpoint (`POST /api/apk/login`).
+- Po přihlášení musí session cookie doprovázet všechny další požadavky (registrace, handshake, input), pokud není preferovaný tokenový režim.
+- Logout (`POST /api/apk/logout`) ruší session a musí být volán před odinstalací, aby nevisel záznam v DB.
+- Mimo autentizační vrstvu (session cookie) má další komunikace identický průběh jako u `device_type: HW`.
+
+2) Registrace zařízení
+----------------------
+- Endpoint: `POST /api/devices/register` (sjednocený).
+- Payload minimálně:
+  {
+    "client_type": "APK",
+    "device_id": "installationId",
+    "name": "optional alias"
+  }
+- Server ověřuje session (uživatel přihlášen) a mapuje `installationId` na `device.device_id`.
+- Odpověď: `{ success: true, message?, already_registered? }`.
+- Při dvojité registraci musí server vrátit 200 se stavem `already_registered=true`.
+
+3) Handshake / konfigurace
+--------------------------
+- Endpoint: `POST /api/devices/handshake`.
+- Request musí nést `device_id`, `client_type: APK` a aktuální `power_status` (`ON|OFF`). Doporučené doplňky: `app_version`, `battery`, `uptime`.
+- Server vždy vrací 200. Pokud zařízení neexistuje, payload má `registered=false` a klient by měl nabídnout registraci.
+- Standardní response:
+  {
+    "registered": true,
+    "device_type": "APK",
+    "power_status": "ON",
+    "config": {
+      "interval_gps": <int>,
+      "interval_send": <int>,
+      "satellites": <int>,
+      "mode": "simple|batch",
+      "power_status": "ON"
+    },
+    "power_instruction": "NONE" | "TURN_OFF",
+    "instruction_token": "uuid",           // pouze pokud je aktivní instrukce
+    "instruction_requested_at": "ISO time", // čas vydání instrukce
+    "last_power_ack_at": "ISO time"         // poslední ACK (pokud existuje)
+  }
+- APK klient musí instrukci interpretovat stejně jako HW – po obdržení `TURN_OFF` přejít do režimu vypnutí/sleep a připravit ACK.
+- `power_status` se vrací jak na top-levelu, tak v `config.power_status`, aby byla zachována kompatibilita se staršími klienty.
+
+- Endpoint: `POST /api/devices/input`.
+- Payload formát identický s HW (podpora jednotlivého objektu i pole):
+  {
+    "device": "installationId",
+    "latitude": <float>,
+    "longitude": <float>,
+    "accuracy": <float>,
+    "speed": <float>,
+    "timestamp": <ISO string>,
+    "power_status": "ON|OFF",
+    "power_instruction_ack": "uuid", // pokud potvrzuje převzetí
+    "client_type": "APK"
+  }
+- Povinná pole: `device`, `latitude`, `longitude`.
+- Volitelná pole: `accuracy`, `speed`, `altitude`, `error`.
+- Pokud došlo k přepnutí do režimu vypnutí, `power_status` musí být `OFF` a `power_instruction_ack` musí odpovídat tokenu z handshake.
+- Server odpovídá JSONem:
+  {
+    "success": true,
+    "message": "n location(s) recorded.",
+    "power_instruction": "NONE" | "TURN_OFF",
+    "instruction_token": "uuid|null",
+    "power_status": "ON|OFF",
+    "config": {
+      "interval_gps": <int>,
+      "interval_send": <int>,
+      "satellites": <int>,
+      "mode": "simple|batch",
+      "power_status": "ON|OFF"
+    }
+  }
+- Pokud server stále drží instrukci, na odpovědi se objeví i poslední token (nutné pro případné retry ACK).
+
+5) Error handling
+-----------------
+- 401 → session vypršela, APK musí uživatele přesměrovat na login.
+- 404 s `registered=false` → zařízení není registrováno, nabídnout registraci.
+- 500 → logovat a retry strategii s exponenciálním backoffem.
+
+6) Telemetrie klienta
+---------------------
+- APK by mělo posílat `app_version`, `platform` (Android API level) pro lepší diagnostiku.
+- Min. logování: počet uložených bodů před odesláním, důvody neodeslaných dat.
+
+7) Bezpečnostní poznámky
+------------------------
+- Přenášet pouze přes HTTPS.
+- Zvážit přidání HMAC podpisu payloadu, pokud se objeví potřeba zvýšit integritu.
+
+8) Budoucí rozšíření
+--------------------
+- Push notifikace z power instrukce (pokud se rozhodneme upozorňovat uživatele).
+- Offline fronta – APK si musí poradit s uložením dat, když není dostupná síť, a odeslat je v dávce.

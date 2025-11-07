@@ -27,19 +27,6 @@ const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/a
  *           description: The unique ID of the device.
  *           example: "AC12345678"
  *         name:
- *           type: string
- *           description: The name of the device. Can be used to update the device name.
- *           example: "My Car Tracker"
- *         latitude:
- *           type: number
- *           format: float
- *           description: Latitude.
- *           example: 50.08804
- *         longitude:
- *           type: number
- *           format: float
- *           description: Longitude.
- *           example: 14.42076
  *         speed:
  *           type: number
  *           format: float
@@ -68,6 +55,19 @@ const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/a
  *           type: string
  *           description: An error message if no GPS fix was obtained.
  *           example: "No GPS fix (External)"
+ *         power_status:
+ *           type: string
+ *           description: Current power state reported by the device.
+ *           enum: ["ON", "OFF"]
+ *           example: "ON"
+ *         power_instruction_ack:
+ *           type: string
+ *           description: Token acknowledging the last power instruction.
+ *           example: "550e8400-e29b-41d4-a716-446655440000"
+ *         client_type:
+ *           type: string
+ *           description: Declared device type (APK/HW/etc.).
+ *           example: "HW"
  *     DeviceSettingsUpdate:
  *        type: object
  *        required:
@@ -92,7 +92,169 @@ const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/a
  *            type: integer
  *            description: The new number of satellites.
  *            example: 7
+ *     DeviceRegister:
+ *       type: object
+ *       required:
+ *         - client_type
+ *         - device_id
+ *       properties:
+ *         client_type:
+ *           type: string
+ *           description: Declared device type (`HW`, `APK`, ...).
+ *           example: "HW"
+ *         device_id:
+ *           type: string
+ *           description: Unique device identifier.
+ *           example: "AABBCCDDEEFF"
+ *         name:
+ *           type: string
+ *           description: Optional friendly name.
+ *           example: "My Tracker"
+ *         username:
+ *           type: string
+ *           description: Required for HW registration.
+ *           example: "testuser"
+ *         password:
+ *           type: string
+ *           description: Required for HW registration.
+ *           example: "Secret123!"
+ *     DeviceHandshake:
+ *       type: object
+ *       required:
+ *         - device_id
+ *       properties:
+ *         client_type:
+ *           type: string
+ *           description: Declared device type.
+ *           example: "APK"
+ *         device_id:
+ *           type: string
+ *           description: Unique device identifier.
+ *           example: "AABBCCDDEEFF"
+ *         power_status:
+ *           type: string
+ *           description: Current power state (`ON`/`OFF`).
+ *           enum: ["ON", "OFF"]
+ *           example: "ON"
+ *         app_version:
+ *           type: string
+ *           description: Optional firmware/app version for diagnostics.
+ *           example: "1.0.5"
+ *         battery:
+ *           type: number
+ *           format: float
+ *           description: Optional battery level or voltage.
+ *           example: 4.07
+ *         uptime:
+ *           type: integer
+ *           description: Optional uptime in seconds.
+ *           example: 3600
  */
+
+/**
+ * @swagger
+ * /api/devices/input:
+ *   post:
+ *     summary: Receive location data from a GPS device
+ *     tags: [Devices API]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DeviceInput'
+ *     responses:
+/**
+ * @swagger
+ * /api/devices/register:
+ *   post:
+ *     summary: Register a device (HW/APK) using a unified endpoint
+ *     tags: [Devices API]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DeviceRegister'
+ *     responses:
+ *       '201':
+ *         description: Device registered successfully.
+ *       '200':
+ *         description: Device already registered to the same account.
+ *       '400':
+ *         description: Bad request (missing fields, unsupported client type).
+ *       '401':
+ *         description: Unauthorized (invalid credentials / missing session).
+ *       '409':
+ *         description: Device already registered to another user.
+ *       '500':
+ *         description: Server error.
+ */
+router.post('/register', deviceController.registerDeviceUnified);
+
+/**
+ * @swagger
+ * /api/devices/handshake:
+ *   post:
+ *     summary: Perform a configuration handshake with the server
+ *     tags: [Devices API]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DeviceHandshake'
+ *     responses:
+ *       '200':
+ *         description: Handshake successful.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 registered:
+ *                   type: boolean
+ *                   example: true
+ *                 device_type:
+ *                   type: string
+ *                   example: "HW"
+ *                 power_instruction:
+ *                   type: string
+ *                   example: "TURN_OFF"
+ *                 instruction_token:
+ *                   type: string
+ *                   nullable: true
+ *                 instruction_requested_at:
+ *                   type: string
+ *                   format: date-time
+ *                 last_power_ack_at:
+ *                   type: string
+ *                   format: date-time
+ *                 power_status:
+ *                   type: string
+ *                   example: "ON"
+ *                 config:
+ *                   type: object
+ *                   properties:
+ *                     interval_gps:
+ *                       type: integer
+ *                       example: 60
+ *                     interval_send:
+ *                       type: integer
+ *                       example: 1
+ *                     satellites:
+ *                       type: integer
+ *                       example: 7
+ *                     mode:
+ *                       type: string
+ *                       example: "simple"
+ *                     power_status:
+ *                       type: string
+ *                       example: "ON"
+ *       '500':
+ *         description: Server error.
+ */
+router.post('/handshake', deviceController.handleDeviceHandshake);
 
 /**
  * @swagger
@@ -129,6 +291,35 @@ const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/a
  *                 satellites:
  *                   type: integer
  *                   example: 7
+ *                 power_instruction:
+ *                   type: string
+ *                   example: "NONE"
+ *                 instruction_token:
+ *                   type: string
+ *                   nullable: true
+ *                   example: "550e8400-e29b-41d4-a716-446655440000"
+ *                 power_status:
+ *                   type: string
+ *                   example: "ON"
+ *                 config:
+ *                   type: object
+ *                   description: Consolidated configuration values mirrored in top-level fields for backward compatibility.
+ *                   properties:
+ *                     interval_gps:
+ *                       type: integer
+ *                       example: 60
+ *                     interval_send:
+ *                       type: integer
+ *                       example: 1
+ *                     satellites:
+ *                       type: integer
+ *                       example: 7
+ *                     mode:
+ *                       type: string
+ *                       example: "simple"
+ *                     power_status:
+ *                       type: string
+ *                       example: "ON"
  *       '400':
  *         description: Bad request (e.g., invalid coordinates, missing 'id').
  *       '404':
@@ -299,6 +490,46 @@ router.get('/settings/:deviceId', isAuthenticated, isUser, deviceController.getD
  *         description: Server error.
  */
 router.post('/settings', isAuthenticated, isUser, validateSettings, deviceController.updateDeviceSettings);
+
+/**
+ * @swagger
+ * /api/devices/power-instruction:
+ *   post:
+ *     summary: Set or clear a power instruction for a device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - deviceId
+ *               - power_instruction
+ *             properties:
+ *               deviceId:
+ *                 type: string
+ *                 description: Hardware ID of the device to control.
+ *                 example: "ABC1234567"
+ *               power_instruction:
+ *                 type: string
+ *                 description: Instruction to apply (`NONE`, `TURN_OFF`).
+ *                 example: "TURN_OFF"
+ *     responses:
+ *       '200':
+ *         description: Power instruction updated successfully.
+ *       '400':
+ *         description: Missing or unsupported input.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found or not owned by the user.
+ *       '500':
+ *         description: Server error.
+ */
+router.post('/power-instruction', isAuthenticated, isUser, deviceController.updatePowerInstruction);
 
 /**
  * @swagger

@@ -35,8 +35,18 @@ void start_ota_mode() {
   }
 
   // 1. Initialize and connect modem first (for registration/testing GPRS)
-  SerialMon.println(F("Skipping modem initialization in OTA mode (WiFi only)."));
+  SerialMon.println(F("Initializing modem for OTA mode..."));
   gprsConnectedOTA = false;
+  if (modem_initialize()) {
+    gprsConnectedOTA = modem_connect_gprs(apn, gprsUser, gprsPass);
+    if (gprsConnectedOTA) {
+      SerialMon.println(F("Modem ready and connected to GPRS."));
+    } else {
+      SerialMon.println(F("Modem initialized, but GPRS connection failed."));
+    }
+  } else {
+    SerialMon.println(F("Modem initialization failed; OTA GPRS features unavailable."));
+  }
 
   // 2. Start WiFi AP
   SerialMon.println(F("Starting WiFi AP..."));

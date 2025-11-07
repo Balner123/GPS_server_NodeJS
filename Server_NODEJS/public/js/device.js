@@ -256,6 +256,16 @@ function initializeApp() {
             window.open(`${API_BASE_URL}/api/devices/export/gpx/${selectedDevice}`, '_blank');
         }
     });
+
+    const powerInstructionForm = document.getElementById('power-instruction-form');
+    if (powerInstructionForm) {
+        powerInstructionForm.addEventListener('submit', handlePowerInstructionSubmit);
+    }
+
+    const clearPowerInstructionBtn = document.getElementById('clear-power-instruction-btn');
+    if (clearPowerInstructionBtn) {
+        clearPowerInstructionBtn.addEventListener('click', handleClearInstructionClick);
+    }
 }
 
 async function checkForAlerts() {
@@ -485,6 +495,12 @@ async function selectDevice(deviceId) {
         }
         updateGeofenceControls();
 
+        const powerCard = document.getElementById('power-control-card');
+        if (powerCard) {
+            powerCard.style.display = 'block';
+        }
+        updatePowerSummary(settings);
+
     } catch (error) {
         displayAlert(`Error loading settings for ${deviceId}.`, 'danger');
     }
@@ -540,6 +556,11 @@ function clearMapAndData() {
     if (exportBtn) {
         exportBtn.style.display = 'none';
     }
+    const powerCard = document.getElementById('power-control-card');
+    if (powerCard) {
+        powerCard.style.display = 'none';
+    }
+    resetPowerSummary();
     currentDeviceGeofence = null;
     updateGeofenceControls();
 }
@@ -859,6 +880,106 @@ async function sendGeofenceToBackend(geofenceData) {
     } catch (error) {
         displayAlert(`Error: ${error.message}`, 'danger');
     }
+}
+
+async function handlePowerInstructionSubmit(e) {
+    e.preventDefault();
+    if (!selectedDevice) {
+        return displayAlert('Please select a device first.', 'warning');
+    }
+
+    const instructionSelect = document.getElementById('power-instruction-select');
+    if (!instructionSelect) {
+        return displayAlert('Instruction selector is missing.', 'danger');
+    }
+
+    await submitPowerInstruction(instructionSelect.value);
+}
+
+async function handleClearInstructionClick() {
+    if (!selectedDevice) {
+        return displayAlert('Please select a device first.', 'warning');
+    }
+
+    await submitPowerInstruction('NONE');
+}
+
+async function submitPowerInstruction(instruction) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/devices/power-instruction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId: selectedDevice, power_instruction: instruction })
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to update power instruction.');
+        }
+
+        displayAlert('Power instruction updated.', 'success');
+        updatePowerSummary(result);
+    } catch (error) {
+        displayAlert(`Error: ${error.message}`, 'danger');
+    }
+}
+
+function updatePowerSummary(data) {
+    const instruction = (data.power_instruction || 'NONE').toUpperCase();
+    const status = (data.power_status || 'N/A').toUpperCase();
+    const token = data.instruction_token || '-';
+    const updatedAt = data.power_instruction_updated_at ? formatTimestamp(data.power_instruction_updated_at) : 'Never';
+    const lastAck = data.last_power_ack_at ? formatTimestamp(data.last_power_ack_at) : 'Not received yet';
+
+    const infoPowerStatus = document.getElementById('info-power-status');
+    if (infoPowerStatus) {
+        infoPowerStatus.textContent = status;
+    }
+
+    const infoPowerInstruction = document.getElementById('info-power-instruction');
+    if (infoPowerInstruction) {
+        infoPowerInstruction.textContent = instruction;
+    }
+
+    const powerStateLabel = document.getElementById('power-state-label');
+    if (powerStateLabel) {
+        powerStateLabel.textContent = status;
+    }
+
+    const powerInstructionLabel = document.getElementById('power-instruction-label');
+    if (powerInstructionLabel) {
+        powerInstructionLabel.textContent = instruction;
+    }
+
+    const tokenLabel = document.getElementById('instruction-token-label');
+    if (tokenLabel) {
+        tokenLabel.textContent = token;
+    }
+
+    const updatedLabel = document.getElementById('instruction-updated-label');
+    if (updatedLabel) {
+        updatedLabel.textContent = updatedAt;
+    }
+
+    const ackLabel = document.getElementById('last-ack-label');
+    if (ackLabel) {
+        ackLabel.textContent = lastAck;
+    }
+
+    const instructionSelect = document.getElementById('power-instruction-select');
+    if (instructionSelect) {
+        instructionSelect.value = instruction;
+    }
+}
+
+function resetPowerSummary() {
+    updatePowerSummary({
+        power_instruction: 'NONE',
+        power_status: 'N/A',
+        instruction_token: '-',
+        power_instruction_updated_at: null,
+        last_power_ack_at: null
+    });
 }
 
 function displayAlert(message, type = 'info') {

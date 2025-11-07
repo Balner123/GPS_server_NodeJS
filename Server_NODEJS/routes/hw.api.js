@@ -67,4 +67,22 @@ const deviceController = require('../controllers/deviceController');
  */
 router.post('/register-device', deviceController.registerDeviceFromHardware);
 
+/**
+ * @swagger
+ * /api/hw/handshake:
+ *   post:
+ *     summary: Legacy endpoint for hardware handshake (delegates to unified handler).
+ *     tags: [Hardware API]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/HardwareRegister'
+ *     responses:
+ *       '200':
+ *         description: Returns the same payload as /api/devices/handshake.
+ */
+router.post('/handshake', deviceController.handleDeviceHandshake);
+
 module.exports = router;

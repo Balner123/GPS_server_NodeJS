@@ -30,6 +30,28 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('active', 'inactive'),
       defaultValue: 'active'
     },
+    power_status: {
+      type: DataTypes.ENUM('ON', 'OFF'),
+      allowNull: false,
+      defaultValue: 'ON'
+    },
+    power_instruction: {
+      type: DataTypes.ENUM('NONE', 'TURN_OFF'),
+      allowNull: false,
+      defaultValue: 'NONE'
+    },
+    instruction_token: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    power_instruction_updated_at: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    last_power_ack_at: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
     interval_gps: {
       type: DataTypes.INTEGER,
       allowNull: false,

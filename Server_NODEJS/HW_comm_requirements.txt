@@ -1,0 +1,101 @@
+===================================
+HW Communication Requirements
+===================================
+
+1) Identita a autentizace
+-------------------------
+- Každé HW zařízení používá pevné `device_id` (např. výrobní číslo).
+- Registrace přes `POST /api/devices/register` s payloadem:
+  {
+    "client_type": "HW",
+    "device_id": "ABC1234567",
+    "username": "owner",
+    "password": "secret",
+    "name": "optional alias"
+  }
+- Server ověří uživatelské přihlašovací údaje a při úspěchu přiřadí zařízení k účtu.
+- V případě konfliktní registrace (jiný uživatel) odpovědět 409.
+
+2) Handshake (status + konfigurace)
+-----------------------------------
+- Endpoint: `POST /api/devices/handshake`.
+- Příklad requestu:
+  {
+    "device_id": "ABC1234567",
+    "client_type": "HW",
+    "power_status": "ON",
+    "uptime_sec": 3600
+  }
+- Server provede:
+  • Kontrolu registrace (404/registered=false pokud není).
+  • Synchronizaci `power_status`, pokud na serveru není aktivní instrukce.
+  • Vytvoření odpovědi s konfigurací a případnou instrukcí.
+- Příklad response:
+  {
+    "registered": true,
+    "config": {
+      "interval_gps": 60,
+      "interval_send": 3,
+      "satellites": 7,
+      "mode": "batch"
+    },
+    "power_instruction": "TURN_OFF" | "NONE",
+    "instruction_token": "uuid", // pokud instrukce existuje
+    "instruction_requested_at": "2025-11-07T10:15:00Z"
+  }
+
+3) Odesílání dat + ACK
+----------------------
+- Endpoint: `POST /api/devices/input` (stejný jako APK).
+- Payload (jedna dávka):
+  {
+    "device": "ABC1234567",
+    "latitude": 50.12345,
+    "longitude": 14.45678,
+    "speed": 35.6,
+    "satellites": 8,
+    "timestamp": "2025-11-07T10:20:00Z",
+    "power_status": "OFF", // pokud se změnil po instrukci
+    "power_instruction_ack": "uuid", // potvrzení převzetí instrukce
+    "client_type": "HW"
+  }
+- Payload může být i pole výše uvedených objektů.
+- Server kroky po přijetí:
+  • Ověří `device` existenci.
+  • Uloží lokace, aktualizuje `last_seen`.
+  • Pokud `power_instruction_ack` sedí na aktuální instrukci, nulovat `power_instruction` a uložit `last_power_ack_at`.
+  • Pokud `power_status` změněn na `OFF`, persistovat do `Device.power_status`.
+  • Odpověď: `{ success: true, message: "n location(s) recorded.", config: {...}, power_instruction: "NONE" }`.
+
+4) Power status a instrukce
+---------------------------
+- Enum hodnoty:
+  • `power_status`: `ON`, `OFF` (lze rozšířit o `LOW_POWER`, `FAULT`).
+  • `power_instruction`: `NONE`, `TURN_OFF`, (eventuálně `TURN_ON`).
+- HW musí po přijetí instrukce provést akci a nejpozději v následujícím uploadu odeslat `power_instruction_ack`.
+- Pokud instrukci nelze provést, zařízení by mělo poslat stav chyby (např. `power_status=ON`, `power_instruction_ack=failed` – nutné definovat).
+
+5) Chování při chybách
+----------------------
+- 404 / `registered=false`: zařízením neprovádět další akce, přepnout do konfiguračního režimu.
+- 409: stejné `device_id` už patří jinému uživateli → logovat, případně signalizovat LED.
+- 500: retry logika s backoffem; neztrácet data (uživatelské lokace).
+- Nedoručená instrukce → pokud server vrací stále `TURN_OFF`, zařízení by mělo opakovat ack po úspěšném provedení.
+
+6) Telemetrie a diagnostika
+---------------------------
+- Povinné debug info v handshake: `fw_version`, `uptime`, `battery_voltage`, `temperature` (pokud dostupné).
+- Při chybách posílat `error` pole v datových paketech (např. `"error": "NO_GPS_FIX"`).
+- Zvažte posílání CRC nebo podpisu pro zabezpečení.
+
+7) Síťové požadavky
+-------------------
+- Všechny requesty přes HTTPS.
+- Timeout doporučen < 10 s; při neúspěchu retry po 30 s.
+- Podpora batch uploadu (pole) pro offline buffering.
+
+8) Budoucí rozšíření
+--------------------
+- OTA aktualizace firmware: handshake může vracet flag, že je k dispozici nová verze (např. `fw_update_available` + URL).
+- Telemetrické kanály (CAN, OBD) lze posílat ve stejném payloadu (`extra_data` JSON object).
+- Záznam audit trail instrukcí do vlastní tabulky pro servisní účely.
