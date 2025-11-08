@@ -56,10 +56,13 @@ class LocationService : Service() {
                         locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
                 if (!isLocationEnabled) {
                     ConsoleLogger.log("Poskytovatelé polohy byli deaktivováni. Služba se zastavuje.")
+                    SharedPreferencesHelper.setPowerState(applicationContext, PowerState.OFF)
+                    HandshakeManager.launchHandshake(applicationContext, reason = "gps_disabled")
                     updateAndBroadcastState(
                         status = StatusMessages.SERVICE_STOPPED_GPS_OFF,
                         connectionStatus = "Kritická chyba",
-                        isRunning = false
+                        isRunning = false,
+                        powerStatus = PowerState.OFF
                     )
                     stopSelf()
                 }
@@ -73,6 +76,8 @@ class LocationService : Service() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         registerReceiver(locationProviderReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
+
+        currentServiceState.powerStatus = SharedPreferencesHelper.getPowerState(this).toString()
 
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
@@ -96,13 +101,17 @@ class LocationService : Service() {
         }
 
         ConsoleLogger.log("Služba LocationService spuštěna.")
-        updateAndBroadcastState(status = StatusMessages.SERVICE_STARTING, isRunning = true)
+        updateAndBroadcastState(status = StatusMessages.SERVICE_STARTING, isRunning = true, powerStatus = PowerState.ON)
 
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
         gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
         syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
         sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
         ConsoleLogger.log("Nastaven interval GPS: ${gpsIntervalSeconds}s, Odeslání po: ${syncIntervalCount} pozicích.")
+
+        SharedPreferencesHelper.setPowerState(applicationContext, PowerState.ON)
+        HandshakeManager.launchHandshake(applicationContext, reason = "service_start")
+    HandshakeManager.schedulePeriodicHandshake(applicationContext)
 
         startForegroundService()
         startLocationUpdates()
@@ -141,7 +150,8 @@ class LocationService : Service() {
                 status = StatusMessages.TRACKING_ACTIVE,
                 connectionStatus = StatusMessages.WAITING_FOR_GPS,
                 nextUpdate = System.currentTimeMillis() + sendIntervalMillis,
-                isRunning = true
+                isRunning = true,
+                powerStatus = PowerState.ON
             )
         } catch (e: SecurityException) {
             ConsoleLogger.log("Chyba oprávnění při startu sledování polohy.")
@@ -196,6 +206,7 @@ class LocationService : Service() {
         val dao = AppDatabase.getDatabase(applicationContext).locationDao()
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(applicationContext)
         val deviceId = sharedPrefs.getString("device_id", null)
+        val powerState = SharedPreferencesHelper.getPowerState(applicationContext)
 
         if (deviceId == null) {
             ConsoleLogger.log(StatusMessages.DEVICE_ID_ERROR)
@@ -212,7 +223,8 @@ class LocationService : Service() {
             satellites = location.extras?.getInt("satellites", 0) ?: 0,
             timestamp = location.time,
             deviceId = deviceId,
-            deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+            deviceName = "${Build.MANUFACTURER} ${Build.MODEL}",
+            powerStatus = powerState.toString()
         )
 
         CoroutineScope(Dispatchers.IO).launch {
@@ -229,7 +241,8 @@ class LocationService : Service() {
 
                 updateAndBroadcastState(
                     status = StatusMessages.LOCATION_CACHED,
-                    cachedCount = locationsCachedCount
+                    cachedCount = locationsCachedCount,
+                    powerStatus = powerState
                 )
 
             } catch (e: Exception) {
@@ -275,7 +288,8 @@ class LocationService : Service() {
         connectionStatus: String? = null,
         nextUpdate: Long? = null,
         isRunning: Boolean? = null,
-        cachedCount: Int? = null
+        cachedCount: Int? = null,
+        powerStatus: PowerState? = null
     ) {
         // Update current state
         status?.let { currentServiceState.statusMessage = it }
@@ -283,6 +297,12 @@ class LocationService : Service() {
         nextUpdate?.let { currentServiceState.nextUpdateTimestamp = it }
         isRunning?.let { currentServiceState.isRunning = it }
         cachedCount?.let { currentServiceState.cachedCount = it }
+        val persistedPower = SharedPreferencesHelper.getPowerState(this)
+        val resolvedPower = powerStatus ?: persistedPower
+        currentServiceState.powerStatus = resolvedPower.toString()
+        if (resolvedPower == PowerState.OFF) {
+            currentServiceState.isRunning = false
+        }
 
 
         // Broadcast the updated state
@@ -297,12 +317,16 @@ class LocationService : Service() {
         ConsoleLogger.log("Služba LocationService se zastavuje.")
         fusedLocationClient.removeLocationUpdates(locationCallback)
         unregisterReceiver(locationProviderReceiver)
+        SharedPreferencesHelper.setPowerState(applicationContext, PowerState.OFF)
+        HandshakeManager.launchHandshake(applicationContext, reason = "service_stop")
+        HandshakeManager.cancelPeriodicHandshake(applicationContext)
         // Send final state update to ensure UI is correct
         updateAndBroadcastState(
             status = StatusMessages.SERVICE_STOPPED,
             connectionStatus = "Neaktivní",
             nextUpdate = 0,
-            isRunning = false
+            isRunning = false,
+            powerStatus = PowerState.OFF
         )
         ConsoleLogger.log("Služba LocationService zničena.")
     }

@@ -16,6 +16,7 @@ Pole entity:
 - `timestamp: Long` (epoch millis)
 - `deviceId: String` (installationId)
 - `deviceName: String` (např. "<výrobce> <model>")
+- `powerStatus: String` (`"ON"` / `"OFF"`)
 
 DAO (`LocationDao`):
 - `insertLocation(location)` – uložení polohy
@@ -33,6 +34,10 @@ Při odeslání (`SyncWorker`) se dávka konvertuje na pole JSON objektů:
 - `altitude` (number)
 - `accuracy` (number)
 - `satellites` (number)
+- `power_status` (string)
+- `client_type` (string, vždy `"APK"`)
 - `timestamp` (string, ISO 8601 v UTC, např. `2025-01-01T12:00:00Z`)
+
+Poznámka: Room databáze má verzi 2 (migrace `MIGRATION_1_2` přidává sloupec `powerStatus`).
 
 Poznámka: Interně je `timestamp` v ms, před odesláním převáděn do ISO8601 UTC.

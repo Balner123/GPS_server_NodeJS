@@ -2,7 +2,8 @@ package com.example.gpsreporterapp
 
 data class ServerResponse(
     val success: Boolean,
-    val message: String,
+    val message: String?,
     val interval_gps: Int?,
-    val interval_send: Int?
+    val interval_send: Int?,
+    val power_instruction: String?
 )

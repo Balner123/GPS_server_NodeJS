@@ -1,0 +1,25 @@
+PL�NY 
+	APK 
+		- zamknut� -> "runaway detection"
+		- odesl�n� reportu p�i odinstalaci
+		- menu : logout, Lock_device
+		- v�t�� adaptivnost : rekce na �patn� sign�l, bez intenetu -> "cachovan� pozic"
+		- mnohostn� odes�l�n� po znonabyt� spojen� 
+		- z�loha sign�lu s SMSkami ???
+		- Grafick� uprava !!!
+	SERVER
+		- Schopnost p��jmu "cachovanych" pozic ze za��zen� 
+		- p�i reportu vydat v�stra�n� e-mail
+		- mo�nost zm�ny N�ZVU za��zen� a mo�nost p�id�n� popisku
+		- E-SIM ???
+		-  grafick� uprava !!!
+		- funkce p��dan� zony na mapu k za��zen� -> detekce opu�ten� p�id�len� zony za��zen�m -> v�stra�n� e-mail 
+		- autentufikace a registrace pomocí externích účtů --> Google, Github
+	HARDWARov� ZA��ZEN�
+		- cachov�n� ? 
+		- mo�nost zm�nu modu -> odes�l�n� jednotliv�ch poloh v pravideln�ch intervalech
+		- NEBO odes�l�n� d�vek poloh v intervalu (co 10 pozic 1 odesl�n�)
+		- lep�� responzivita na selh�n� odesl�n� -> p�ej�t do "cache" re�imu
+		- registrace za��zen� pomoc� p�ihl�en� // nebude pot�ebn� zad�n� ID na serveru, (automatick�)
+		- guma pro zav�en� krabi�ky
+		- + jej� samotn� slo�en�

@@ -15,16 +15,46 @@ Základní URL je dáno `BuildConfig.API_BASE_URL` (výchozí z build.gradle) a 
   - `interval_send` (int, počet pozic) – může být přítomen
   - Set-Cookie hlavička se session cookie (aplikace si uloží první část před `;`)
 
-## Registrace zařízení
-- Endpoint: `POST {BASE_URL}/api/apk/register-device`
+- Endpoint: `POST {BASE_URL}/api/devices/register`
 - Hlavičky: `Cookie: <session>`
 - Tělo (JSON):
-  - `installationId` (string)
-  - `deviceName` (string)
+  - `client_type` = `"APK"`
+  - `device_id` (string, např. installationId)
+  - `name` (string, alias zařízení)
 - Odpověď (HTTP 201/200, JSON):
   - `success` (bool)
-  - `gps_interval` (int) – volitelně
+  - `already_registered` (bool) – pokud bylo zařízení už zapsané
+  - `interval_gps` (int) – volitelně
   - `interval_send` (int) – volitelně
+
+## Handshake zařízení
+- Endpoint: `POST {BASE_URL}/api/devices/handshake`
+- Hlavičky: `Cookie: <session>`
+- Tělo (JSON):
+  - `device_id` (string)
+  - `client_type` = `"APK"`
+  - `power_status` = `"ON" | "OFF"`
+  - `app_version` (string)
+  - `platform` (string, např. `Android 34`)
+  - `reason` (string, telemetrie klienta – např. `service_start`)
+- Odpověď (HTTP 200, JSON):
+  - `registered` (bool)
+  - `config.interval_gps` (int) – volitelně
+  - `config.interval_send` (int) – volitelně
+  - `config.mode`, `config.satellites` – volitelně, pro budoucí rozšíření
+  - `power_instruction` (`"NONE" | "TURN_OFF"`)
+
+Chování klienta:
+- Pokud `registered=false`, vyvolá se vynucené odhlášení s žádostí o novou registraci.
+- Při změně konfigurace se hodnoty uloží do SharedPreferences a restartuje se `LocationService`.
+- Instrukce `TURN_OFF` zastaví službu, nastaví `power_status="OFF"` a aktualizuje UI.
+
+## Odhlášení
+- Endpoint: `POST {BASE_URL}/api/apk/logout`
+- Hlavičky: `Cookie: <session>`
+- Tělo: `{}` (prázdný JSON)
+- Odpověď: HTTP 200 na úspěch, chyby se logují do konzole APK.
+- APK volá endpoint při uživatelském odhlášení a následně zneplatní lokální session.
 
 ## Odesílání poloh (dávky)
 - Endpoint: `POST {BASE_URL}/api/devices/input`
@@ -35,7 +65,10 @@ Základní URL je dáno `BuildConfig.API_BASE_URL` (výchozí z build.gradle) a 
   - `message` (string)
   - `interval_gps` (int, sekund) – volitelně
   - `interval_send` (int, počet pozic) – volitelně
+  - `power_instruction` (`"NONE" | "TURN_OFF"`)
 
 Poznámky:
 - Při HTTP 403 aplikace vyvolá vynucené odhlášení.
 - Pokud dorazí nové intervaly a odeslaná dávka byla větší (vyčištění backlogu), aplikace uloží nové hodnoty a restartuje `LocationService` pro jejich aplikaci.
+- Instrukce `power_instruction="TURN_OFF"` z odpovědí handshake i input znamenají okamžité zastavení služby a hlášení `power_status="OFF"`.
+- Po vynuceném vypnutí se ihned spouští handshake potvrzení (inline + naplánovaný `HandshakeWorker`), aby server mohl instrukci zrušit.

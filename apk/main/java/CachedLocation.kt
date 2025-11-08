@@ -14,5 +14,6 @@ data class CachedLocation(
     val satellites: Int,
     val timestamp: Long, // Store timestamp as milliseconds
     val deviceId: String,
-    val deviceName: String
+    val deviceName: String,
+    val powerStatus: String
 )

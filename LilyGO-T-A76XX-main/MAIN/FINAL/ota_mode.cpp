@@ -19,6 +19,11 @@ void start_ota_mode() {
   power_init();
   power_set_ota_mode_active(true);
 
+  // Mount filesystem and open Preferences so configuration reads/writes work in OTA.
+  if (!fs_init()) {
+    SerialMon.println(F("[OTA] Failed to initialize filesystem; using defaults only."));
+  }
+
   // Load configuration from Preferences (needed for OTA SSID/Pass and GPRS settings)
   fs_load_configuration();
 

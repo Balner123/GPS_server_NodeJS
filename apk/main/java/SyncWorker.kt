@@ -3,6 +3,8 @@ package com.example.gpsreporterapp
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Build
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import androidx.work.CoroutineWorker
@@ -12,9 +14,15 @@ import com.google.gson.JsonSyntaxException
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.BufferedWriter
 import java.io.InputStreamReader
+import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
@@ -34,122 +42,223 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
     override suspend fun doWork(): Result {
         ConsoleLogger.log("SyncWorker spuštěn.")
-        val dao = AppDatabase.getDatabase(applicationContext).locationDao()
-        val batchSize = 50
 
-        while (true) {
+        val dao = AppDatabase.getDatabase(applicationContext).locationDao()
+        val sharedPrefs = getEncryptedSharedPreferences()
+
+        val sessionCookie = sharedPrefs.getString("session_cookie", null)?.split(";")?.firstOrNull()
+        val baseUrl = sharedPrefs.getString("server_url", BuildConfig.API_BASE_URL) ?: BuildConfig.API_BASE_URL
+        val clientType = sharedPrefs.getString("client_type", "APK") ?: "APK"
+
+        if (sessionCookie.isNullOrBlank()) {
+            ConsoleLogger.log("SyncWorker: chybí session cookie, synchronizace přeskočena.")
+            return Result.success()
+        }
+
+        val batchSize = 50
+        var continueSync = true
+
+        while (continueSync) {
             val cachedLocations = dao.getLocationsBatch(batchSize)
             if (cachedLocations.isEmpty()) {
-                ConsoleLogger.log("Žádné další pozice k synchronizaci.")
+                ConsoleLogger.log("SyncWorker: žádné pozice k odeslání.")
                 break
             }
 
-            ConsoleLogger.log("Nalezeno ${cachedLocations.size} pozic k synchronizaci v této dávce.")
+            ConsoleLogger.log("SyncWorker: nalezena dávka ${cachedLocations.size} pozic k odeslání.")
+
+            val payload = JSONArray()
+            val idsToDelete = mutableListOf<Int>()
+
+            cachedLocations.forEach { location ->
+                val jsonObject = JSONObject().apply {
+                    put("device", location.deviceId)
+                    put("name", location.deviceName)
+                    put("latitude", location.latitude)
+                    put("longitude", location.longitude)
+                    put("speed", location.speed)
+                    put("altitude", location.altitude)
+                    put("accuracy", location.accuracy)
+                    put("satellites", location.satellites)
+                    put("power_status", location.powerStatus)
+                    put("client_type", clientType)
+                    put("timestamp", formatTimestamp(location.timestamp))
+                }
+                payload.put(jsonObject)
+                idsToDelete.add(location.id)
+            }
 
             try {
-                val jsonArray = JSONArray()
-                cachedLocations.forEach { location ->
-                    val jsonObject = JSONObject().apply {
-                        put("device", location.deviceId)
-                        put("name", location.deviceName)
-                        put("latitude", location.latitude)
-                        put("longitude", location.longitude)
-                        put("speed", location.speed)
-                        put("altitude", location.altitude)
-                        put("accuracy", location.accuracy)
-                        put("satellites", location.satellites)
-                        put("timestamp", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
-                            timeZone = java.util.TimeZone.getTimeZone("UTC")
-                        }.format(java.util.Date(location.timestamp)))
-                    }
-                    jsonArray.put(jsonObject)
-                }
+                val responseBody = postBatch(baseUrl, sessionCookie, payload)
+                val response = parseResponse(responseBody)
 
-                val url = URL("${BuildConfig.API_BASE_URL}/api/devices/input")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                connection.doOutput = true
-                connection.connectTimeout = 30000
-                connection.readTimeout = 30000
-
-                val sharedPrefs = getEncryptedSharedPreferences()
-                sharedPrefs.getString("session_cookie", null)?.let {
-                    connection.setRequestProperty("Cookie", it.split(";")[0])
-                }
-
-                val payload = jsonArray.toString()
-                ConsoleLogger.log("Odesílám dávku dat na server...")
-
-                connection.outputStream.use { os ->
-                    val input = payload.toByteArray(Charsets.UTF_8)
-                    os.write(input, 0, input.size)
-                }
-
-                val responseCode = connection.responseCode
-                val responseBody = try {
-                    val reader = BufferedReader(InputStreamReader(if (responseCode < 400) connection.inputStream else connection.errorStream))
-                    reader.readText()
-                } catch (e: Exception) {
-                    ConsoleLogger.log("Chyba při čtení odpovědi od serveru: ${e.message}")
+                if (!response.success) {
+                    ConsoleLogger.log("SyncWorker: server vrátil success=false (${response.message ?: "bez detailu"}).")
                     return Result.retry()
                 }
 
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    ConsoleLogger.log("Odpověď serveru: OK ($responseCode)")
-                    if (cachedLocations.size > 10) { // Only update settings if clearing a backlog
-                        try {
-                            val serverResponse = gson.fromJson(responseBody, ServerResponse::class.java)
-                            if (serverResponse.success) {
-                                val editor = sharedPrefs.edit()
-                                var settingsChanged = false
-                                serverResponse.interval_gps?.let {
-                                    if (sharedPrefs.getInt("gps_interval_seconds", 60) != it) {
-                                        editor.putInt("gps_interval_seconds", it)
-                                        settingsChanged = true
-                                        ConsoleLogger.log("Aktualizován interval GPS na: ${it}s")
-                                    }
-                                }
-                                serverResponse.interval_send?.let {
-                                    if (sharedPrefs.getInt("sync_interval_count", 1) != it) {
-                                        editor.putInt("sync_interval_count", it)
-                                        settingsChanged = true
-                                        ConsoleLogger.log("Aktualizován interval odeslání na: ${it} pozic")
-                                    }
-                                }
-                                if (settingsChanged) {
-                                    editor.apply()
-                                    ConsoleLogger.log("Restartuji službu pro aplikaci nového nastavení.")
-                                    val serviceIntent = Intent(applicationContext, LocationService::class.java)
-                                    applicationContext.stopService(serviceIntent)
-                                    applicationContext.startService(serviceIntent)
-                                }
-                            }
-                        } catch (e: JsonSyntaxException) {
-                            ConsoleLogger.log("Chyba při parsování odpovědi serveru: ${e.message}")
-                        }
-                    }
-
-                    val idsToDelete = cachedLocations.map { it.id }
-                    dao.deleteLocationsByIds(idsToDelete)
-                    ConsoleLogger.log("Vymazáno ${idsToDelete.size} pozic z mezipaměti.")
-                } else if (responseCode == HttpURLConnection.HTTP_FORBIDDEN) {
-                    ConsoleLogger.log("Chyba 403: Přístup odepřen. Uživatel bude odhlášen.")
-                    val logoutIntent = Intent(LocationService.ACTION_FORCE_LOGOUT).apply {
-                        putExtra(LocationService.EXTRA_LOGOUT_MESSAGE, "Vaše přihlášení vypršelo nebo bylo zrušeno. Prosím, přihlaste se znovu.")
-                    }
-                    applicationContext.sendBroadcast(logoutIntent)
-                    return Result.failure() // Stop further execution
-                } else {
-                    ConsoleLogger.log("Chyba serveru: ($responseCode). Pokus bude opakován.")
-                    return Result.retry()
-                }
-
-            } catch (e: Exception) {
-                ConsoleLogger.log("Kritická chyba v SyncWorker: ${e.message}")
+                continueSync = handleServerResponse(sharedPrefs, response)
+                dao.deleteLocationsByIds(idsToDelete)
+                ConsoleLogger.log("SyncWorker: dávka ${idsToDelete.size} pozic odeslána a odstraněna z cache.")
+            } catch (ex: RecoverableSyncException) {
+                ConsoleLogger.log("SyncWorker: obnovitelná chyba (${ex.message}). Úloha bude zopakována.")
+                return Result.retry()
+            } catch (ex: UnauthorizedException) {
+                ConsoleLogger.log("SyncWorker: neautorizovaný přístup (${ex.message}).")
+                handleUnauthorized()
+                return Result.failure()
+            } catch (ex: Exception) {
+                ConsoleLogger.log("SyncWorker: neočekávaná chyba: ${ex.message}")
                 return Result.retry()
             }
         }
+
         return Result.success()
     }
+
+    private fun postBatch(baseUrl: String, sessionCookie: String, payload: JSONArray): String {
+        val url = URL("$baseUrl/api/devices/input")
+        val connection = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Cookie", sessionCookie)
+            doOutput = true
+            connectTimeout = 15000
+            readTimeout = 15000
+        }
+
+        try {
+            BufferedWriter(OutputStreamWriter(connection.outputStream, Charsets.UTF_8)).use { writer ->
+                writer.write(payload.toString())
+            }
+
+            val responseCode = connection.responseCode
+            val stream = if (responseCode < 400) connection.inputStream else connection.errorStream
+            val responseBody = stream?.let {
+                BufferedReader(InputStreamReader(it, Charsets.UTF_8)).use { reader -> reader.readText() }
+            } ?: ""
+
+            when {
+                responseCode == HttpURLConnection.HTTP_UNAUTHORIZED || responseCode == HttpURLConnection.HTTP_FORBIDDEN ->
+                    throw UnauthorizedException("HTTP $responseCode: $responseBody")
+                responseCode >= 500 -> throw RecoverableSyncException("HTTP $responseCode: $responseBody")
+                responseCode >= 400 -> throw Exception("HTTP $responseCode: $responseBody")
+            }
+
+            return responseBody
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun parseResponse(responseBody: String): ServerResponse {
+        return try {
+            gson.fromJson(responseBody, ServerResponse::class.java)
+        } catch (ex: JsonSyntaxException) {
+            throw RecoverableSyncException("Neplatná odpověď serveru (${ex.message})")
+        }
+    }
+
+    private fun handleServerResponse(
+        sharedPrefs: SharedPreferences,
+        response: ServerResponse
+    ): Boolean {
+        val editor = sharedPrefs.edit()
+        var settingsChanged = false
+
+        response.interval_gps?.let { intervalGps ->
+            if (sharedPrefs.getInt("gps_interval_seconds", 60) != intervalGps) {
+                editor.putInt("gps_interval_seconds", intervalGps)
+                settingsChanged = true
+                ConsoleLogger.log("SyncWorker: aktualizován interval GPS na ${intervalGps}s.")
+            }
+        }
+
+        response.interval_send?.let { intervalSend ->
+            if (sharedPrefs.getInt("sync_interval_count", 1) != intervalSend) {
+                editor.putInt("sync_interval_count", intervalSend)
+                settingsChanged = true
+                ConsoleLogger.log("SyncWorker: aktualizován interval odesílání na ${intervalSend} pozic.")
+            }
+        }
+
+        if (settingsChanged) {
+            editor.apply()
+            restartLocationServiceIfActive()
+        } else {
+            editor.apply()
+        }
+
+        return applyPowerInstruction(response.power_instruction)
+    }
+
+    private fun restartLocationServiceIfActive() {
+        if (SharedPreferencesHelper.getPowerState(applicationContext) == PowerState.OFF) {
+            ConsoleLogger.log("SyncWorker: konfigurace změněna, ale služba je vypnutá. Restart se neprovádí.")
+            return
+        }
+
+        ConsoleLogger.log("SyncWorker: restartuji LocationService pro aplikaci nové konfigurace.")
+        val serviceIntent = Intent(applicationContext, LocationService::class.java)
+        applicationContext.stopService(serviceIntent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            applicationContext.startForegroundService(serviceIntent)
+        } else {
+            applicationContext.startService(serviceIntent)
+        }
+    }
+
+    private fun applyPowerInstruction(instruction: String?): Boolean {
+        return when (instruction?.uppercase(Locale.US)) {
+            "TURN_OFF" -> {
+                ConsoleLogger.log("SyncWorker: server požaduje vypnutí služby.")
+                SharedPreferencesHelper.setPowerState(applicationContext, PowerState.OFF)
+                applicationContext.stopService(Intent(applicationContext, LocationService::class.java))
+
+                val stateJson = gson.toJson(
+                    ServiceState(
+                        isRunning = false,
+                        statusMessage = StatusMessages.SERVICE_STOPPED,
+                        connectionStatus = "Vypnuto na základě instrukce serveru",
+                        nextUpdateTimestamp = 0,
+                        cachedCount = 0,
+                        powerStatus = PowerState.OFF.toString()
+                    )
+                )
+
+                val statusIntent = Intent(LocationService.ACTION_BROADCAST_STATUS).apply {
+                    putExtra(LocationService.EXTRA_SERVICE_STATE, stateJson)
+                }
+                LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(statusIntent)
+
+                HandshakeManager.launchHandshake(applicationContext, reason = "sync_turn_off")
+                HandshakeManager.enqueueHandshakeWork(applicationContext)
+                false
+            }
+            else -> true
+        }
+    }
+
+    private fun handleUnauthorized() {
+        SharedPreferencesHelper.setPowerState(applicationContext, PowerState.OFF)
+        applicationContext.stopService(Intent(applicationContext, LocationService::class.java))
+
+        val logoutIntent = Intent(LocationService.ACTION_FORCE_LOGOUT).apply {
+            putExtra(
+                LocationService.EXTRA_LOGOUT_MESSAGE,
+                "Session je neplatná. Přihlaste se prosím znovu."
+            )
+        }
+        applicationContext.sendBroadcast(logoutIntent)
+    }
+
+    private fun formatTimestamp(timestamp: Long): String {
+        val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        formatter.timeZone = TimeZone.getTimeZone("UTC")
+        return formatter.format(Date(timestamp))
+    }
+
+    private class RecoverableSyncException(message: String) : Exception(message)
+
+    private class UnauthorizedException(message: String) : Exception(message)
 }

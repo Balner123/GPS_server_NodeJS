@@ -23,6 +23,7 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.*
 import java.util.concurrent.Executors
+import kotlinx.coroutines.runBlocking
 
 class LoginActivity : AppCompatActivity() {
 
@@ -158,10 +159,18 @@ class LoginActivity : AppCompatActivity() {
                             val intervalSend = jsonResponse.optInt("interval_send", 1) // Default to 1 location before sending
                             sharedPrefs.edit()
                                 .putString("device_id", installationId)
+                                .putString("client_type", "APK")
                                 .putBoolean("isAuthenticated", true)
                                 .putInt("gps_interval_seconds", gpsInterval)
                                 .putInt("sync_interval_count", intervalSend)
                                 .apply()
+                            try {
+                                runBlocking {
+                                    HandshakeManager.performHandshake(applicationContext, reason = "post_login")
+                                }
+                            } catch (e: Exception) {
+                                Log.w("LoginActivity", "Handshake po přihlášení selhal: ${e.message}")
+                            }
                             Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
                             runOnUiThread {
                                 Toast.makeText(this, "Přihlášení úspěšné!", Toast.LENGTH_SHORT).show()
@@ -200,7 +209,7 @@ class LoginActivity : AppCompatActivity() {
 
         executorService.execute {
             try {
-                val url = URL("$apiBaseUrl/api/apk/register-device")
+                val url = URL("$apiBaseUrl/api/devices/register")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -210,8 +219,9 @@ class LoginActivity : AppCompatActivity() {
                 connection.readTimeout = 15000
 
                 val jsonInputString = JSONObject().apply {
-                    put("installationId", installationId)
-                    put("deviceName", deviceName)
+                    put("client_type", "APK")
+                    put("device_id", installationId)
+                    put("name", deviceName)
                 }.toString()
 
                 OutputStreamWriter(connection.outputStream, "UTF-8").use { it.write(jsonInputString) }
@@ -223,18 +233,31 @@ class LoginActivity : AppCompatActivity() {
                 if (responseCode == HttpURLConnection.HTTP_CREATED || responseCode == HttpURLConnection.HTTP_OK) {
                     val jsonResponse = JSONObject(responseString)
                     if (jsonResponse.optBoolean("success", false)) {
-                        // Uložíme potřebná data a jdeme na hlavní obrazovku
-                        val gpsInterval = jsonResponse.optInt("gps_interval", 60) // Default to 60 seconds
-                        val intervalSend = jsonResponse.optInt("interval_send", 1) // Default to 1 location before sending
+                        val alreadyRegistered = jsonResponse.optBoolean("already_registered", false)
+                        val gpsInterval = jsonResponse.optInt("interval_gps", jsonResponse.optInt("gps_interval", 60))
+                        val intervalSend = jsonResponse.optInt("interval_send", 1)
                         sharedPrefs.edit()
                             .putString("device_id", installationId)
+                            .putString("client_type", "APK")
                             .putBoolean("isAuthenticated", true)
                             .putInt("gps_interval_seconds", gpsInterval)
                             .putInt("sync_interval_count", intervalSend)
                             .apply()
+                        try {
+                            runBlocking {
+                                HandshakeManager.performHandshake(applicationContext, reason = "post_register")
+                            }
+                        } catch (e: Exception) {
+                            Log.w("LoginActivity", "Handshake po registraci selhal: ${e.message}")
+                        }
+                        val infoMessage = if (alreadyRegistered) {
+                            "Zařízení již bylo registrováno, pokračujeme."
+                        } else {
+                            "Zařízení úspěšně registrováno."
+                        }
                         Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
                         runOnUiThread {
-                            Toast.makeText(this, "Zařízení úspěšně registrováno!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, infoMessage, Toast.LENGTH_SHORT).show()
                             navigateToMain()
                         }
                     } else {
