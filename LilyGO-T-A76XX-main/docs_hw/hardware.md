@@ -8,7 +8,7 @@ Tento dokument popisuje klíčové piny a periferie pro firmware v `MAIN/FINAL` 
 - **Modem:** SIMCOM A7670 (TinyGSM profil `TINY_GSM_MODEM_A7670`)
 - **GPS:** externí modul (např. NEO‑6M) napájený a řízený přes ESP32
 - **Tlačítko:** sdílené pro ruční shutdown i vstup do OTA režimu (GPIO32)
-- **Status LED:** GPIO12 (převzato jako `BOARD_LED_PIN`)
+- **Status LED:** GPIO19 (`STATUS_LED_PIN`) s napájením na běžný GND – samostatná indikační LED, aby indikace neovlivňovala napájení modemu.
 
 Mapování pinů vychází z `utilities.h` (`#define LILYGO_T_CALL_A7670_V1_0`). Pokud použijete jinou variantu, upravte makro a zkontrolujte nové mapování.
 
@@ -17,7 +17,8 @@ Mapování pinů vychází z `utilities.h` (`#define LILYGO_T_CALL_A7670_V1_0`).
 ### Napájení a ovládání
 - `PIN_EN` – GPIO23: drží hlavní napájení HIGH (latch).
 - `PIN_BTN` – GPIO32: tlačítko se pull-upem k 3V3. Krátký stisk v běžném režimu spustí `graceful_shutdown()`, dlouhý stisk při bootu aktivuje OTA.
-- `STATUS_LED_PIN` – GPIO12: LED řízená firmwarem (svítí při běžném režimu, bliká v OTA).
+- `STATUS_LED_PIN` – GPIO19: LED řízená firmwarem (svítí při běžném režimu, bliká v OTA). Připojte přes rezistor na běžnou zem.
+- `BOARD_POWERON_PIN` – GPIO12: musí zůstat v logické 1, aby byl modem napájen (už není používán pro blikání).
 
 ### Externí GPS (SoftwareSerial)
 - GPIO34 (ESP32 RX) ← GPS TX (`SerialGPS`)

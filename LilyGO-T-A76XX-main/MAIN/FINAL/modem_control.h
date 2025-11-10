@@ -37,3 +37,6 @@ void modem_disconnect_gprs();
 
 // Function to power off the modem
 void modem_power_off();
+
+// Simple TCP connectivity test against the configured server/port
+bool modem_test_server_connection(const String& host, int port);

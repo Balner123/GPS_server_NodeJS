@@ -15,17 +15,13 @@
 
 #include "utilities.h"
 
-#ifdef BOARD_LED_PIN
-#ifndef STATUS_LED_PIN
-#define STATUS_LED_PIN BOARD_LED_PIN
-#endif
-#ifndef STATUS_LED_ON_LEVEL
+// Override status LED mapping to use dedicated GPIOs (Board power remains on GPIO12)
+#undef STATUS_LED_PIN
+#define STATUS_LED_PIN 19
+#undef STATUS_LED_ON_LEVEL
 #define STATUS_LED_ON_LEVEL HIGH
-#endif
-#ifndef STATUS_LED_OFF_LEVEL
+#undef STATUS_LED_OFF_LEVEL
 #define STATUS_LED_OFF_LEVEL LOW
-#endif
-#endif
 
 // --- Pin Definitions ---
 #define PIN_EN          23  // ESP32 pin to hold power ON (HIGH = ON, LOW = OFF)

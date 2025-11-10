@@ -10,10 +10,22 @@ String ota_password = DEFAULT_OTA_PASSWORD;
 
 // Global flag for GPRS connection status in OTA mode
 bool gprsConnectedOTA = false;
+bool lastGprsTestSuccess = false;
+bool handshakeAttemptedOTA = false;
+bool handshakeSucceededOTA = false;
 
 void start_ota_mode() {
   SerialMon.println(F("--- OTA Service Mode Activated ---"));
+#ifdef BOARD_POWERON_PIN
+  pinMode(BOARD_POWERON_PIN, OUTPUT);
+  digitalWrite(BOARD_POWERON_PIN, HIGH);
+#endif
   status_led_set(true);
+
+  gprsConnectedOTA = false;
+  lastGprsTestSuccess = false;
+  handshakeAttemptedOTA = false;
+  handshakeSucceededOTA = false;
 
   // Ensure the power-management button ISR/task is active while in OTA mode.
   power_init();
@@ -35,18 +47,31 @@ void start_ota_mode() {
   SerialMon.print(F("Device ID (last 10 of MAC): "));
   SerialMon.println(deviceID);
 
-  // Finalize default OTA SSID if not customized yet
-  if (ota_ssid == DEFAULT_OTA_SSID) {
-    ota_ssid = String(DEFAULT_OTA_SSID) + "_" + deviceID;
-  }
+  auto finalizeOtaHotspot = [&]() {
+    if (ota_ssid == DEFAULT_OTA_SSID) {
+      ota_ssid = String(DEFAULT_OTA_SSID) + "_" + deviceID;
+    }
+  };
+  finalizeOtaHotspot();
 
   // 1. Initialize and connect modem first (for registration/testing GPRS)
   SerialMon.println(F("Initializing modem for OTA mode..."));
   gprsConnectedOTA = false;
   if (modem_initialize()) {
     gprsConnectedOTA = modem_connect_gprs(apn, gprsUser, gprsPass);
+    lastGprsTestSuccess = gprsConnectedOTA;
     if (gprsConnectedOTA) {
       SerialMon.println(F("Modem ready and connected to GPRS."));
+      handshakeAttemptedOTA = true;
+      SerialMon.println(F("Performing handshake in OTA mode..."));
+      handshakeSucceededOTA = modem_perform_handshake();
+      if (handshakeSucceededOTA) {
+        SerialMon.println(F("Handshake completed successfully."));
+        fs_load_configuration();
+        finalizeOtaHotspot();
+      } else {
+        SerialMon.println(F("Handshake failed in OTA mode."));
+      }
     } else {
       SerialMon.println(F("Modem initialized, but GPRS connection failed."));
     }
@@ -58,7 +83,12 @@ void start_ota_mode() {
   SerialMon.println(F("Starting WiFi AP..."));
   WiFi.disconnect(true);
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(ota_ssid.c_str(), ota_password.c_str());
+  bool apStarted = WiFi.softAP(ota_ssid.c_str(), ota_password.c_str());
+  if (apStarted) {
+    SerialMon.println(F("WiFi AP started with configured credentials."));
+  } else {
+    SerialMon.println(F("[OTA] Failed to start WiFi AP with configured credentials; fallback open AP may be used."));
+  }
   IPAddress apIP = WiFi.softAPIP();
   SerialMon.print(F("AP IP address: "));
   SerialMon.println(apIP);
@@ -76,6 +106,28 @@ void start_ota_mode() {
       page_content.replace("%gprs_status_class%", "fail");
       page_content.replace("%gprs_status%", "Connection Failed");
     }
+
+    String registrationClass = "pending";
+    String registrationStatus;
+    if (handshakeAttemptedOTA) {
+      if (handshakeSucceededOTA) {
+        if (isRegistered) {
+          registrationClass = "ok";
+          registrationStatus = "Registered";
+        } else {
+          registrationClass = "fail";
+          registrationStatus = "Not Registered";
+        }
+      } else {
+        registrationClass = "fail";
+        registrationStatus = "Handshake Failed";
+      }
+    } else {
+      registrationStatus = isRegistered ? "Registered (cached)" : "Not Registered (cached)";
+    }
+    page_content.replace("%registration_status_class%", registrationClass);
+    page_content.replace("%registration_status%", registrationStatus);
+
     otaServer.send(200, "text/html", page_content);
   });
 
@@ -98,18 +150,44 @@ void start_ota_mode() {
     page_content.replace("%deviceName%", deviceName);
     page_content.replace("%ota_ssid%", ota_ssid);
     page_content.replace("%ota_password%", ota_password);
+    page_content.replace("%server_btn_disabled%", (gprsConnectedOTA && lastGprsTestSuccess) ? "" : "disabled");
+    page_content.replace("%initial_gprs_flag%", (gprsConnectedOTA && lastGprsTestSuccess) ? "true" : "false");
     otaServer.send(200, "text/html", page_content);
   });
 
   // Handler for saving settings
   otaServer.on("/savesettings", HTTP_POST, []() {
+    auto sendValidationError = [](const String& message) {
+      String response = F("<html><body><h3>Settings not saved</h3><p>");
+      response += message;
+      response += F("</p><p><a href=\"/settings\">Back to settings</a></p></body></html>");
+      otaServer.send(400, "text/html", response);
+    };
+
+    String requestedOtaSsid = otaServer.arg("ota_ssid");
+    if (requestedOtaSsid.length() == 0 || requestedOtaSsid.length() > 31) {
+      sendValidationError(F("OTA SSID must be 1-31 characters long."));
+      return;
+    }
+
+    String new_ota_pass = otaServer.arg("ota_password");
+    String new_ota_pass_confirm = otaServer.arg("ota_password_confirm");
+    if (new_ota_pass != new_ota_pass_confirm) {
+      sendValidationError(F("OTA WiFi passwords do not match."));
+      return;
+    }
+    if (new_ota_pass.length() > 0 && (new_ota_pass.length() < 8 || new_ota_pass.length() > 63)) {
+      sendValidationError(F("OTA WiFi password must be 8-63 characters (or leave empty for open network)."));
+      return;
+    }
+
     Preferences preferences;
     preferences.begin(PREFERENCES_NAMESPACE, false);
 
     // GPRS
     if (otaServer.hasArg("apn")) preferences.putString("apn", otaServer.arg("apn"));
     if (otaServer.hasArg("gprsUser")) preferences.putString("gprsUser", otaServer.arg("gprsUser"));
-    
+
     String new_gprs_pass = otaServer.arg("gprsPass");
     String new_gprs_pass_confirm = otaServer.arg("gprsPassConfirm");
     if (new_gprs_pass == new_gprs_pass_confirm) {
@@ -124,18 +202,31 @@ void start_ota_mode() {
     if (otaServer.hasArg("deviceName")) preferences.putString("deviceName", otaServer.arg("deviceName"));
 
     // OTA
-    if (otaServer.hasArg("ota_ssid")) preferences.putString("ota_ssid", otaServer.arg("ota_ssid"));
+    preferences.putString("ota_ssid", requestedOtaSsid);
+    preferences.putString("ota_password", new_ota_pass);
 
-    String new_ota_pass = otaServer.arg("ota_password");
-    String new_ota_pass_confirm = otaServer.arg("ota_password_confirm");
-    if (new_ota_pass == new_ota_pass_confirm) {
-        preferences.putString("ota_password", new_ota_pass);
-    }
-    
     preferences.end();
 
     // Reload config to apply immediately for things like OTA SSID
     fs_load_configuration();
+
+    modem_disconnect_gprs();
+    gprsConnectedOTA = false;
+    lastGprsTestSuccess = false;
+    handshakeAttemptedOTA = false;
+    handshakeSucceededOTA = false;
+
+    if (modem_initialize()) {
+      gprsConnectedOTA = modem_connect_gprs(apn, gprsUser, gprsPass);
+      lastGprsTestSuccess = gprsConnectedOTA;
+      if (gprsConnectedOTA) {
+        handshakeAttemptedOTA = true;
+        handshakeSucceededOTA = modem_perform_handshake();
+        if (handshakeSucceededOTA) {
+          fs_load_configuration();
+        }
+      }
+    }
 
     // Redirect back to settings page with a success message (or a dedicated success page)
     otaServer.sendHeader("Location", "/settings", true);
@@ -156,58 +247,88 @@ void start_ota_mode() {
     delay(1000);
 
     bool success = modem_connect_gprs(test_apn, test_user, test_pass);
+    lastGprsTestSuccess = success;
 
-    if (success) {
-      SerialMon.println("GPRS test connection successful.");
-      otaServer.send(200, "application/json", "{\"success\":true}");
-      modem_disconnect_gprs(); // Disconnect after test
-    } else {
-      SerialMon.println("GPRS test connection failed.");
-      otaServer.send(200, "application/json", "{\"success\":false}");
-    }
+    String message = success ? "GPRS test connection successful." : "GPRS test connection failed.";
+    SerialMon.println(message);
+
+    modem_disconnect_gprs(); // Disconnect after test
 
     // Reconnect with original settings (if it was connected before)
     SerialMon.println("Reconnecting to GPRS with saved settings...");
-    gprsConnectedOTA = modem_connect_gprs(apn, gprsUser, gprsPass);
-    if (gprsConnectedOTA) {
+    bool restored = modem_connect_gprs(apn, gprsUser, gprsPass);
+    gprsConnectedOTA = restored;
+    if (restored) {
       SerialMon.println("Reconnected successfully.");
     } else {
       SerialMon.println("Failed to reconnect to GPRS with saved settings.");
+      handshakeAttemptedOTA = false;
+      handshakeSucceededOTA = false;
+      message += " Saved credentials failed to reconnect.";
     }
+
+    DynamicJsonDocument doc(192);
+    doc["success"] = success;
+    doc["message"] = message;
+    doc["restored"] = restored;
+    String json;
+    serializeJson(doc, json);
+    otaServer.send(200, "application/json", json);
   });
 
   // Handler for testing server connection
   otaServer.on("/testserver", HTTP_GET, []() {
+    DynamicJsonDocument doc(192);
+
     if (!gprsConnectedOTA) {
-      otaServer.send(200, "application/json", "{\"success\":false, \"reason\":\"GPRS not connected\"}");
+      doc["success"] = false;
+      doc["message"] = "GPRS not connected.";
+      String json;
+      serializeJson(doc, json);
+      otaServer.send(200, "application/json", json);
+      return;
+    }
+
+    if (!lastGprsTestSuccess) {
+      doc["success"] = false;
+      doc["message"] = "Run a successful GPRS test before testing the server.";
+      String json;
+      serializeJson(doc, json);
+      otaServer.send(200, "application/json", json);
       return;
     }
 
     String test_host = otaServer.arg("host");
     int test_port = otaServer.arg("port").toInt();
 
+    if (test_host.length() == 0) {
+      doc["success"] = false;
+      doc["message"] = "Server host must not be empty.";
+      String json;
+      serializeJson(doc, json);
+      otaServer.send(200, "application/json", json);
+      return;
+    }
+
+    if (test_port <= 0 || test_port > 65535) {
+      doc["success"] = false;
+      doc["message"] = "Server port must be between 1 and 65535.";
+      String json;
+      serializeJson(doc, json);
+      otaServer.send(200, "application/json", json);
+      return;
+    }
+
     SerialMon.println("--- Testing Server Connection ---");
     SerialMon.printf("Host: %s, Port: %d\n", test_host.c_str(), test_port);
 
-    // This requires a TinyGsmClient instance, which is currently global in modem_control.cpp
-    // For now, we'll assume modem_send_post_request can handle a dummy request or we need to expose client
-    // A better approach would be to pass a client object or have a dedicated test function in modem_control
-    // For simplicity, we'll just try to connect using the modem's internal client if available
-    // This part needs actual implementation in modem_control.cpp to expose a connect test
-    bool success = false; // Placeholder
-    // TODO: Implement actual server connection test via modem_control
-    // For now, simulate success if host is not empty
-    if (test_host.length() > 0) {
-      success = true; // Simulate success
-    }
+    bool success = modem_test_server_connection(test_host, test_port);
+    doc["success"] = success;
+    doc["message"] = success ? "Server reachable over TCP." : "Failed to open TCP connection to server.";
 
-    if (success) {
-      SerialMon.println("Server test connection successful (simulated).");
-      otaServer.send(200, "application/json", "{\"success\":true}");
-    } else {
-      SerialMon.println("Server test connection failed (simulated).");
-      otaServer.send(200, "application/json", "{\"success\":false}");
-    }
+    String json;
+    serializeJson(doc, json);
+    otaServer.send(200, "application/json", json);
   });
 
   // Handler for the registration form submission

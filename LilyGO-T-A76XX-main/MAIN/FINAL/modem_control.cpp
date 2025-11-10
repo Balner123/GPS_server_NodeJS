@@ -380,6 +380,39 @@ void modem_disconnect_gprs() {
   }
 }
 
+bool modem_test_server_connection(const String& host, int port) {
+  ModemLockGuard lock(pdMS_TO_TICKS(5000));
+  if (!lock.isLocked()) {
+    SerialMon.println(F("[MODEM] Server test skipped (modem busy)."));
+    return false;
+  }
+  if (!g_modem_initialized || !g_modem_gprs_connected) {
+    SerialMon.println(F("[MODEM] Server test skipped (GPRS not connected)."));
+    return false;
+  }
+  if (host.length() == 0 || port <= 0 || port > 65535) {
+    SerialMon.println(F("[MODEM] Server test skipped (invalid host/port)."));
+    return false;
+  }
+
+  SerialMon.print(F("[MODEM] Testing TCP connection to "));
+  SerialMon.print(host);
+  SerialMon.print(F(":"));
+  SerialMon.println(port);
+
+  g_client.stop();
+  bool success = g_client.connect(host.c_str(), port);
+  if (success) {
+    SerialMon.println(F("[MODEM] TCP connection established successfully."));
+    g_client.stop();
+    return true;
+  }
+
+  SerialMon.println(F("[MODEM] TCP connection failed."));
+  g_client.stop();
+  return false;
+}
+
 void modem_power_off() {
   ModemLockGuard lock(pdMS_TO_TICKS(3000));
   if (!lock.isLocked()) {

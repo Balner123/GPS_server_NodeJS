@@ -16,6 +16,7 @@ const char update_form_page[] PROGMEM = R"rawliteral(
       .status { padding: 10px; border-radius: 4px; margin: 15px 0; font-weight: bold; }
       .status.ok { background-color: #d4edda; color: #155724; }
       .status.fail { background-color: #f8d7da; color: #721c24; }
+  .status.pending { background-color: #fff3cd; color: #856404; }
       .form-group { margin-bottom: 15px; text-align: left; }
       label { display: block; margin-bottom: 5px; font-weight: bold; }
       input[type='text'], input[type='password'], input[type='file'] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; } /* Added input[type='file'] */
@@ -122,6 +123,7 @@ const char ota_main_page_template[] PROGMEM = R"rawliteral(
       <h1>Device Service Mode</h1>
       <p><b>Device ID:</b> %id%</p>
       <p><b>GPRS Status:</b> <span class="status %gprs_status_class%">%gprs_status%</span></p>
+  <p><b>Registration:</b> <span class="status %registration_status_class%">%registration_status%</span></p>
       <hr>
       <h2>Register Device</h2>
       <p>If this device is not registered, enter your account details below.</p>
@@ -171,6 +173,9 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
       .section-container { padding: 20px; border-radius: 5px; transition: background-color 0.5s ease; }
       .section-container.success { background-color: #d4edda; }
       .section-container.failure { background-color: #f8d7da; }
+      .test-result { margin-top: 10px; font-weight: bold; min-height: 1.2em; }
+      .test-result.ok { color: #155724; }
+      .test-result.fail { color: #721c24; }
     </style>
   </head>
   <body>
@@ -186,6 +191,7 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
               <div id="gprs-loader" class="loader"></div>
             </div>
           </div>
+          <div id="gprs-result" class="test-result"></div>
           <div class="form-group">
             <label for="apn">APN:</label>
             <input type='text' id="apn" name='apn' value='%apn%'>
@@ -210,10 +216,11 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
           <div class="section-header">
             <h2>Server Configuration</h2>
             <div style="display: flex; align-items: center;">
-              <button type="button" id="test-server-btn" class="test-btn" onclick="testServer()">Test</button>
+              <button type="button" id="test-server-btn" class="test-btn" onclick="testServer()" %server_btn_disabled%>Test</button>
               <div id="server-loader" class="loader"></div>
             </div>
           </div>
+          <div id="server-result" class="test-result"></div>
           <div class="form-group">
             <label for="server">Server Hostname/IP:</label>
             <input type='text' id="server" name='server' value='%server%'>
@@ -253,6 +260,9 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
       </div>
     </div>
     <script>
+      let lastGprsTestSuccess = %initial_gprs_flag%;
+      document.getElementById('test-server-btn').disabled = !lastGprsTestSuccess;
+
       function validatePasswords() {
         var gprsPass = document.getElementById('gprsPass').value;
         var gprsPassConfirm = document.getElementById('gprsPassConfirm').value;
@@ -274,10 +284,13 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
         const btn = document.getElementById('test-gprs-btn');
         const loader = document.getElementById('gprs-loader');
         const section = document.getElementById('gprs-section');
+        const result = document.getElementById('gprs-result');
         
         btn.disabled = true;
         loader.style.display = 'block';
         section.className = 'section-container';
+        result.textContent = '';
+        result.className = 'test-result';
 
         const apn = document.getElementById('apn').value;
         const user = document.getElementById('gprsUser').value;
@@ -286,15 +299,22 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
         fetch(`/testgprs?apn=${encodeURIComponent(apn)}&user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`)
           .then(response => response.json())
           .then(data => {
-            if (data.success) {
-              section.classList.add('success');
-            } else {
-              section.classList.add('failure');
+            section.classList.add(data.success ? 'success' : 'failure');
+            result.textContent = data.message || (data.success ? 'GPRS test passed.' : 'GPRS test failed.');
+            result.className = 'test-result ' + (data.success ? 'ok' : 'fail');
+            if (data.restored === false) {
+              result.textContent += ' Device did not reconnect with stored credentials.';
             }
+            lastGprsTestSuccess = data.success;
+            document.getElementById('test-server-btn').disabled = !data.success;
           })
           .catch(err => {
             section.classList.add('failure');
+            result.textContent = 'Error while testing GPRS connection.';
+            result.className = 'test-result fail';
             console.error('Error:', err);
+            lastGprsTestSuccess = false;
+            document.getElementById('test-server-btn').disabled = true;
           })
           .finally(() => {
             btn.disabled = false;
@@ -306,10 +326,20 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
         const btn = document.getElementById('test-server-btn');
         const loader = document.getElementById('server-loader');
         const section = document.getElementById('server-section');
+        const result = document.getElementById('server-result');
+
+        if (!lastGprsTestSuccess) {
+          section.className = 'section-container failure';
+          result.textContent = 'Run a successful GPRS test before testing the server.';
+          result.className = 'test-result fail';
+          return;
+        }
 
         btn.disabled = true;
         loader.style.display = 'block';
         section.className = 'section-container';
+        result.textContent = '';
+        result.className = 'test-result';
 
         const host = document.getElementById('server').value;
         const port = document.getElementById('port').value;
@@ -317,14 +347,14 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
         fetch(`/testserver?host=${encodeURIComponent(host)}&port=${encodeURIComponent(port)}`)
           .then(response => response.json())
           .then(data => {
-            if (data.success) {
-              section.classList.add('success');
-            } else {
-              section.classList.add('failure');
-            }
+            section.classList.add(data.success ? 'success' : 'failure');
+            result.textContent = data.message || (data.success ? 'Server reachable.' : 'Server test failed.');
+            result.className = 'test-result ' + (data.success ? 'ok' : 'fail');
           })
           .catch(err => {
             section.classList.add('failure');
+            result.textContent = 'Error while testing server connection.';
+            result.className = 'test-result fail';
             console.error('Error:', err);
           })
           .finally(() => {

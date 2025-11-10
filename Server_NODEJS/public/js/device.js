@@ -6,7 +6,7 @@ let markersLayer = null;
 let lastTimestamp = null;
 let completeDeviceHistory = [];
 let isShowingAllHistory = false;
-const HISTORY_ROW_LIMIT = 5;
+const HISTORY_ROW_LIMIT = 7;
 let expandedClusters = new Set(); // State for expanded cluster rows
 
 let drawnItems, drawControl;
@@ -660,8 +660,8 @@ function updateToggleButton() {
     if (!toggleBtn) return;
 
     if (completeDeviceHistory.length > HISTORY_ROW_LIMIT) {
-        toggleBtn.style.display = 'block';
-        toggleBtn.textContent = isShowingAllHistory ? 'Zobrazit méně' : `Zobrazit vše (${completeDeviceHistory.length})`;
+    toggleBtn.style.display = 'block';
+    toggleBtn.textContent = isShowingAllHistory ? 'Show Less' : `Show All (${completeDeviceHistory.length})`;
     } else {
         toggleBtn.style.display = 'none';
     }

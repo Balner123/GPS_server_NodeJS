@@ -19,7 +19,7 @@
 #include "freertos/task.h"
 
 #define PIN_EN   23
-#define PIN_BTN  25
+#define PIN_BTN  32
 const uint64_t DEFAULT_SLEEP_SECONDS = 60;
 
 // --- Globální stav ---

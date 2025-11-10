@@ -23,7 +23,10 @@
         <% } %>
 
         <section class="mb-5">
-            <h3 class="mb-3">Users (<%= users.length %>)</h3>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">Users (<%= users.length %>)</h3>
+                <button id="usersToggle" class="btn btn-sm btn-outline-primary" data-table-toggle="usersTable" data-total="<%= users.length %>">Show All</button>
+            </div>
             <div class="table-responsive">
                 <table class="table table-striped table-sm" id="usersTable">
                     <thead>
@@ -69,7 +72,10 @@
         </section>
 
         <section class="mb-5">
-            <h3 class="mb-3">Devices (<%= devices.length %>)</h3>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">Devices (<%= devices.length %>)</h3>
+                <button id="devicesToggle" class="btn btn-sm btn-outline-primary" data-table-toggle="devicesTable" data-total="<%= devices.length %>">Show All</button>
+            </div>
             <div class="table-responsive">
                 <table class="table table-striped table-sm" id="devicesTable">
                     <thead>
@@ -113,7 +119,10 @@
         </section>
 
         <section class="mb-5">
-            <h3 class="mb-3">Latest Locations (<%= locations.length %>)</h3>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">Latest Locations (<%= locations.length %>)</h3>
+                <button id="locationsToggle" class="btn btn-sm btn-outline-primary" data-table-toggle="locationsTable" data-total="<%= locations.length %>">Show All</button>
+            </div>
             <div class="table-responsive">
                 <table class="table table-striped table-sm" id="locationsTable">
                     <thead>
@@ -147,7 +156,10 @@
         </section>
 
         <section class="mb-5">
-            <h3 class="mb-3">Alerts (<%= alerts.length %>)</h3>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">Alerts (<%= alerts.length %>)</h3>
+                <button id="alertsToggle" class="btn btn-sm btn-outline-primary" data-table-toggle="alertsTable" data-total="<%= alerts.length %>">Show All</button>
+            </div>
             <div class="table-responsive">
                 <table class="table table-striped table-sm" id="alertsTable">
                     <thead>
@@ -187,5 +199,45 @@
 
     <%- include('partials/_footer.ejs') %>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ROW_LIMIT = 7;
+
+        function setupTableLimit(tableId, toggleBtn, totalCount) {
+            const table = document.getElementById(tableId);
+            if (!table || !toggleBtn) {
+                return;
+            }
+
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            if (rows.length <= ROW_LIMIT) {
+                toggleBtn.style.display = 'none';
+                return;
+            }
+
+            let showAll = false;
+
+            const applyLimit = () => {
+                rows.forEach((row, index) => {
+                    row.style.display = (showAll || index < ROW_LIMIT) ? '' : 'none';
+                });
+                toggleBtn.textContent = showAll ? 'Show Less' : `Show All (${totalCount})`;
+            };
+
+            toggleBtn.addEventListener('click', () => {
+                showAll = !showAll;
+                applyLimit();
+            });
+
+            applyLimit();
+        }
+
+        document.querySelectorAll('[data-table-toggle]').forEach((btn) => {
+            const tableId = btn.dataset.tableToggle;
+            const total = Number(btn.dataset.total || 0);
+            setupTableLimit(tableId, btn, total);
+        });
+    });
+    </script>
 </body>
 </html>

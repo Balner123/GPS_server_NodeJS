@@ -32,6 +32,10 @@ static void update_power_status(PowerStatus status, bool markDirty) {
 void power_on() {
   pinMode(PIN_EN, OUTPUT);
   digitalWrite(PIN_EN, HIGH); // Hold power ON
+#ifdef BOARD_POWERON_PIN
+  pinMode(BOARD_POWERON_PIN, OUTPUT);
+  digitalWrite(BOARD_POWERON_PIN, HIGH); // Keep modem power rail asserted
+#endif
   g_shutdown_requested = false;
   g_instruction_shutdown_ready = false;
   g_instruction_ack_pending = false;
