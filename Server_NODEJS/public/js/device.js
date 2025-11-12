@@ -17,6 +17,12 @@ let geofenceDraftPending = false;
 let useClusters = true;
 let permanentTooltips = false;
 
+const DEFAULT_CLUSTER_THRESHOLD_METERS = 25;
+const MIN_CLUSTER_THRESHOLD_METERS = 5;
+const MAX_CLUSTER_THRESHOLD_METERS = 4000;
+let clusterDistanceThreshold = DEFAULT_CLUSTER_THRESHOLD_METERS;
+let rawDeviceHistory = [];
+
 // Custom Leaflet Icons
 const defaultIcon = L.divIcon({
     className: 'custom-div-icon',
@@ -34,6 +40,155 @@ const GEOFENCE_STYLE = {
     fillColor: '#ff7800',
     fillOpacity: 0.15
 };
+
+function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+}
+
+function formatDistance(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return `${clusterDistanceThreshold} m`;
+    }
+    if (numeric >= 1000) {
+        const km = numeric / 1000;
+        const precision = km >= 10 ? 0 : 1;
+        return `${km.toFixed(precision)} km`;
+    }
+    return `${Math.round(numeric)} m`;
+}
+
+function updateClusterThresholdLabel(value) {
+    const label = document.getElementById('cluster-threshold-value');
+    if (!label) return;
+    label.textContent = formatDistance(value);
+}
+
+function setClusterDistanceThreshold(value, { applyChanges = true } = {}) {
+    if (!Number.isFinite(value)) {
+        return;
+    }
+    const normalized = clamp(
+        Math.round(value),
+        MIN_CLUSTER_THRESHOLD_METERS,
+        MAX_CLUSTER_THRESHOLD_METERS
+    );
+    clusterDistanceThreshold = normalized;
+
+    const slider = document.getElementById('cluster-threshold-slider');
+    if (slider && Number(slider.value) !== normalized) {
+        slider.value = normalized;
+    }
+    updateClusterThresholdLabel(normalized);
+
+    if (!applyChanges) {
+        return;
+    }
+
+    recomputeClusteredHistory();
+    updateMap(false);
+    renderPositionTable();
+}
+
+function recomputeClusteredHistory() {
+    if (!Array.isArray(rawDeviceHistory) || rawDeviceHistory.length === 0) {
+        completeDeviceHistory = [];
+        expandedClusters = new Set();
+        return;
+    }
+
+    const previousExpanded = new Set(expandedClusters);
+    const clustered = clusterLocations(rawDeviceHistory, clusterDistanceThreshold);
+    completeDeviceHistory = clustered;
+
+    const availableKeys = new Set(
+        clustered
+            .filter(point => point && point.type === 'cluster')
+            .map(point => getClusterKey(point))
+    );
+
+    expandedClusters = new Set(
+        Array.from(previousExpanded).filter(key => availableKeys.has(key))
+    );
+}
+
+function getHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
+    const phi1 = Number(lat1) * Math.PI / 180;
+    const phi2 = Number(lat2) * Math.PI / 180;
+    const deltaPhi = (Number(lat2) - Number(lat1)) * Math.PI / 180;
+    const deltaLambda = (Number(lon2) - Number(lon1)) * Math.PI / 180;
+
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+        Math.cos(phi1) * Math.cos(phi2) *
+        Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return 6371000 * c; // Earth radius in meters
+}
+
+function clusterLocations(locations, distanceThreshold) {
+    if (!Array.isArray(locations) || locations.length === 0) {
+        return [];
+    }
+
+    const sorted = locations
+        .filter(Boolean)
+        .slice()
+        .sort((a, b) => {
+            const aTime = new Date(a.timestamp || a.startTime || a.endTime || 0).getTime();
+            const bTime = new Date(b.timestamp || b.startTime || b.endTime || 0).getTime();
+            return aTime - bTime;
+        });
+
+    const clusteredLocations = [];
+    let index = 0;
+
+    while (index < sorted.length) {
+        const currentPoint = sorted[index];
+        const cluster = [currentPoint];
+        let cursor = index + 1;
+
+        while (cursor < sorted.length) {
+            const previousPoint = cluster[cluster.length - 1];
+            const nextPoint = sorted[cursor];
+
+            const distance = getHaversineDistanceMeters(
+                previousPoint.latitude,
+                previousPoint.longitude,
+                nextPoint.latitude,
+                nextPoint.longitude
+            );
+
+            if (Number.isFinite(distance) && distance < distanceThreshold) {
+                cluster.push(nextPoint);
+                cursor += 1;
+            } else {
+                break;
+            }
+        }
+
+        if (cluster.length > 1) {
+            const totalLat = cluster.reduce((sum, point) => sum + Number(point.latitude), 0);
+            const totalLon = cluster.reduce((sum, point) => sum + Number(point.longitude), 0);
+            clusteredLocations.push({
+                latitude: totalLat / cluster.length,
+                longitude: totalLon / cluster.length,
+                startTime: cluster[0].timestamp,
+                endTime: cluster[cluster.length - 1].timestamp,
+                type: 'cluster',
+                device_id: currentPoint.device_id,
+                clusterThreshold: distanceThreshold,
+                originalPoints: cluster.map(point => ({ ...point }))
+            });
+        } else {
+            clusteredLocations.push({ ...currentPoint });
+        }
+
+        index = cursor;
+    }
+
+    return clusteredLocations;
+}
 
 function formatTimestamp(timestamp) {
     if (!timestamp) return 'N/A';
@@ -96,6 +251,22 @@ function initializeApp() {
             useClusters = e.target.checked;
             // Force a redraw of the map with the new setting
             updateMap(false);
+        });
+    }
+
+    const clusterSlider = document.getElementById('cluster-threshold-slider');
+    if (clusterSlider) {
+        setClusterDistanceThreshold(clusterDistanceThreshold, { applyChanges: false });
+
+        clusterSlider.addEventListener('input', (e) => {
+            updateClusterThresholdLabel(e.target.value);
+        });
+
+        clusterSlider.addEventListener('change', (e) => {
+            const nextValue = Number(e.target.value);
+            if (Number.isFinite(nextValue)) {
+                setClusterDistanceThreshold(nextValue);
+            }
         });
     }
 
@@ -699,35 +870,18 @@ async function selectDevice(deviceId, options = {}) {
     await loadDeviceData(true);
 }
 
-let rawDeviceHistory = [];
-
 async function loadDeviceData(isInitialLoad = false) {
     if (!selectedDevice) return;
     try {
-        const [clusteredResponse, rawResponse] = await Promise.all([
-            fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`),
-            fetch(`${API_BASE_URL}/api/devices/raw-data?id=${selectedDevice}`)
-        ]);
-
-        if (!clusteredResponse.ok || !rawResponse.ok) {
-            throw new Error(`HTTP error! status: ${clusteredResponse.status} or ${rawResponse.status}`);
+        const rawResponse = await fetch(`${API_BASE_URL}/api/devices/raw-data?id=${selectedDevice}`);
+        if (!rawResponse.ok) {
+            throw new Error(`HTTP error! status: ${rawResponse.status}`);
         }
 
-        const clusteredData = await clusteredResponse.json();
         const rawData = await rawResponse.json();
+        rawDeviceHistory = Array.isArray(rawData) ? rawData : [];
 
-        completeDeviceHistory = clusteredData;
-        rawDeviceHistory = rawData;
-
-        const currentClusterKeys = new Set(
-            (clusteredData || [])
-                .filter(point => point && point.type === 'cluster')
-                .map(point => getClusterKey(point))
-        );
-        expandedClusters = new Set(
-            Array.from(expandedClusters).filter(key => currentClusterKeys.has(key))
-        );
-
+        recomputeClusteredHistory();
         updateMap(isInitialLoad);
         renderPositionTable();
 
@@ -750,6 +904,7 @@ function clearMapAndData() {
     markers = {}; // Reset to empty object
     lastTimestamp = null;
     completeDeviceHistory = [];
+    rawDeviceHistory = [];
     expandedClusters = new Set();
     document.getElementById('positions-table').innerHTML = '';
     const toggleBtn = document.getElementById('toggle-history-btn');
@@ -901,7 +1056,7 @@ function updateTable(data) {
                 <td>${formatCoordinate(point.longitude)}</td>
                 <td>N/A (Cluster)</td>
                 <td>N/A</td>
-                <td>Less ${point.clusterThreshold}m</td>
+                <td>Less ${formatDistance(point.clusterThreshold)}</td>
                 <td>${point.originalPoints.length} points</td>
             `;
             tbody.appendChild(clusterRow);

@@ -1,0 +1,68 @@
+[MODEM] AT command responded.
+[MODEM] Initializing modem with modem.init()...
+[MODEM] Modem init successful.
+[MODEM] Modem Info: Manufacturer: SIMCOM INCORPORATED Model: A7670E-FASE Revision: A7670M7_V1.11.1 IMEI: 867255079769784
+[MODEM] Waiting for network... success
+[MODEM] Connecting to GPRS: internet.t-mobile.cz success
+[MODEM] GPRS IP: 10.5.251.169
+[MODEM] Performing device handshake...
+[MODEM] Performing HTTPS POST to: /api/devices/handshake
+[MODEM] Payload: {"device_id":"6920A865BC","client_type":"HW","power_status":"ON"}
+[MODEM] Set URL: https://lotr-system.xyz/api/devices/handshake
+[MODEM] Set Content-Type header...
+[MODEM] Sending POST request...
+[MODEM] Response Status Code: 200
+[MODEM] Reading response body...
+[MODEM] End HTTPS session.
+[MODEM] Response Body:
+{"registered":true,"config":{"interval_gps":60,"interval_send":1,"satellites":7,"mode":"simple"},"power_instruction":"NONE"}
+[FS] Server set GPS interval to: 60
+[FS] Server set send interval (batch size) to: 1
+[FS] Server set minimum satellites to: 7
+[FS] Server set operation mode to: simple
+[MAIN] Data available for upload. Attempting to send.
+[FS] Sending batch of 15 records...
+[MODEM] Performing HTTPS POST to: /api/devices/input
+[MODEM] Payload: [{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.993144,"longitude":17.95463717,"speed":0.42596,"altitude":275.9,"accuracy":1.7,"satellites":7,"timestamp":"2025-10-26T17:30:25Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99315033,"longitude":17.95455,"speed":1.09268,"altitude":301.4,"accuracy":1.6,"satellites":8,"timestamp":"2025-10-30T19:49:46Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.9929765,"longitude":17.9543545,"speed":3.4262,"altitude":300.9,"accuracy":2.1,"satellites":7,"timestamp":"2025-10-30T19:51:34Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99302417,"longitude":17.954422,"speed":0,"altitude":298.5,"accuracy":1.6,"satellites":7,"timestamp":"2000-00-00T19:53:21Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.993066,"longitude":17.95450233,"speed":0,"altitude":299.9,"accuracy":1.8,"satellites":7,"timestamp":"2000-00-00T19:55:01Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.993067,"longitude":17.9544795,"speed":0,"altitude":298.1,"accuracy":1.5,"satellites":7,"timestamp":"2000-00-00T19:56:40Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99321833,"longitude":17.95460567,"speed":0,"altitude":301.4,"accuracy":1.9,"satellites":7,"timestamp":"2000-00-00T19:58:31Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99305917,"longitude":17.9543395,"speed":0,"altitude":298.4,"accuracy":2.5,"satellites":7,"timestamp":"2025-10-30T20:00:17Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99309233,"longitude":17.9545555,"speed":2.85208,"altitude":298.4,"accuracy":1.8,"satellites":7,"timestamp":"2025-10-30T20:02:18Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.9931435,"longitude":17.95468333,"speed":0.53708,"altitude":295,"accuracy":1.6,"satellites":7,"timestamp":"2025-10-30T20:04:23Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99309,"longitude":17.9545425,"speed":0.7408,"altitude":298.8,"accuracy":1.4,"satellites":7,"timestamp":"2025-10-30T20:06:22Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99318733,"longitude":17.954447,"speed":1.12972,"altitude":301.1,"accuracy":1.4,"satellites":7,"timestamp":"2025-10-30T20:08:21Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.992798,"longitude":17.954578,"speed":0,"altitude":283.1,"accuracy":1.3,"satellites":7,"timestamp":"2025-11-02T18:16:37Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99320383,"longitude":17.954551,"speed":0,"altitude":281.7,"accuracy":1.4,"satellites":9,"timestamp":"2025-11-02T18:39:49Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.9930515,"longitude":17.9543615,"speed":0,"altitude":283,"accuracy":2,"satellites":7,"timestamp":"2025-11-02T18:41:18Z"}]
+[MODEM] Set URL: https://lotr-system.xyz/api/devices/input
+[MODEM] Set Content-Type header...
+[MODEM] Sending POST request...
+[MODEM] Response Status Code: 200
+[MODEM] Reading response body...
+[MODEM] End HTTPS session.
+[MODEM] Response Body:
+{"success":true}
+[FS] Batch sent successfully. Updating cache file.
+[FS] Sending batch of 15 records...
+[MODEM] Performing HTTPS POST to: /api/devices/input
+[MODEM] Payload: [{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99308033,"longitude":17.95463633,"speed":0,"altitude":284.4,"accuracy":1.7,"satellites":7,"timestamp":"2025-11-02T18:42:46Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99314617,"longitude":17.95455,"speed":0,"altitude":281.5,"accuracy":1.8,"satellites":7,"timestamp":"2025-11-02T18:44:11Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.993064,"longitude":17.9544705,"speed":0,"altitude":283.6,"accuracy":2.4,"satellites":8,"timestamp":"2025-11-02T18:45:41Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.992937,"longitude":17.95448683,"speed":0,"altitude":286.1,"accuracy":1.5,"satellites":9,"timestamp":"2025-11-02T18:47:07Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.993075,"longitude":17.9544525,"speed":0,"altitude":284.4,"accuracy":1.6,"satellites":7,"timestamp":"2025-11-02T18:48:30Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.993208,"longitude":17.95432783,"speed":0,"altitude":282.6,"accuracy":1.1,"satellites":8,"timestamp":"2025-11-02T19:35:20Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99316383,"longitude":17.95451533,"speed":0,"altitude":319.8,"accuracy":1.9,"satellites":6,"timestamp":"2025-11-05T20:29:01Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99309033,"longitude":17.95452767,"speed":0,"altitude":306.3,"accuracy":1.6,"satellites":4,"timestamp":"2025-11-05T20:31:03Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99342683,"longitude":17.95462367,"speed":0,"altitude":333.1,"accuracy":5.5,"satellites":4,"timestamp":"2025-11-05T20:32:21Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99307017,"longitude":17.95426667,"speed":0,"altitude":307.6,"accuracy":3.8,"satellites":4,"timestamp":"2025-11-05T20:36:05Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99311583,"longitude":17.9544265,"speed":0,"altitude":280.8,"accuracy":1.3,"satellites":5,"timestamp":"2025-11-05T20:39:43Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.993188,"longitude":17.95451083,"speed":0,"altitude":306.1,"accuracy":2.9,"satellites":5,"timestamp":"2025-11-05T20:41:33Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99321983,"longitude":17.9545225,"speed":0,"altitude":299.4,"accuracy":2.5,"satellites":5,"timestamp":"2025-11-05T20:42:52Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99322,"longitude":17.954515,"speed":0,"altitude":292.2,"accuracy":1.5,"satellites":6,"timestamp":"2025-11-05T20:45:44Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99319917,"longitude":17.95449467,"speed":0,"altitude":319.4,"accuracy":1.5,"satellites":7,"timestamp":"2025-11-05T20:46:55Z"}]
+[MODEM] Set URL: https://lotr-system.xyz/api/devices/input
+[MODEM] Set Content-Type header...
+[MODEM] Sending POST request...
+[MODEM] Response Status Code: 200
+[MODEM] Reading response body...
+[MODEM] End HTTPS session.
+[MODEM] Response Body:
+{"success":true}
+[FS] Batch sent successfully. Updating cache file.
+[FS] Sending batch of 9 records...
+[MODEM] Performing HTTPS POST to: /api/devices/input
+[MODEM] Payload: [{"device":"6920A865BC","name":"NEO-6M_A7670EEE","latitude":49.9931315,"longitude":17.95459867,"speed":0,"altitude":326.1,"accuracy":1.3,"satellites":7,"timestamp":"2025-11-10T18:31:54Z"},{"device":"6920A865BC","name":"NEO-6M_A7670EEE","latitude":49.992926,"longitude":17.95470767,"speed":0.50004,"altitude":286.9,"accuracy":1.2,"satellites":8,"timestamp":"2025-11-10T18:34:17Z"},{"device":"6920A865BC","name":"NEO-6M_A7670EEE","latitude":49.99311067,"longitude":17.954499,"speed":0.90748,"altitude":295.4,"accuracy":1.7,"satellites":7,"timestamp":"2025-11-10T18:35:58Z"},{"device":"6920A865BC","name":"NEO-6M_A7670EEE","latitude":49.99309567,"longitude":17.95454117,"speed":0.01852,"altitude":300.3,"accuracy":1.3,"satellites":9,"timestamp":"2025-11-12T18:57:01Z"},{"device":"6920A865BC","name":"NEO-6M_A7670EEE","latitude":49.99305583,"longitude":17.95468133,"speed":0.40744,"altitude":250.8,"accuracy":1.2,"satellites":7,"timestamp":"2025-11-12T19:44:19Z"},{"device":"6920A865BC","name":"NEO-6M_A7670EEE","latitude":49.9931175,"longitude":17.954622,"speed":0,"altitude":258.2,"accuracy":1.2,"satellites":7,"timestamp":"2000-00-00T19:46:44Z"},{"device":"6920A865BC","name":"NEO-6M_A7670EEE","latitude":49.9932,"longitude":17.9545705,"speed":0,"altitude":254.9,"accuracy":1.2,"satellites":7,"timestamp":"2000-00-00T19:48:54Z"},{"device":"6920A865BC","name":"NEO-6M_A7670EEE","latitude":49.99305283,"longitude":17.95447417,"speed":0,"altitude":276,"accuracy":1.6,"satellites":7,"timestamp":"2000-00-00T19:50:56Z"},{"device":"6920A865BC","name":"NEO-6M_A7670EEE","latitude":49.99310133,"longitude":17.95437267,"speed":1.70384,"altitude":273.8,"accuracy":1.6,"satellites":7,"timestamp":"2025-11-12T19:52:03Z"}]
+[MODEM] Set URL: https://lotr-system.xyz/api/devices/input
+[MODEM] Set Content-Type header...
+[MODEM] Sending POST request...
+[MODEM] Response Status Code: 200
+[MODEM] Reading response body...
+[MODEM] End HTTPS session.
+[MODEM] Response Body:
+{"success":true}
+[FS] Batch sent successfully. Updating cache file.
+[FS] All cached data sent.
+[MODEM] Disconnecting GPRS... success
+[MODEM] Powering off modem...
+[MODEM] Modem powered off via TinyGSM.
+[FS] Preferences and LittleFS closed.
+[MAIN] Work cycle finished.
+[MAIN] Device is registered. Next update in approx. 60 seconds.
+[SLEEP] Entering deep sleep for 60 seconds...
+ets Jul 29 2019 12:21:46

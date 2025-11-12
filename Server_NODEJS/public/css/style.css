@@ -163,6 +163,17 @@ a:hover {
     border-bottom: 1px solid var(--card-border-color);
 }
 
+#cluster-threshold-control {
+    background-color: rgba(13, 110, 253, 0.08);
+    border: 1px solid rgba(13, 110, 253, 0.25);
+    border-radius: 0.5rem;
+    padding: 0.25rem 0.75rem;
+}
+
+#cluster-threshold-slider {
+    accent-color: #0d6efd;
+}
+
 #map, #history-map {
     border-radius: 0.25rem;
     border: 1px solid var(--table-border-color);

@@ -188,7 +188,7 @@ bool send_cached_data() {
     SerialMon.println(F("[FS] Failed to acquire FS lock while sending cached data."));
     return false;
   }
-  const int MAX_BATCH_SIZE = 50;
+  const int MAX_BATCH_SIZE = 15; // Limit batch size to avoid large payloads
   bool allDataSent = true;
 
   while (true) {
