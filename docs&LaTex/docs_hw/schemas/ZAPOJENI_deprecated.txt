@@ -1,0 +1,14 @@
+Hardwarové zapojení extrahované z gps_tracker.ino a utilities.h
+
+--- Zapojení z gps_tracker.ino ---
+
+Externí GPS modul:
+- ESP32 Pin 33 (RX) <--- GPS TX
+- ESP32 Pin 32 (TX) ---> GPS RX
+- ESP32 Pin 5  ---> Ovládání napájení GPS modulu (přes tranzistor)
+
+OTA (Over-the-Air) aktualizace:
+- ESP32 Pin 23 ---> Přepínač (připojit na 3.3V pro aktivaci OTA režimu)
+
+
+

@@ -14,8 +14,9 @@
   - Poslední stav připojení / synchronizace
   - Odpočet do další aktualizace
   - Počet pozic v mezipaměti
+  - Stav napájení (Power ON/OFF) odvozený z perzistentního stavu; toast upozornění při `TURN_OFF` instrukci ze serveru
 - Konzole logů (automatický scroll dolů, limit ~100 řádků)
-- Dlouhý stisk přepínače: potvrzení a odhlášení uživatele
+- Dlouhý stisk přepínače: potvrzení a odhlášení uživatele (odešle `POST /api/apk/logout`, poté vyčistí session a přesměruje na Login)
 - Dlouhý stisk karty konzole: vymazání konzole
 
 ## Fragmenty

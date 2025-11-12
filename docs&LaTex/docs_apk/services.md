@@ -8,18 +8,30 @@
   - `com.example.gpsreporterapp.FORCE_LOGOUT` (vynucené odhlášení – přijímá MainActivity)
 - Na startu:
   - Načte `gps_interval_seconds` a `sync_interval_count` ze SharedPrefs
+  - Nastaví `power_status="ON"` a spustí handshake (`/api/devices/handshake`) pro získání konfigurace a instrukcí
   - Získá 1× okamžitou polohu, poté požádá o periodické aktualizace
 - Ukládání polohy:
   - Každý fix se ukládá do Room a zvyšuje se `locationsCachedCount`
   - Pokud `locationsCachedCount >= sync_interval_count`, naplánuje se `SyncWorker` a čítač se resetuje
-- Reakce na vypnutí GPS: zastavení služby a vyslání stavu
+- Reakce na vypnutí GPS: zastavení služby, handshake s `power_status="OFF"` a vyslání stavu
+- Instrukce `TURN_OFF` ze serveru (z handshake odpovědi) zastaví službu, přepne `power_status="OFF"` a aktualizuje UI
+- `ServiceState` se skládá z perzistentního `power_status`, takže UI zůstává v režimu OFF i při opožděných broadcastech
+- Při odhlášení aplikace provede `POST /api/apk/logout` a teprve poté lokálně zneplatní session
+
+## HandshakeManager / HandshakeWorker
+- `HandshakeManager` zabalí volání `/api/devices/handshake`, aplikuje konfiguraci a interpretuje `power_instruction`
+- `HandshakeWorker` umožňuje naplánované/opožděné handshake (WorkManager)
+- Při startu služby se plánuje periodický handshake (aktuálně každých 60 minut), při zastavení služby se plán ruší
+- SyncWorker interpretuje `power_instruction` i ze `/api/devices/input` odpovědí (např. serverem vyžádané vypnutí)
 
 ## SyncWorker
 - Pracuje jen na připojené síti (CONNECTION REQUIRED)
-- Dávkuje data z DB po např. 50 záznamech a odesílá na `${API_BASE_URL}/api/devices/input`
+- Dávkuje data z DB po max. 50 záznamech a odesílá na `${API_BASE_URL}/api/devices/input`
 - Hlavičky: `Content-Type: application/json; charset=utf-8`, `Cookie: <session>`
-- Při HTTP 200:
-  - U větších dávek (>10) volitelně aplikuje hodnoty `interval_gps`, `interval_send` z odpovědi do SharedPrefs a restartuje službu
-  - Smaže úspěšně odeslané záznamy
-- Při HTTP 403: vyšle `FORCE_LOGOUT` broadcast (uživatel je odhlášen)
-- Při jiných chybách: `Result.retry()`
+- Po úspěchu smaže odeslané záznamy z Room (žádné opakované odeslání)
+- Aplikuje `interval_gps` / `interval_send` podle serveru a pokud je služba aktivní, provede kontrolovaný restart pro načtení nové konfigurace
+- Instrukce `TURN_OFF` ze synchronizace:
+  - Okamžitě nastaví `power_status="OFF"`, stopne `LocationService` a odešle broadcast pro UI
+  - Spustí potvrzovací handshake asynchronně (`launchHandshake`) + naplánuje `HandshakeWorker`, aby server získal potvrzení i při krátkém výpadku
+- Při HTTP 403 vyšle `FORCE_LOGOUT` broadcast (uživatel je odhlášen)
+- Při jiných chybách vrací `Result.retry()` a odeslání se pokusí znovu

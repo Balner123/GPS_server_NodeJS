@@ -58,7 +58,7 @@ Poznámka: Webová varianta opětovného odeslání kódu je dostupná na `POST 
 
 | Metoda | Endpoint | Oprávnění | Popis |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/input` | Veřejné | **Klíčový endpoint** pro příjem dat z GPS trackerů. |
+| `POST` | `/input` | Veřejné | **Klíčový endpoint** pro příjem dat z GPS trackerů; odpověď je vždy `{ "success": true }`. |
 | `GET` | `/coordinates` | `isAuthenticated` | Získá poslední známé souřadnice všech zařízení uživatele. |
 | `GET` | `/data` | `isAuthenticated` | Získá historii polohy pro konkrétní zařízení (dle `?id=`). |
 | `GET` | `/settings/:deviceId` | `isUser` | Získá nastavení pro konkrétní zařízení. `deviceId` je HW ID (řetězec). |
@@ -101,10 +101,13 @@ Poznámka: Webová varianta opětovného odeslání kódu je dostupná na `POST 
 
 | Metoda | Endpoint | Oprávnění | Popis |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/hw/register-device` | Veřejné | Zaregistruje HW zařízení k účtu na základě jména a hesla. |
+| `POST` | `/api/devices/register` | Dle typu | Sjednocená registrace zařízení (`client_type=HW|APK`), HW vyžaduje jméno+heslo, APK aktivní session. |
+| `POST` | `/api/devices/handshake` | Veřejné | Vrátí konfiguraci a power instrukce (`NONE`/`TURN_OFF`); pokud zařízení hlásí stav odpovídající instrukci, server ji v odpovědi vynuluje. |
+| `POST` | `/api/hw/register-device` | Veřejné | **Legacy** endpoint pro HW registraci (deleguje na unified controller). |
+| `POST` | `/api/hw/handshake` | Veřejné | **Legacy** handshake endpoint – odpovídá stejně jako `/api/devices/handshake`. |
 | `POST` | `/api/apk/login` | Veřejné | Speciální přihlášení pro Android APK. |
 | `POST` | `/api/apk/logout` | `isAuthenticated` | Odhlášení pro Android APK. |
-| `POST` | `/api/apk/register-device` | `isAuthenticated` | Registrace zařízení z přihlášené Android APK. |
+| `POST` | `/api/apk/register-device` | `isAuthenticated` | **Legacy** registrace z APK (interně využívá unified logiku). |
 
 Poznámky k identifikátorům zařízení:
 - V uživatelských API (`/api/devices/...`) se používá `deviceId` jako HW ID (řetězec `device_id`).
