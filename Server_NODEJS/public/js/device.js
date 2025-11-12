@@ -3,6 +3,7 @@ let selectedDevice = null;
 let polyline = null;
 let markers = {}; // Changed from array to object
 let markersLayer = null;
+let clusterRadiusLayer = null;
 let lastTimestamp = null;
 let completeDeviceHistory = [];
 let isShowingAllHistory = false;
@@ -17,9 +18,9 @@ let geofenceDraftPending = false;
 let useClusters = true;
 let permanentTooltips = false;
 
-const DEFAULT_CLUSTER_THRESHOLD_METERS = 25;
+const DEFAULT_CLUSTER_THRESHOLD_METERS = 20;
 const MIN_CLUSTER_THRESHOLD_METERS = 5;
-const MAX_CLUSTER_THRESHOLD_METERS = 4000;
+const MAX_CLUSTER_THRESHOLD_METERS = 500;
 let clusterDistanceThreshold = DEFAULT_CLUSTER_THRESHOLD_METERS;
 let rawDeviceHistory = [];
 
@@ -232,6 +233,7 @@ function initializeApp() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
+    clusterRadiusLayer = L.layerGroup().addTo(map);
     markersLayer = L.layerGroup().addTo(map);
 
     // --- Info Toggle Listener ---
@@ -259,13 +261,11 @@ function initializeApp() {
         setClusterDistanceThreshold(clusterDistanceThreshold, { applyChanges: false });
 
         clusterSlider.addEventListener('input', (e) => {
-            updateClusterThresholdLabel(e.target.value);
-        });
-
-        clusterSlider.addEventListener('change', (e) => {
             const nextValue = Number(e.target.value);
             if (Number.isFinite(nextValue)) {
                 setClusterDistanceThreshold(nextValue);
+            } else {
+                updateClusterThresholdLabel(e.target.value);
             }
         });
     }
@@ -645,6 +645,9 @@ function getMarkerKey(point) {
 }
 
 async function loadDevices() {
+    if (typeof showLoadingIndicator === 'function') {
+        showLoadingIndicator();
+    }
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -872,6 +875,9 @@ async function selectDevice(deviceId, options = {}) {
 
 async function loadDeviceData(isInitialLoad = false) {
     if (!selectedDevice) return;
+    if (typeof showLoadingIndicator === 'function') {
+        showLoadingIndicator();
+    }
     try {
         const rawResponse = await fetch(`${API_BASE_URL}/api/devices/raw-data?id=${selectedDevice}`);
         if (!rawResponse.ok) {
@@ -900,6 +906,9 @@ function clearMapAndData() {
     }
     if (markersLayer) {
         markersLayer.clearLayers();
+    }
+    if (clusterRadiusLayer) {
+        clusterRadiusLayer.clearLayers();
     }
     markers = {}; // Reset to empty object
     lastTimestamp = null;
@@ -932,6 +941,9 @@ function updateMap(fitBounds) {
     }
     if (markersLayer) {
         markersLayer.clearLayers();
+    }
+    if (clusterRadiusLayer) {
+        clusterRadiusLayer.clearLayers();
     }
     markers = {};
 
@@ -980,6 +992,19 @@ function updateMap(fitBounds) {
         const markerOptions = {};
         if (!isLatest) {
             markerOptions.icon = defaultIcon;
+        }
+
+        if (useClusters && point.type === 'cluster' && clusterRadiusLayer) {
+            const circle = L.circle([lat, lon], {
+                radius: Number(point.clusterThreshold) || clusterDistanceThreshold,
+                color: '#0d6efd',
+                weight: 1,
+                opacity: 0.35,
+                fillColor: '#0d6efd',
+                fillOpacity: 0.1,
+                interactive: false
+            });
+            clusterRadiusLayer.addLayer(circle);
         }
 
         const marker = L.marker([lat, lon], markerOptions)
