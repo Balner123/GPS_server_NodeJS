@@ -3,7 +3,6 @@ package com.example.gpsreporterapp
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -137,7 +136,6 @@ object HandshakeManager {
     val prefs = SharedPreferencesHelper.getEncryptedSharedPreferences(context)
     val editor = prefs.edit()
     var settingsChanged = false
-    val currentPowerState = SharedPreferencesHelper.getPowerState(context)
     val powerInstruction = response.power_instruction?.uppercase(Locale.US)
 
         response.config?.interval_gps?.let { intervalGps ->
@@ -158,41 +156,16 @@ object HandshakeManager {
 
         editor.apply()
 
-        if (settingsChanged && currentPowerState == PowerState.ON && powerInstruction != "TURN_OFF") {
+        val isCurrentlyOn = SharedPreferencesHelper.getPowerState(context) == PowerState.ON
+        val ackPending = SharedPreferencesHelper.isTurnOffAckPending(context)
+
+        if (settingsChanged && isCurrentlyOn && powerInstruction != "TURN_OFF" && !ackPending) {
             restartLocationService(context)
         }
 
         when (powerInstruction) {
-            "TURN_OFF" -> {
-                val wasOn = SharedPreferencesHelper.getPowerState(context) != PowerState.OFF
-                ConsoleLogger.log("Handshake: server vyžaduje vypnutí služby.")
-                SharedPreferencesHelper.setPowerState(context, PowerState.OFF)
-                context.stopService(Intent(context, LocationService::class.java))
-                val intent = Intent(LocationService.ACTION_BROADCAST_STATUS).apply {
-                    putExtra(
-                        LocationService.EXTRA_SERVICE_STATE,
-                        gson.toJson(
-                            ServiceState(
-                                isRunning = false,
-                                statusMessage = StatusMessages.SERVICE_STOPPED,
-                                connectionStatus = "Vypnuto na základě instrukce serveru",
-                                cachedCount = 0,
-                                nextUpdateTimestamp = 0,
-                                powerStatus = PowerState.OFF.toString()
-                            )
-                        )
-                    )
-                }
-                LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
-                if (wasOn) {
-                    ConsoleLogger.log("Handshake: potvrzuji vypnutí zpět na server.")
-                    launchHandshake(context, reason = "turn_off_ack")
-                    enqueueHandshakeWork(context)
-                }
-            }
-            else -> {
-                // No action required for NONE
-            }
+            "TURN_OFF" -> PowerController.handleTurnOffInstruction(context, origin = "handshake")
+            else -> PowerController.markTurnOffAcknowledged(context)
         }
     }
 

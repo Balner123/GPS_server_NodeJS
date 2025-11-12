@@ -109,7 +109,15 @@ class LocationService : Service() {
             return START_NOT_STICKY // Jen posíláme stav, nechceme restartovat službu
         }
 
+        val persistedPower = SharedPreferencesHelper.getPowerState(this)
+        if (persistedPower == PowerState.OFF) {
+            ConsoleLogger.log("LocationService: start požadován, ale power state = OFF. Start ignoruji.")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         ConsoleLogger.log("Služba LocationService spuštěna.")
+        SharedPreferencesHelper.setPowerState(applicationContext, PowerState.ON)
         updateAndBroadcastState(status = StatusMessages.SERVICE_STARTING, isRunning = true, powerStatus = PowerState.ON)
 
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
@@ -117,8 +125,6 @@ class LocationService : Service() {
         syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
         sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
         ConsoleLogger.log("Nastaven interval GPS: ${gpsIntervalSeconds}s, Odeslání po: ${syncIntervalCount} pozicích.")
-
-        SharedPreferencesHelper.setPowerState(applicationContext, PowerState.ON)
         HandshakeManager.launchHandshake(applicationContext, reason = "service_start")
     HandshakeManager.schedulePeriodicHandshake(applicationContext)
 

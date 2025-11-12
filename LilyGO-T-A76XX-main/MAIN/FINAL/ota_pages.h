@@ -17,6 +17,7 @@ const char update_form_page[] PROGMEM = R"rawliteral(
       .status.ok { background-color: #d4edda; color: #155724; }
       .status.fail { background-color: #f8d7da; color: #721c24; }
   .status.pending { background-color: #fff3cd; color: #856404; }
+      .registration-detail { color: #555; font-size: 0.9em; min-height: 1.2em; }
       .form-group { margin-bottom: 15px; text-align: left; }
       label { display: block; margin-bottom: 5px; font-weight: bold; }
       input[type='text'], input[type='password'], input[type='file'] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; } /* Added input[type='file'] */
@@ -124,6 +125,7 @@ const char ota_main_page_template[] PROGMEM = R"rawliteral(
       <p><b>Device ID:</b> %id%</p>
       <p><b>GPRS Status:</b> <span class="status %gprs_status_class%">%gprs_status%</span></p>
   <p><b>Registration:</b> <span class="status %registration_status_class%">%registration_status%</span></p>
+  <p class="registration-detail">%registration_detail%</p>
       <hr>
       <h2>Register Device</h2>
       <p>If this device is not registered, enter your account details below.</p>
@@ -243,14 +245,7 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
           <label for="ota_ssid">OTA WiFi SSID:</label>
           <input type='text' id="ota_ssid" name='ota_ssid' value='%ota_ssid%'>
         </div>
-        <div class="form-group">
-          <label for="ota_password">OTA WiFi Password:</label>
-          <input type='text' id="ota_password" name='ota_password' value='%ota_password%'>
-        </div>
-        <div class="form-group">
-          <label for="ota_password_confirm">Confirm OTA WiFi Password:</label>
-          <input type='text' id="ota_password_confirm" name='ota_password_confirm' value='%ota_password%'>
-        </div>
+        <p style="font-size:0.9em;color:#555;">Hotspot is running without a password. Connect only in a secure environment.</p>
         <br>
         <input type='submit' value='Save Settings'>
       </form>
@@ -266,15 +261,9 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
       function validatePasswords() {
         var gprsPass = document.getElementById('gprsPass').value;
         var gprsPassConfirm = document.getElementById('gprsPassConfirm').value;
-        var otaPass = document.getElementById('ota_password').value;
-        var otaPassConfirm = document.getElementById('ota_password_confirm').value;
 
         if (gprsPass !== gprsPassConfirm) {
           alert('GPRS passwords do not match!');
-          return false;
-        }
-        if (otaPass !== otaPassConfirm) {
-          alert('OTA WiFi passwords do not match!');
           return false;
         }
         return true;

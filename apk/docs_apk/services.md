@@ -2,6 +2,7 @@
 
 ## LocationService
 - Foreground služba s notifikací (kanál `LocationServiceChannel`)
+- Pokud je uložený `power_status=OFF`, jakýkoli pokus o start služby je ignorován a služba se sama ukončí
 - Akce broadcastů:
   - `com.example.gpsreporterapp.BROADCAST_STATUS` (stav služby)
   - `com.example.gpsreporterapp.REQUEST_STATUS_UPDATE` (pošle aktuální stav UI)
@@ -21,6 +22,7 @@
 ## HandshakeManager / HandshakeWorker
 - `HandshakeManager` zabalí volání `/api/devices/handshake`, aplikuje konfiguraci a interpretuje `power_instruction`
 - Pokud se konfigurace změní, restartuje `LocationService` jen tehdy, když je zařízení v režimu ON a server současně nepožaduje `TURN_OFF`
+- `PowerController` centralizuje reakce na `TURN_OFF` – zastaví službu, vyhlásí stav `OFF`, zruší periodický handshake a naplánuje jediné potvrzení vůči serveru
 - `HandshakeWorker` umožňuje naplánované/opožděné handshake (WorkManager)
 - Při startu služby se plánuje periodický handshake (aktuálně každých 60 minut), při zastavení služby se plán ruší
 - SyncWorker interpretuje `power_instruction` i ze `/api/devices/input` odpovědí (např. serverem vyžádané vypnutí)

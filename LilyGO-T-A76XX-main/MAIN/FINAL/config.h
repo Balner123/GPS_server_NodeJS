@@ -63,8 +63,8 @@ const unsigned long GPS_ACQUISITION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for
 const uint64_t DEFAULT_SLEEP_SECONDS = 60;
 
 // --- OTA Configuration (Default values, can be overwritten by Preferences) ---
-#define DEFAULT_OTA_SSID        "lotrTrackerOTA"
-#define DEFAULT_OTA_PASSWORD    "password"
+#define DEFAULT_OTA_SSID        "lotrTrackerOTA#1"
+#define DEFAULT_OTA_PASSWORD    ""
 
 // --- Serial Debug ---
 #define SerialMon Serial

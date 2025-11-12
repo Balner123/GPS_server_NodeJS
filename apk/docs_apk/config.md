@@ -14,6 +14,7 @@ Klíče používané aplikací:
 - `device_id` – kopie `installation_id`
 - `gps_interval_seconds` – interval získávání polohy (s)
 - `sync_interval_count` – po kolika záznamech spustit synchronizaci
+- `pending_turn_off_ack` – interní příznak, zda klient dluží potvrzení instrukce `TURN_OFF`
 
 ## Oprávnění (Manifest)
 - INTERNET, ACCESS_NETWORK_STATE

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import androidx.work.CoroutineWorker
@@ -211,35 +210,13 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
     private fun applyPowerInstruction(instruction: String?): Boolean {
         return when (instruction?.uppercase(Locale.US)) {
             "TURN_OFF" -> {
-                val wasOn = SharedPreferencesHelper.getPowerState(applicationContext) != PowerState.OFF
-                ConsoleLogger.log("SyncWorker: server požaduje vypnutí služby.")
-                SharedPreferencesHelper.setPowerState(applicationContext, PowerState.OFF)
-                applicationContext.stopService(Intent(applicationContext, LocationService::class.java))
-
-                val stateJson = gson.toJson(
-                    ServiceState(
-                        isRunning = false,
-                        statusMessage = StatusMessages.SERVICE_STOPPED,
-                        connectionStatus = "Vypnuto na základě instrukce serveru",
-                        nextUpdateTimestamp = 0,
-                        cachedCount = 0,
-                        powerStatus = PowerState.OFF.toString()
-                    )
-                )
-
-                val statusIntent = Intent(LocationService.ACTION_BROADCAST_STATUS).apply {
-                    putExtra(LocationService.EXTRA_SERVICE_STATE, stateJson)
-                }
-                LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(statusIntent)
-
-                if (wasOn) {
-                    ConsoleLogger.log("SyncWorker: odesílám potvrzení o vypnutí.")
-                    HandshakeManager.launchHandshake(applicationContext, reason = "sync_turn_off")
-                    HandshakeManager.enqueueHandshakeWork(applicationContext)
-                }
+                PowerController.handleTurnOffInstruction(applicationContext, origin = "sync")
                 false
             }
-            else -> true
+            else -> {
+                PowerController.markTurnOffAcknowledged(applicationContext)
+                true
+            }
         }
     }
 

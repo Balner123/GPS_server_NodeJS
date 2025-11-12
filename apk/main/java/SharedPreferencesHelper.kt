@@ -9,6 +9,7 @@ object SharedPreferencesHelper {
 
     private const val PREFS_NAME = "EncryptedAppPrefs"
     private const val KEY_POWER_STATUS = "power_status"
+    private const val KEY_PENDING_TURN_OFF_ACK = "pending_turn_off_ack"
 
     fun getEncryptedSharedPreferences(context: Context): SharedPreferences {
         val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
@@ -27,6 +28,21 @@ object SharedPreferencesHelper {
     }
 
     fun setPowerState(context: Context, state: PowerState) {
-        getEncryptedSharedPreferences(context).edit().putString(KEY_POWER_STATUS, state.toString()).apply()
+        val prefs = getEncryptedSharedPreferences(context)
+        prefs.edit().apply {
+            putString(KEY_POWER_STATUS, state.toString())
+            if (state == PowerState.ON) {
+                putBoolean(KEY_PENDING_TURN_OFF_ACK, false)
+            }
+            apply()
+        }
+    }
+
+    fun isTurnOffAckPending(context: Context): Boolean {
+        return getEncryptedSharedPreferences(context).getBoolean(KEY_PENDING_TURN_OFF_ACK, false)
+    }
+
+    fun setTurnOffAckPending(context: Context, pending: Boolean) {
+        getEncryptedSharedPreferences(context).edit().putBoolean(KEY_PENDING_TURN_OFF_ACK, pending).apply()
     }
 }

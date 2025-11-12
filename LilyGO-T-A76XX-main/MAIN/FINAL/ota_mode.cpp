@@ -13,6 +13,7 @@ bool gprsConnectedOTA = false;
 bool lastGprsTestSuccess = false;
 bool handshakeAttemptedOTA = false;
 bool handshakeSucceededOTA = false;
+String lastRegistrationMessage = "";
 
 void start_ota_mode() {
   SerialMon.println(F("--- OTA Service Mode Activated ---"));
@@ -26,6 +27,7 @@ void start_ota_mode() {
   lastGprsTestSuccess = false;
   handshakeAttemptedOTA = false;
   handshakeSucceededOTA = false;
+  lastRegistrationMessage = "";
 
   // Ensure the power-management button ISR/task is active while in OTA mode.
   power_init();
@@ -38,6 +40,18 @@ void start_ota_mode() {
 
   // Load configuration from Preferences (needed for OTA SSID/Pass and GPRS settings)
   fs_load_configuration();
+
+  if (ota_password.length() > 0) {
+    SerialMon.println(F("[OTA] Clearing stored OTA password so hotspot stays open."));
+    ota_password = "";
+    Preferences otaPrefs;
+    if (otaPrefs.begin(PREFERENCES_NAMESPACE, false)) {
+      otaPrefs.putString("ota_password", "");
+      otaPrefs.end();
+    } else {
+      SerialMon.println(F("[OTA] Failed to open preferences namespace; password cleared in memory only."));
+    }
+  }
 
   // Set Device ID from MAC Address, this is permanent and unique
   String mac = WiFi.macAddress();
@@ -83,9 +97,15 @@ void start_ota_mode() {
   SerialMon.println(F("Starting WiFi AP..."));
   WiFi.disconnect(true);
   WiFi.mode(WIFI_AP);
-  bool apStarted = WiFi.softAP(ota_ssid.c_str(), ota_password.c_str());
+  bool apStarted = ota_password.length() == 0
+                       ? WiFi.softAP(ota_ssid.c_str())
+                       : WiFi.softAP(ota_ssid.c_str(), ota_password.c_str());
   if (apStarted) {
-    SerialMon.println(F("WiFi AP started with configured credentials."));
+    if (ota_password.length() == 0) {
+      SerialMon.println(F("WiFi AP started as open network."));
+    } else {
+      SerialMon.println(F("WiFi AP started with configured credentials."));
+    }
   } else {
     SerialMon.println(F("[OTA] Failed to start WiFi AP with configured credentials; fallback open AP may be used."));
   }
@@ -109,24 +129,38 @@ void start_ota_mode() {
 
     String registrationClass = "pending";
     String registrationStatus;
+    String registrationDetail = "";
     if (handshakeAttemptedOTA) {
       if (handshakeSucceededOTA) {
         if (isRegistered) {
           registrationClass = "ok";
           registrationStatus = "Registered";
+          if (lastRegistrationMessage.length() > 0) {
+            registrationDetail = lastRegistrationMessage;
+          }
         } else {
           registrationClass = "fail";
           registrationStatus = "Not Registered";
+          if (lastRegistrationMessage.length() > 0) {
+            registrationDetail = lastRegistrationMessage;
+          }
         }
       } else {
         registrationClass = "fail";
         registrationStatus = "Handshake Failed";
+        if (lastRegistrationMessage.length() > 0) {
+          registrationDetail = lastRegistrationMessage;
+        }
       }
     } else {
       registrationStatus = isRegistered ? "Registered (cached)" : "Not Registered (cached)";
+      if (lastRegistrationMessage.length() > 0) {
+        registrationDetail = lastRegistrationMessage;
+      }
     }
     page_content.replace("%registration_status_class%", registrationClass);
     page_content.replace("%registration_status%", registrationStatus);
+    page_content.replace("%registration_detail%", registrationDetail);
 
     otaServer.send(200, "text/html", page_content);
   });
@@ -149,7 +183,6 @@ void start_ota_mode() {
     page_content.replace("%port%", String(port));
     page_content.replace("%deviceName%", deviceName);
     page_content.replace("%ota_ssid%", ota_ssid);
-    page_content.replace("%ota_password%", ota_password);
     page_content.replace("%server_btn_disabled%", (gprsConnectedOTA && lastGprsTestSuccess) ? "" : "disabled");
     page_content.replace("%initial_gprs_flag%", (gprsConnectedOTA && lastGprsTestSuccess) ? "true" : "false");
     otaServer.send(200, "text/html", page_content);
@@ -167,17 +200,6 @@ void start_ota_mode() {
     String requestedOtaSsid = otaServer.arg("ota_ssid");
     if (requestedOtaSsid.length() == 0 || requestedOtaSsid.length() > 31) {
       sendValidationError(F("OTA SSID must be 1-31 characters long."));
-      return;
-    }
-
-    String new_ota_pass = otaServer.arg("ota_password");
-    String new_ota_pass_confirm = otaServer.arg("ota_password_confirm");
-    if (new_ota_pass != new_ota_pass_confirm) {
-      sendValidationError(F("OTA WiFi passwords do not match."));
-      return;
-    }
-    if (new_ota_pass.length() > 0 && (new_ota_pass.length() < 8 || new_ota_pass.length() > 63)) {
-      sendValidationError(F("OTA WiFi password must be 8-63 characters (or leave empty for open network)."));
       return;
     }
 
@@ -203,7 +225,7 @@ void start_ota_mode() {
 
     // OTA
     preferences.putString("ota_ssid", requestedOtaSsid);
-    preferences.putString("ota_password", new_ota_pass);
+    preferences.putString("ota_password", "");
 
     preferences.end();
 
@@ -215,6 +237,7 @@ void start_ota_mode() {
     lastGprsTestSuccess = false;
     handshakeAttemptedOTA = false;
     handshakeSucceededOTA = false;
+    lastRegistrationMessage = "";
 
     if (modem_initialize()) {
       gprsConnectedOTA = modem_connect_gprs(apn, gprsUser, gprsPass);
@@ -267,7 +290,7 @@ void start_ota_mode() {
       message += " Saved credentials failed to reconnect.";
     }
 
-    DynamicJsonDocument doc(192);
+    JsonDocument doc;
     doc["success"] = success;
     doc["message"] = message;
     doc["restored"] = restored;
@@ -278,7 +301,7 @@ void start_ota_mode() {
 
   // Handler for testing server connection
   otaServer.on("/testserver", HTTP_GET, []() {
-    DynamicJsonDocument doc(192);
+    JsonDocument doc;
 
     if (!gprsConnectedOTA) {
       doc["success"] = false;
@@ -354,6 +377,7 @@ void start_ota_mode() {
     serializeJson(regDoc, registrationPayload);
 
   String response = modem_send_post_request(RESOURCE_REGISTER, registrationPayload, nullptr);
+    lastRegistrationMessage = response;
 
     // Prepare styled response page
     String page_content = String(ota_response_page_template);
