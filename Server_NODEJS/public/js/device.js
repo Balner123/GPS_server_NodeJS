@@ -11,6 +11,7 @@ let expandedClusters = new Set(); // State for expanded cluster rows
 
 let drawnItems, drawControl;
 let currentDeviceGeofence = null;
+let geofenceDraftPending = false;
 
 // --- New state for map view ---
 let useClusters = true;
@@ -27,6 +28,12 @@ const defaultIcon = L.divIcon({
 // Configuration
 const API_BASE_URL = window.location.origin;
 const UPDATE_INTERVAL = 5000; // 5 seconds
+const GEOFENCE_STYLE = {
+    color: '#ff7800',
+    weight: 2,
+    fillColor: '#ff7800',
+    fillOpacity: 0.15
+};
 
 function formatTimestamp(timestamp) {
     if (!timestamp) return 'N/A';
@@ -114,8 +121,20 @@ function initializeApp() {
 
     map.on(L.Draw.Event.CREATED, (e) => {
         drawnItems.clearLayers();
+        applyGeofenceStyle(e.layer);
         drawnItems.addLayer(e.layer);
+        geofenceDraftPending = true;
         updateGeofenceControls();
+    });
+
+    map.on(L.Draw.Event.EDITED, (e) => {
+        if (e.layers && typeof e.layers.eachLayer === 'function') {
+            e.layers.eachLayer(applyGeofenceStyle);
+        }
+        if (e.layers && e.layers.getLayers().length > 0) {
+            geofenceDraftPending = true;
+            updateGeofenceControls();
+        }
     });
 
     document.getElementById('toggle-draw-mode').addEventListener('click', function(e) {
@@ -168,30 +187,43 @@ function initializeApp() {
             displayAlert('Please select a device first.', 'warning');
             return;
         }
-        drawnItems.clearLayers();
         sendGeofenceToBackend(null);
     });
     // --- End Leaflet.draw ---
 
-    loadDevices();
+    updateGeofenceControls();
 
     const urlParams = new URLSearchParams(window.location.search);
+
+    loadDevices();
+
     const deviceIdFromUrl = urlParams.get('id');
     if (deviceIdFromUrl) {
         selectDevice(decodeURIComponent(deviceIdFromUrl));
     }
 
     setInterval(() => {
+        loadDevices();
         if (selectedDevice) {
-           loadDeviceData();
+            loadDeviceData();
         }
     }, UPDATE_INTERVAL);
 
-    window.addEventListener('popstate', (event) => {
+    window.addEventListener('popstate', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const deviceIdFromUrl = urlParams.get('id');
-        if (deviceIdFromUrl && deviceIdFromUrl !== selectedDevice) {
-            selectDevice(decodeURIComponent(deviceIdFromUrl));
+
+        if (!deviceIdFromUrl) {
+            selectedDevice = null;
+            clearMapAndData();
+            loadDevices();
+            return;
+        }
+
+        if (deviceIdFromUrl !== selectedDevice) {
+            selectDevice(decodeURIComponent(deviceIdFromUrl), { skipHistory: true });
+        } else {
+            loadDevices();
         }
     });
 
@@ -228,20 +260,23 @@ function initializeApp() {
 
             // If the clicked row is a cluster row, handle expansion/collapse
             if (row.classList.contains('cluster-row')) {
-                const clusterId = row.dataset.clusterId;
-                if (expandedClusters.has(clusterId)) {
-                    expandedClusters.delete(clusterId);
+                const clusterKey = row.dataset.clusterKey;
+                if (!clusterKey) {
+                    return;
+                }
+                if (expandedClusters.has(clusterKey)) {
+                    expandedClusters.delete(clusterKey);
                 } else {
-                    expandedClusters.add(clusterId);
+                    expandedClusters.add(clusterKey);
                 }
                 renderPositionTable(); // Re-render to show/hide children
                 return; // Done
             }
 
             // If it's not a cluster row, it might be a focusable row (regular or child)
-            const timestamp = row.dataset.timestamp;
-            if (timestamp && markers[timestamp]) {
-                const marker = markers[timestamp];
+            const markerKey = row.dataset.markerKey || row.dataset.timestamp;
+            if (markerKey && markers[markerKey]) {
+                const marker = markers[markerKey];
                 const latLng = marker.getLatLng();
                 map.flyTo(latLng, 18); // Zoom in to a close-up level
                 marker.openTooltip();
@@ -306,13 +341,136 @@ async function checkForAlerts() {
 function updateGeofenceControls() {
     const saveBtn = document.getElementById('save-geofence-btn');
     const deleteBtn = document.getElementById('delete-geofence-btn');
-    const hasDrawnItems = drawnItems.getLayers().length > 0;
 
-    // Zobrazit tlačítko Uložit, pouze pokud je něco nakresleno
-    saveBtn.style.display = hasDrawnItems ? 'block' : 'none';
+    if (saveBtn) {
+        saveBtn.style.display = geofenceDraftPending ? 'block' : 'none';
+    }
 
-    // Zobrazit tlačítko Smazat, pouze pokud existuje uložená geofence A ZÁROVEŇ se nic nekreslí
-    deleteBtn.style.display = (currentDeviceGeofence && !hasDrawnItems) ? 'block' : 'none';
+    if (deleteBtn) {
+        deleteBtn.style.display = currentDeviceGeofence ? 'block' : 'none';
+    }
+}
+
+function applyGeofenceStyle(layer) {
+    if (!layer || typeof layer.setStyle !== 'function') {
+        return;
+    }
+    layer.setStyle(GEOFENCE_STYLE);
+}
+
+function getLayerBounds(layer) {
+    if (!layer) return null;
+    if (typeof layer.getBounds === 'function') {
+        const bounds = layer.getBounds();
+        if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
+            return bounds;
+        }
+    }
+    if (typeof layer.getLatLng === 'function' && typeof layer.getRadius === 'function') {
+        return layer.getBounds();
+    }
+    return null;
+}
+
+function createLayerFromGeofence(geofence) {
+    if (!geofence) return null;
+
+    if (geofence.type === 'circle') {
+        return L.circle([geofence.lat, geofence.lng], {
+            radius: geofence.radius,
+            ...GEOFENCE_STYLE
+        });
+    }
+
+    if (geofence.type === 'Feature') {
+        return L.geoJSON(geofence, {
+            style: () => GEOFENCE_STYLE
+        });
+    }
+
+    console.warn('Unsupported geofence format:', geofence);
+    return null;
+}
+
+function loadGeofenceIntoDrawnItems(geofence, options = {}) {
+    const { fitBounds = false } = options;
+
+    if (!drawnItems) {
+        return;
+    }
+
+    drawnItems.clearLayers();
+
+    if (!geofence) {
+        return;
+    }
+
+    const layer = createLayerFromGeofence(geofence);
+    if (!layer) {
+        return;
+    }
+
+    applyGeofenceStyle(layer);
+    drawnItems.addLayer(layer);
+
+    if (fitBounds && map && typeof map.fitBounds === 'function') {
+        const bounds = getLayerBounds(layer);
+        if (bounds) {
+            map.fitBounds(bounds.pad(0.2));
+        }
+    }
+}
+
+function updateDeviceListLink() {
+    const link = document.getElementById('device-list-link');
+    if (!link) return;
+
+    if (!selectedDevice) {
+        link.style.display = 'none';
+        return;
+    }
+
+    link.style.display = 'inline-block';
+    link.textContent = 'Show All Devices';
+    link.href = '/devices';
+}
+
+function normalizeTimeKey(value) {
+    if (value === null || value === undefined || value === '') return 'na';
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+        return date.toISOString();
+    }
+    return String(value);
+}
+
+function getClusterKey(point) {
+    if (!point) return 'cluster-na';
+    const startKey = normalizeTimeKey(point.startTime || point.timestamp || point.endTime || point.id);
+    const endKey = point.endTime ? normalizeTimeKey(point.endTime) : 'end';
+    const latValue = point.latitude;
+    const lngValue = point.longitude;
+    const latKey = (latValue !== null && latValue !== undefined && Number.isFinite(Number(latValue)))
+        ? Number(latValue).toFixed(6)
+        : 'lat';
+    const lngKey = (lngValue !== null && lngValue !== undefined && Number.isFinite(Number(lngValue)))
+        ? Number(lngValue).toFixed(6)
+        : 'lng';
+    return `cluster-${startKey}-${endKey}-${latKey}-${lngKey}`;
+}
+
+function getMarkerKey(point) {
+    if (!point) return null;
+    const baseKey = normalizeTimeKey(point.timestamp || point.endTime || point.startTime || point.id);
+    const latValue = point.latitude;
+    const lngValue = point.longitude;
+    const latKey = (latValue !== null && latValue !== undefined && Number.isFinite(Number(latValue)))
+        ? Number(latValue).toFixed(6)
+        : 'lat';
+    const lngKey = (lngValue !== null && lngValue !== undefined && Number.isFinite(Number(lngValue)))
+        ? Number(lngValue).toFixed(6)
+        : 'lng';
+    return `${baseKey}-${latKey}-${lngKey}`;
 }
 
 async function loadDevices() {
@@ -320,23 +478,47 @@ async function loadDevices() {
         const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const devices = await response.json();
-        
         const devicesList = document.getElementById('devices-list');
         devicesList.innerHTML = '';
-        
-        if (devices.length === 0) {
-            devicesList.innerHTML = '<p class="text-muted">No active devices found.</p>';
+
+        const listToRender = selectedDevice
+            ? devices.filter(device => device.device === selectedDevice)
+            : devices;
+
+        if (selectedDevice && listToRender.length === 0) {
+            devicesList.innerHTML = '<p class="text-muted">Selected device is not currently active.</p>';
+            updateDeviceListLink();
             return;
         }
 
-        devices.forEach(device => {
+        if (listToRender.length === 0) {
+            devicesList.innerHTML = '<p class="text-muted">No active devices found.</p>';
+            updateDeviceListLink();
+            return;
+        }
+
+        listToRender.forEach(device => {
             const deviceElement = createDeviceElement(device);
             devicesList.appendChild(deviceElement);
         });
 
+        const devicesLink = document.getElementById('device-list-link');
+        if (devicesLink) {
+            if (selectedDevice) {
+                devicesLink.style.display = 'inline-block';
+                devicesLink.textContent = 'Show All Devices';
+                devicesLink.href = '/devices';
+            } else {
+                devicesLink.style.display = devices.length > 0 ? 'inline-block' : 'none';
+                devicesLink.textContent = 'Manage Devices';
+                devicesLink.href = '/devices';
+            }
+        }
+
     } catch (error) {
         const devicesList = document.getElementById('devices-list');
         if(devicesList) devicesList.innerHTML = '<p class="text-danger">Error loading device list.</p>';
+        updateDeviceListLink();
     }
 }
 
@@ -393,7 +575,7 @@ function createDeviceElement(device) {
     renameButton.title = `Rename device ${displayName}`;
     renameButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        handleRenameDevice(device.device, displayName);
+        handleRenameDevice(device.device);
     });
 
     const deleteButton = document.createElement('button');
@@ -411,16 +593,30 @@ function createDeviceElement(device) {
     div.appendChild(deviceInfo);
     div.appendChild(buttonGroup);
 
+    if (selectedDevice && device.device === selectedDevice) {
+        div.classList.add('active');
+    }
+
     return div;
 }
 
-async function selectDevice(deviceId) {
-    if (selectedDevice === deviceId) return;
+async function selectDevice(deviceId, options = {}) {
+    if (!deviceId) {
+        return;
+    }
 
-    const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?id=${encodeURIComponent(deviceId)}`;
-    window.history.pushState({path: newUrl}, '', newUrl);
+    const { skipHistory = false } = options;
+
+    if (!skipHistory) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('id', deviceId);
+        const newUrl = `${url.origin}${url.pathname}${url.search}`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+    }
 
     selectedDevice = deviceId;
+    updateDeviceListLink();
+    loadDevices();
     isShowingAllHistory = false;
     clearMapAndData();
     
@@ -485,25 +681,9 @@ async function selectDevice(deviceId) {
         } else {
             batchSettings.style.display = 'none';
         }
-        currentDeviceGeofence = settings.geofence;
-        if (settings.geofence) {
-            // Handle custom circle format
-            if (settings.geofence.type === 'circle') {
-                const circle = L.circle([settings.geofence.lat, settings.geofence.lng], { 
-                    radius: settings.geofence.radius,
-                    color: '#ff7800',
-                    weight: 2
-                }).addTo(drawnItems);
-                map.fitBounds(circle.getBounds());
-            } 
-            // Handle standard GeoJSON format for polygons
-            else if (settings.geofence.type === 'Feature') {
-                const geofenceLayer = L.geoJSON(settings.geofence, {
-                    style: { color: '#ff7800', weight: 2 }
-                }).addTo(drawnItems);
-                map.fitBounds(geofenceLayer.getBounds());
-            }
-        }
+        currentDeviceGeofence = settings.geofence || null;
+        geofenceDraftPending = false;
+        loadGeofenceIntoDrawnItems(currentDeviceGeofence, { fitBounds: true });
         updateGeofenceControls();
 
         const powerCard = document.getElementById('power-control-card');
@@ -524,7 +704,6 @@ let rawDeviceHistory = [];
 async function loadDeviceData(isInitialLoad = false) {
     if (!selectedDevice) return;
     try {
-        showLoadingIndicator();
         const [clusteredResponse, rawResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/api/devices/data?id=${selectedDevice}`),
             fetch(`${API_BASE_URL}/api/devices/raw-data?id=${selectedDevice}`)
@@ -540,6 +719,15 @@ async function loadDeviceData(isInitialLoad = false) {
         completeDeviceHistory = clusteredData;
         rawDeviceHistory = rawData;
 
+        const currentClusterKeys = new Set(
+            (clusteredData || [])
+                .filter(point => point && point.type === 'cluster')
+                .map(point => getClusterKey(point))
+        );
+        expandedClusters = new Set(
+            Array.from(expandedClusters).filter(key => currentClusterKeys.has(key))
+        );
+
         updateMap(isInitialLoad);
         renderPositionTable();
 
@@ -553,13 +741,16 @@ function clearMapAndData() {
         map.removeLayer(polyline);
         polyline = null;
     }
-    drawnItems.clearLayers();
+    if (drawnItems) {
+        drawnItems.clearLayers();
+    }
     if (markersLayer) {
         markersLayer.clearLayers();
     }
     markers = {}; // Reset to empty object
     lastTimestamp = null;
     completeDeviceHistory = [];
+    expandedClusters = new Set();
     document.getElementById('positions-table').innerHTML = '';
     const toggleBtn = document.getElementById('toggle-history-btn');
     if (toggleBtn) toggleBtn.style.display = 'none';
@@ -573,6 +764,7 @@ function clearMapAndData() {
     }
     resetPowerSummary();
     currentDeviceGeofence = null;
+    geofenceDraftPending = false;
     updateGeofenceControls();
 }
 
@@ -601,9 +793,14 @@ function updateMap(fitBounds) {
     let latestPoint = null;
     if (rawDeviceHistory.length > 0) {
         latestPoint = rawDeviceHistory.reduce((latest, current) => {
-            return new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest;
-        });
+            if (!latest) return current;
+            if (!current) return latest;
+            const latestTime = new Date(latest.timestamp || latest.endTime || latest.startTime || 0).getTime();
+            const currentTime = new Date(current.timestamp || current.endTime || current.startTime || 0).getTime();
+            return currentTime > latestTime ? current : latest;
+        }, null);
     }
+    const latestMarkerKey = latestPoint ? getMarkerKey(latestPoint) : null;
 
     // 4. Create markers from the selected data source
     pointsToDraw.forEach((point) => {
@@ -612,12 +809,17 @@ function updateMap(fitBounds) {
 
         if (isNaN(lat) || isNaN(lon)) return;
 
+        const markerKey = getMarkerKey(point);
+        if (!markerKey) {
+            return;
+        }
+
         // Check if the current point (or a point within a cluster) is the latest point
         let isLatest = false;
-        if (point.type === 'cluster') {
-            isLatest = point.originalPoints.some(p => p.timestamp === latestPoint.timestamp);
+        if (point.type === 'cluster' && Array.isArray(point.originalPoints) && latestMarkerKey) {
+            isLatest = point.originalPoints.some(p => getMarkerKey(p) === latestMarkerKey);
         } else {
-            isLatest = point.timestamp === latestPoint.timestamp;
+            isLatest = latestMarkerKey && markerKey === latestMarkerKey;
         }
 
         const markerOptions = {};
@@ -637,7 +839,7 @@ function updateMap(fitBounds) {
         } else {
             marker.addTo(map);
         }
-        markers[point.timestamp || point.endTime] = marker;
+        markers[markerKey] = marker;
     });
 
     // 5. Fit bounds on initial load
@@ -680,14 +882,18 @@ function updateTable(data) {
     sortedData.forEach((point) => {
         const pointTimestamp = point.startTime || point.timestamp;
         if (point.type === 'cluster') {
-            const clusterId = `cluster-${point.startTime}`;
+            const clusterKey = getClusterKey(point);
             const clusterRow = document.createElement('tr');
             clusterRow.className = 'cluster-row table-info';
-            clusterRow.dataset.clusterId = clusterId;
+            clusterRow.dataset.clusterKey = clusterKey;
+            const clusterMarkerKey = getMarkerKey(point);
+            if (clusterMarkerKey) {
+                clusterRow.dataset.markerKey = clusterMarkerKey;
+            }
             // Do not add data-timestamp here, cluster row only expands
             clusterRow.style.cursor = 'pointer';
 
-            const isExpanded = expandedClusters.has(clusterId);
+            const isExpanded = expandedClusters.has(clusterKey);
 
             clusterRow.innerHTML = `
                 <td><i class="fas ${isExpanded ? 'fa-minus-circle' : 'fa-plus-circle'} me-2"></i>${formatTimestamp(point.startTime)} - ${formatTimestamp(point.endTime)}</td>
@@ -703,9 +909,13 @@ function updateTable(data) {
             // Create and append hidden child rows for each original point in the cluster
             point.originalPoints.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(originalPoint => {
                 const childRow = document.createElement('tr');
-                childRow.className = `child-row child-of-${clusterId} ${isExpanded ? '' : 'd-none'}`;
+                childRow.className = `child-row${isExpanded ? '' : ' d-none'}`;
                 childRow.style.backgroundColor = 'rgba(0,0,0,0.02)';
-                childRow.dataset.timestamp = point.startTime; // Link to the parent cluster's marker
+                childRow.dataset.clusterKey = clusterKey;
+                childRow.dataset.timestamp = point.endTime || point.startTime || '';
+                if (clusterMarkerKey) {
+                    childRow.dataset.markerKey = clusterMarkerKey;
+                }
                 childRow.style.cursor = 'pointer'; // Make child rows clickable
 
                 childRow.innerHTML = `
@@ -723,6 +933,10 @@ function updateTable(data) {
             const row = document.createElement('tr');
             row.dataset.timestamp = pointTimestamp; // Add timestamp for map linking
             row.style.cursor = 'pointer';
+            const rowMarkerKey = getMarkerKey(point);
+            if (rowMarkerKey) {
+                row.dataset.markerKey = rowMarkerKey;
+            }
             row.innerHTML = `
                 <td>${formatTimestamp(point.timestamp)}</td>
                 <td>${formatCoordinate(point.latitude)}</td>
@@ -794,7 +1008,10 @@ async function handleSettingsUpdate(e) {
     }
 }
 
-async function handleRenameDevice(deviceId, currentName) {
+async function handleRenameDevice(deviceId) {
+    const nameElement = document.querySelector(`.device-item[data-device-id='${deviceId}'] strong`);
+    const currentName = nameElement ? nameElement.textContent.trim() : deviceId;
+
     showInputModal({
         title: 'Rename Device',
         label: 'New device name',
@@ -815,10 +1032,7 @@ async function handleRenameDevice(deviceId, currentName) {
                 if (!response.ok || !result.success) throw new Error(result.error || 'Failed to rename device.');
                 
                 displayAlert(result.message || 'Device renamed successfully!', 'success');
-                
-                // Update the name in the UI
-                const el = document.querySelector(`.device-item[data-device-id='${deviceId}'] strong`);
-                if (el) el.textContent = newName.trim();
+                await loadDevices();
 
             } catch (error) {
                 displayAlert(`Error: ${error.message}`, 'danger');
@@ -846,12 +1060,14 @@ async function handleDeleteDevice(deviceId) {
                     selectedDevice = null;
                     clearMapAndData();
                     document.getElementById('device-settings-card').style.display = 'none';
-                    window.history.pushState({path: window.location.pathname}, '', window.location.pathname);
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('id');
+                    const search = url.searchParams.toString();
+                    const newUrl = `${url.origin}${url.pathname}${search ? `?${search}` : ''}`;
+                    window.history.pushState({ path: newUrl }, '', newUrl);
+                    updateDeviceListLink();
                 }
-                if (el) el.remove();
-                if (document.getElementById('devices-list').children.length === 0) {
-                    document.getElementById('devices-list').innerHTML = '<p class="text-muted">No active devices found.</p>';
-                }
+                loadDevices();
             } catch (error) {
                 displayAlert(`Error: ${error.message}`, 'danger');
             }
@@ -883,9 +1099,11 @@ async function sendGeofenceToBackend(geofenceData) {
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Failed to save geofence.');
-        displayAlert(result.message || 'Geofence saved successfully!', 'success');
-        currentDeviceGeofence = geofenceData;
-        drawnItems.clearLayers();
+        const fallbackMessage = geofenceData ? 'Geofence saved successfully!' : 'Geofence removed successfully!';
+        displayAlert(result.message || fallbackMessage, 'success');
+        currentDeviceGeofence = geofenceData || null;
+        geofenceDraftPending = false;
+        loadGeofenceIntoDrawnItems(currentDeviceGeofence);
         updateGeofenceControls();
 
     } catch (error) {
@@ -951,6 +1169,7 @@ async function submitPowerInstruction(instruction) {
 
         displayAlert('Power instruction updated.', 'success');
         updatePowerSummary(result);
+        await loadDevices();
         return true;
     } catch (error) {
         displayAlert(`Error: ${error.message}`, 'danger');

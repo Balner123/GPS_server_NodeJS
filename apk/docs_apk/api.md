@@ -47,7 +47,7 @@ Základní URL je dáno `BuildConfig.API_BASE_URL` (výchozí z build.gradle) a 
 Chování klienta:
 - Pokud `registered=false`, vyvolá se vynucené odhlášení s žádostí o novou registraci.
 - Při změně konfigurace se hodnoty uloží do SharedPreferences a restartuje se `LocationService`.
-- Instrukce `TURN_OFF` zastaví službu, nastaví `power_status="OFF"` a aktualizuje UI.
+- Instrukce `TURN_OFF` zastaví službu, nastaví `power_status="OFF"`, aktualizuje UI a klient odešle potvrzovací handshake (reason např. `turn_off_ack`), aby server mohl instrukci zneplatnit.
 
 ## Odhlášení
 - Endpoint: `POST {BASE_URL}/api/apk/logout`

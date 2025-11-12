@@ -14,12 +14,13 @@
   - Každý fix se ukládá do Room a zvyšuje se `locationsCachedCount`
   - Pokud `locationsCachedCount >= sync_interval_count`, naplánuje se `SyncWorker` a čítač se resetuje
 - Reakce na vypnutí GPS: zastavení služby, handshake s `power_status="OFF"` a vyslání stavu
-- Instrukce `TURN_OFF` ze serveru (z handshake odpovědi) zastaví službu, přepne `power_status="OFF"` a aktualizuje UI
+- Instrukce `TURN_OFF` ze serveru (z handshake odpovědi) zastaví službu, přepne `power_status="OFF"`, aktualizuje UI a okamžitě odešle potvrzovací handshake, aby server mohl instrukci odstranit
 - `ServiceState` se skládá z perzistentního `power_status`, takže UI zůstává v režimu OFF i při opožděných broadcastech
 - Při odhlášení aplikace provede `POST /api/apk/logout` a teprve poté lokálně zneplatní session
 
 ## HandshakeManager / HandshakeWorker
 - `HandshakeManager` zabalí volání `/api/devices/handshake`, aplikuje konfiguraci a interpretuje `power_instruction`
+- Pokud se konfigurace změní, restartuje `LocationService` jen tehdy, když je zařízení v režimu ON a server současně nepožaduje `TURN_OFF`
 - `HandshakeWorker` umožňuje naplánované/opožděné handshake (WorkManager)
 - Při startu služby se plánuje periodický handshake (aktuálně každých 60 minut), při zastavení služby se plán ruší
 - SyncWorker interpretuje `power_instruction` i ze `/api/devices/input` odpovědí (např. serverem vyžádané vypnutí)

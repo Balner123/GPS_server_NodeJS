@@ -75,7 +75,12 @@ class LocationService : Service() {
         ConsoleLogger.log("Služba LocationService se vytváří.")
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        registerReceiver(locationProviderReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
+        val providerFilter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(locationProviderReceiver, providerFilter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(locationProviderReceiver, providerFilter)
+        }
 
         currentServiceState.powerStatus = SharedPreferencesHelper.getPowerState(this).toString()
 
@@ -83,7 +88,11 @@ class LocationService : Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
                     ConsoleLogger.log("Nová poloha: lat=${location.latitude}, lon=${location.longitude}")
-                    updateAndBroadcastState(status = StatusMessages.NEW_LOCATION_OBTAINED)
+                    val nextUpdate = System.currentTimeMillis() + sendIntervalMillis
+                    updateAndBroadcastState(
+                        status = StatusMessages.NEW_LOCATION_OBTAINED,
+                        nextUpdate = nextUpdate
+                    )
                     sendLocationAndProcessResponse(location)
                 }
             }
@@ -239,10 +248,12 @@ class LocationService : Service() {
                     locationsCachedCount = 0 // Reset counter
                 }
 
+                val nextUpdate = System.currentTimeMillis() + sendIntervalMillis
                 updateAndBroadcastState(
                     status = StatusMessages.LOCATION_CACHED,
                     cachedCount = locationsCachedCount,
-                    powerStatus = powerState
+                    powerStatus = powerState,
+                    nextUpdate = nextUpdate
                 )
 
             } catch (e: Exception) {

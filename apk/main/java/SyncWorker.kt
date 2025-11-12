@@ -211,6 +211,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
     private fun applyPowerInstruction(instruction: String?): Boolean {
         return when (instruction?.uppercase(Locale.US)) {
             "TURN_OFF" -> {
+                val wasOn = SharedPreferencesHelper.getPowerState(applicationContext) != PowerState.OFF
                 ConsoleLogger.log("SyncWorker: server požaduje vypnutí služby.")
                 SharedPreferencesHelper.setPowerState(applicationContext, PowerState.OFF)
                 applicationContext.stopService(Intent(applicationContext, LocationService::class.java))
@@ -231,8 +232,11 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 }
                 LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(statusIntent)
 
-                HandshakeManager.launchHandshake(applicationContext, reason = "sync_turn_off")
-                HandshakeManager.enqueueHandshakeWork(applicationContext)
+                if (wasOn) {
+                    ConsoleLogger.log("SyncWorker: odesílám potvrzení o vypnutí.")
+                    HandshakeManager.launchHandshake(applicationContext, reason = "sync_turn_off")
+                    HandshakeManager.enqueueHandshakeWork(applicationContext)
+                }
                 false
             }
             else -> true

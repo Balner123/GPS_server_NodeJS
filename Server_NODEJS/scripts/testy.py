@@ -7,6 +7,7 @@ from typing import Dict, Optional
 import requests
 
 # --- Configuration ---
+#BASE_URL = "https://lotr-system.xyz"
 BASE_URL = "http://localhost:5000"
 
 # Změňte tyto údaje, aby odpovídaly existujícímu uživateli na serveru
@@ -14,18 +15,10 @@ TEST_USERNAME = "lotr"
 TEST_PASSWORD = "lotr"
 
 # Unikátní ID pro naše testovací zařízení (10 znaků dle HW specifikace)
-DEVICE_ID = "0123556789"
+DEVICE_ID = "0123855789"
 
 # Default power status reported by this test device
 DEFAULT_POWER_STATUS = "ON"
-
-# Handshake telemetry defaults (viz HW_comm_requirements.txt)
-FW_VERSION = "1.0.0-test"
-BATTERY_VOLTAGE = 3.95
-DEVICE_TEMPERATURE = 32.4
-
-# Simulated uptime increment per cycle (seconds)
-UPTIME_STEP = 120
 
 # --- Headers ---
 HEADERS = {"Content-Type": "application/json"}
@@ -45,10 +38,6 @@ class DeviceState:
         elif normalized == "TURN_ON" and self.power_status != "ON":
             print("Instrukce TURN_ON přijatá – zařízení přechází do ON režimu.")
             self.power_status = "ON"
-
-    def next_uptime(self) -> int:
-        self.uptime += UPTIME_STEP
-        return self.uptime
 
 
 def json_request(method: str, url: str, payload: Dict) -> Optional[requests.Response]:
@@ -97,10 +86,6 @@ def build_handshake_payload(state: DeviceState) -> Dict:
         "client_type": "HW",
         "device_id": DEVICE_ID,
         "power_status": state.power_status,
-        "fw_version": FW_VERSION,
-        "battery_voltage": BATTERY_VOLTAGE,
-        "temperature": DEVICE_TEMPERATURE,
-        "uptime": state.uptime,
     }
 
 
@@ -149,11 +134,6 @@ def send_clustered_location_data(state: DeviceState, include_extra_data: bool = 
             "power_status": state.power_status,
             "client_type": "HW"
         }
-        if include_extra_data and i == 0:
-            point["extra_data"] = {
-                "note": "cluster start",
-                "battery_voltage": BATTERY_VOLTAGE
-            }
         data_points.append(point)
         print(f"Blízký bod {i+1}: lat={lat}, lon={lon}, power={state.power_status}")
         time.sleep(1)
@@ -170,11 +150,6 @@ def send_clustered_location_data(state: DeviceState, include_extra_data: bool = 
         "power_status": state.power_status,
         "client_type": "HW"
     }
-    if include_extra_data:
-        far_point["telemetry"] = {
-            "temperature": DEVICE_TEMPERATURE,
-            "uptime": state.uptime
-        }
 
     data_points.append(far_point)
     print(f"Vzdálený bod: lat={far_point['latitude']}, lon={far_point['longitude']}, power={state.power_status}")

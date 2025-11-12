@@ -134,9 +134,11 @@ object HandshakeManager {
             return
         }
 
-        val prefs = SharedPreferencesHelper.getEncryptedSharedPreferences(context)
-        val editor = prefs.edit()
-        var settingsChanged = false
+    val prefs = SharedPreferencesHelper.getEncryptedSharedPreferences(context)
+    val editor = prefs.edit()
+    var settingsChanged = false
+    val currentPowerState = SharedPreferencesHelper.getPowerState(context)
+    val powerInstruction = response.power_instruction?.uppercase(Locale.US)
 
         response.config?.interval_gps?.let { intervalGps ->
             if (prefs.getInt("gps_interval_seconds", 60) != intervalGps) {
@@ -154,15 +156,15 @@ object HandshakeManager {
             }
         }
 
-        if (settingsChanged) {
-            editor.apply()
+        editor.apply()
+
+        if (settingsChanged && currentPowerState == PowerState.ON && powerInstruction != "TURN_OFF") {
             restartLocationService(context)
-        } else {
-            editor.apply()
         }
 
-        when (response.power_instruction?.uppercase(Locale.US)) {
+        when (powerInstruction) {
             "TURN_OFF" -> {
+                val wasOn = SharedPreferencesHelper.getPowerState(context) != PowerState.OFF
                 ConsoleLogger.log("Handshake: server vyžaduje vypnutí služby.")
                 SharedPreferencesHelper.setPowerState(context, PowerState.OFF)
                 context.stopService(Intent(context, LocationService::class.java))
@@ -182,6 +184,11 @@ object HandshakeManager {
                     )
                 }
                 LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
+                if (wasOn) {
+                    ConsoleLogger.log("Handshake: potvrzuji vypnutí zpět na server.")
+                    launchHandshake(context, reason = "turn_off_ack")
+                    enqueueHandshakeWork(context)
+                }
             }
             else -> {
                 // No action required for NONE
@@ -190,6 +197,10 @@ object HandshakeManager {
     }
 
     private fun restartLocationService(context: Context) {
+        if (SharedPreferencesHelper.getPowerState(context) == PowerState.OFF) {
+            ConsoleLogger.log("Handshake: restart služby přeskočen (power OFF).")
+            return
+        }
         ConsoleLogger.log("Handshake: restartuji LocationService pro aplikaci nové konfigurace.")
         context.stopService(Intent(context, LocationService::class.java))
         val intent = Intent(context, LocationService::class.java)

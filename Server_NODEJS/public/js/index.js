@@ -2,6 +2,7 @@
 let map;
 let markers = {};
 let permanentTooltips = false;
+const DEVICE_LIST_LIMIT = 7;
 
 // Configuration
 const API_BASE_URL = window.location.origin;
@@ -38,14 +39,7 @@ async function loadDevices() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/devices/coordinates`);
         const devices = await response.json();
-        
-        const devicesList = document.getElementById('devices-list');
-        devicesList.innerHTML = '';
-        
-        devices.forEach(device => {
-            const deviceElement = createDeviceElement(device);
-            devicesList.appendChild(deviceElement);
-        });
+        renderDeviceList(devices);
     } catch (error) {
         console.error('Error loading devices (loadDevices):', error);
     }
@@ -91,22 +85,7 @@ async function loadCurrentCoordinates(isInitialLoad = false) {
         }
         const devices = await response.json();
         
-        // --- Update device list (sidebar) ---
-        const devicesList = document.getElementById('devices-list');
-        if (devicesList) {
-            devicesList.innerHTML = '';
-
-            if (devices.length === 0) {
-                devicesList.innerHTML = '<p class="text-muted p-2">No active devices found.</p>';
-            } else {
-                devices.forEach(device => {
-                    const deviceElement = createDeviceElement(device);
-                    devicesList.appendChild(deviceElement);
-                });
-            }
-        } else {
-            console.error('Element #devices-list not found.');
-        }
+        renderDeviceList(devices);
 
         // Update markers on the map
         devices.forEach(device => {
@@ -155,3 +134,51 @@ function createIndexPopup(device) {
         <small class="text-muted">Power: ${powerMeta.label}</small>
     `;
 } 
+
+function renderDeviceList(devices) {
+    const devicesList = document.getElementById('devices-list');
+    if (!devicesList) {
+        console.error('Element #devices-list not found.');
+        return;
+    }
+
+    devicesList.innerHTML = '';
+
+    if (!Array.isArray(devices) || devices.length === 0) {
+        devicesList.innerHTML = '<p class="text-muted p-2">No active devices found.</p>';
+        updateHomeDeviceLink(0);
+        return;
+    }
+
+    const limitedDevices = devices.slice(0, DEVICE_LIST_LIMIT);
+    limitedDevices.forEach(device => {
+        const deviceElement = createDeviceElement(device);
+        devicesList.appendChild(deviceElement);
+    });
+
+    if (devices.length > DEVICE_LIST_LIMIT) {
+        devicesList.insertAdjacentHTML('beforeend', `<p class="text-muted small mt-2">Showing first ${DEVICE_LIST_LIMIT} devices.</p>`);
+    }
+
+    updateHomeDeviceLink(devices.length);
+}
+
+function updateHomeDeviceLink(totalDevices) {
+    const link = document.getElementById('home-device-list-link');
+    if (!link) return;
+
+    if (!totalDevices) {
+        link.style.display = 'none';
+        return;
+    }
+
+    if (totalDevices > DEVICE_LIST_LIMIT) {
+        link.style.display = 'inline-block';
+        link.textContent = `Show All Devices (${totalDevices})`;
+    link.href = '/devices';
+    } else {
+        link.style.display = 'inline-block';
+        link.textContent = 'Manage Devices';
+        link.href = '/devices';
+    }
+}

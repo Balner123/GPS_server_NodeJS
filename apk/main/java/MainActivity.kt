@@ -255,14 +255,21 @@ class MainActivity : AppCompatActivity() {
         LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, statusFilter)
 
         val logoutFilter = IntentFilter(LocationService.ACTION_FORCE_LOGOUT)
-        registerReceiver(logoutReceiver, logoutFilter)
-
-
-        // Požádáme službu o poslání aktuálního stavu
-        val intent = Intent(this, LocationService::class.java).apply {
-            action = LocationService.ACTION_REQUEST_STATUS_UPDATE
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(logoutReceiver, logoutFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(logoutReceiver, logoutFilter)
         }
-        startService(intent)
+
+        // Požádáme službu o stav pouze pokud má zůstat zapnutá
+        if (SharedPreferencesHelper.getPowerState(this) == PowerState.ON) {
+            val intent = Intent(this, LocationService::class.java).apply {
+                action = LocationService.ACTION_REQUEST_STATUS_UPDATE
+            }
+            startService(intent)
+        } else {
+            updateUiState(false)
+        }
     }
 
     override fun onPause() {
