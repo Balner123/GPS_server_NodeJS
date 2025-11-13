@@ -862,7 +862,12 @@ async function selectDevice(deviceId, options = {}) {
 
         const powerCard = document.getElementById('power-control-card');
         if (powerCard) {
-            powerCard.style.display = 'block';
+            // Only show Power Control for HW devices, not APK
+            if (deviceType === 'HW') {
+                powerCard.style.display = 'block';
+            } else {
+                powerCard.style.display = 'none';
+            }
         }
         updatePowerSummary(settings);
 

@@ -133,10 +133,10 @@ object HandshakeManager {
             return
         }
 
-    val prefs = SharedPreferencesHelper.getEncryptedSharedPreferences(context)
-    val editor = prefs.edit()
-    var settingsChanged = false
-    val powerInstruction = response.power_instruction?.uppercase(Locale.US)
+        val prefs = SharedPreferencesHelper.getEncryptedSharedPreferences(context)
+        val editor = prefs.edit()
+        var settingsChanged = false
+        val powerInstruction = response.power_instruction?.uppercase(Locale.US)
 
         response.config?.interval_gps?.let { intervalGps ->
             if (prefs.getInt("gps_interval_seconds", 60) != intervalGps) {
@@ -156,16 +156,22 @@ object HandshakeManager {
 
         editor.apply()
 
-        val isCurrentlyOn = SharedPreferencesHelper.getPowerState(context) == PowerState.ON
+        val currentPowerState = SharedPreferencesHelper.getPowerState(context)
+        val isCurrentlyOn = currentPowerState == PowerState.ON
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(context)
+
+        ConsoleLogger.log(
+            "Handshake: received power_instruction=${powerInstruction ?: "NONE"}, current_state=$currentPowerState, ackPending=$ackPending"
+        )
 
         if (settingsChanged && isCurrentlyOn && powerInstruction != "TURN_OFF" && !ackPending) {
             restartLocationService(context)
         }
 
-        when (powerInstruction) {
-            "TURN_OFF" -> PowerController.handleTurnOffInstruction(context, origin = "handshake")
-            else -> PowerController.markTurnOffAcknowledged(context)
+        if (powerInstruction == "TURN_OFF") {
+            PowerController.requestTurnOff(context, origin = "handshake")
+        } else {
+            PowerController.markTurnOffAcknowledged(context, origin = "handshake")
         }
     }
 

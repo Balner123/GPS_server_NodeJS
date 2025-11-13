@@ -56,7 +56,12 @@ class LocationService : Service() {
                         locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
                 if (!isLocationEnabled) {
                     ConsoleLogger.log("Poskytovatelé polohy byli deaktivováni. Služba se zastavuje.")
-                    SharedPreferencesHelper.setPowerState(applicationContext, PowerState.OFF)
+                    SharedPreferencesHelper.setPowerState(
+                        applicationContext,
+                        PowerState.OFF,
+                        pendingAck = false,
+                        reason = "gps_disabled"
+                    )
                     HandshakeManager.launchHandshake(applicationContext, reason = "gps_disabled")
                     updateAndBroadcastState(
                         status = StatusMessages.SERVICE_STOPPED_GPS_OFF,
@@ -77,7 +82,7 @@ class LocationService : Service() {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val providerFilter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(locationProviderReceiver, providerFilter, Context.RECEIVER_EXPORTED)
+            registerReceiver(locationProviderReceiver, providerFilter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             registerReceiver(locationProviderReceiver, providerFilter)
         }
@@ -109,6 +114,21 @@ class LocationService : Service() {
             return START_NOT_STICKY // Jen posíláme stav, nechceme restartovat službu
         }
 
+        val ackPending = SharedPreferencesHelper.isTurnOffAckPending(this)
+        if (ackPending) {
+            ConsoleLogger.log("LocationService: start požadován, ale čekáme na potvrzení TURN_OFF. Start odmítnut.")
+            updateAndBroadcastState(
+                status = StatusMessages.SERVICE_STOPPED,
+                connectionStatus = "Čekání na potvrzení TURN_OFF",
+                isRunning = false,
+                powerStatus = PowerState.OFF,
+                ackPending = true,
+                instructionSource = SharedPreferencesHelper.getPowerTransitionReason(this)
+            )
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         val persistedPower = SharedPreferencesHelper.getPowerState(this)
         if (persistedPower == PowerState.OFF) {
             ConsoleLogger.log("LocationService: start požadován, ale power state = OFF. Start ignoruji.")
@@ -117,7 +137,12 @@ class LocationService : Service() {
         }
 
         ConsoleLogger.log("Služba LocationService spuštěna.")
-        SharedPreferencesHelper.setPowerState(applicationContext, PowerState.ON)
+        SharedPreferencesHelper.setPowerState(
+            applicationContext,
+            PowerState.ON,
+            pendingAck = false,
+            reason = "service_start"
+        )
         updateAndBroadcastState(status = StatusMessages.SERVICE_STARTING, isRunning = true, powerStatus = PowerState.ON)
 
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
@@ -306,7 +331,9 @@ class LocationService : Service() {
         nextUpdate: Long? = null,
         isRunning: Boolean? = null,
         cachedCount: Int? = null,
-        powerStatus: PowerState? = null
+        powerStatus: PowerState? = null,
+        ackPending: Boolean? = null,
+        instructionSource: String? = null
     ) {
         // Update current state
         status?.let { currentServiceState.statusMessage = it }
@@ -321,6 +348,11 @@ class LocationService : Service() {
             currentServiceState.isRunning = false
         }
 
+        val resolvedAck = ackPending ?: SharedPreferencesHelper.isTurnOffAckPending(this)
+        currentServiceState.ackPending = resolvedAck
+        val resolvedSource = instructionSource ?: SharedPreferencesHelper.getPowerTransitionReason(this)
+        currentServiceState.powerInstructionSource = resolvedSource
+
 
         // Broadcast the updated state
         val intent = Intent(ACTION_BROADCAST_STATUS).apply {
@@ -334,8 +366,21 @@ class LocationService : Service() {
         ConsoleLogger.log("Služba LocationService se zastavuje.")
         fusedLocationClient.removeLocationUpdates(locationCallback)
         unregisterReceiver(locationProviderReceiver)
-        SharedPreferencesHelper.setPowerState(applicationContext, PowerState.OFF)
-        HandshakeManager.launchHandshake(applicationContext, reason = "service_stop")
+        val ackPending = SharedPreferencesHelper.isTurnOffAckPending(applicationContext)
+        val transitionReason = if (ackPending) {
+            SharedPreferencesHelper.getPowerTransitionReason(applicationContext) ?: "service_destroy"
+        } else {
+            "service_destroy"
+        }
+        SharedPreferencesHelper.setPowerState(
+            applicationContext,
+            PowerState.OFF,
+            pendingAck = ackPending,
+            reason = transitionReason
+        )
+        if (!ackPending) {
+            HandshakeManager.launchHandshake(applicationContext, reason = "service_stop")
+        }
         HandshakeManager.cancelPeriodicHandshake(applicationContext)
         // Send final state update to ensure UI is correct
         updateAndBroadcastState(
@@ -343,7 +388,9 @@ class LocationService : Service() {
             connectionStatus = "Neaktivní",
             nextUpdate = 0,
             isRunning = false,
-            powerStatus = PowerState.OFF
+            powerStatus = PowerState.OFF,
+            ackPending = ackPending,
+            instructionSource = transitionReason
         )
         ConsoleLogger.log("Služba LocationService zničena.")
     }

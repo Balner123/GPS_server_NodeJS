@@ -10,6 +10,8 @@ object SharedPreferencesHelper {
     private const val PREFS_NAME = "EncryptedAppPrefs"
     private const val KEY_POWER_STATUS = "power_status"
     private const val KEY_PENDING_TURN_OFF_ACK = "pending_turn_off_ack"
+    private const val KEY_POWER_TRANSITION_REASON = "power_transition_reason"
+    private const val KEY_POWER_TRANSITION_TIMESTAMP = "power_transition_timestamp"
 
     fun getEncryptedSharedPreferences(context: Context): SharedPreferences {
         val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
@@ -27,13 +29,19 @@ object SharedPreferencesHelper {
         return PowerState.fromString(storedValue)
     }
 
-    fun setPowerState(context: Context, state: PowerState) {
+    fun setPowerState(
+        context: Context,
+        state: PowerState,
+        pendingAck: Boolean = false,
+        reason: String? = null,
+        timestampMillis: Long = System.currentTimeMillis()
+    ) {
         val prefs = getEncryptedSharedPreferences(context)
         prefs.edit().apply {
             putString(KEY_POWER_STATUS, state.toString())
-            if (state == PowerState.ON) {
-                putBoolean(KEY_PENDING_TURN_OFF_ACK, false)
-            }
+            putBoolean(KEY_PENDING_TURN_OFF_ACK, pendingAck)
+            reason?.let { putString(KEY_POWER_TRANSITION_REASON, it) }
+            putLong(KEY_POWER_TRANSITION_TIMESTAMP, timestampMillis)
             apply()
         }
     }
@@ -45,4 +53,13 @@ object SharedPreferencesHelper {
     fun setTurnOffAckPending(context: Context, pending: Boolean) {
         getEncryptedSharedPreferences(context).edit().putBoolean(KEY_PENDING_TURN_OFF_ACK, pending).apply()
     }
+
+    fun getPowerTransitionReason(context: Context): String? {
+        return getEncryptedSharedPreferences(context).getString(KEY_POWER_TRANSITION_REASON, null)
+    }
+
+    fun getPowerTransitionTimestamp(context: Context): Long {
+        return getEncryptedSharedPreferences(context).getLong(KEY_POWER_TRANSITION_TIMESTAMP, 0L)
+    }
 }
+

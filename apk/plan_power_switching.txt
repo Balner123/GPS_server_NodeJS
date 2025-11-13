@@ -1,0 +1,121 @@
+============================================
+Plan: APK Power-State Switching & TURN_OFF Compliance
+============================================
+
+Context
+-------
+- Current build ignores `power_instruction="TURN_OFF"`, so the server never gets confirmation, the app never sleeps, and UI feedback is missing.
+- `APK_comm_requirements.txt` demands handshake/input parity with HW clients, explicit acknowledgement, and persistent OFF state handling.
+- Previous implementation attempted to stop the service but was unreliable; we intentionally removed that logic. This plan defines the path to a robust replacement.
+
+Objectives
+----------
+1. Reintroduce deterministic power control that treats server TURN_OFF instructions as ultimate (no auto-restart loops, even if TURN_OFF arrives mid-session while tracking is active).
+2. Ensure the APK reports and persists power state transitions (`ON`/`OFF`) across service restarts and process deaths so TURN_OFF survives app restarts.
+3. Guarantee the server receives a single acknowledgement that clears the TURN_OFF flag while preventing duplicate loops.
+4. Provide clear UI and logging so the user understands why tracking stopped and how to resume.
+
+High-Level Architecture
+-----------------------
+- **PowerController (new implementation)**
+  - Central authority over power state, backed by encrypted prefs.
+  - Exposes idempotent methods: `requestTurnOff`, `markAcknowledged`, `requestTurnOn`.
+   - Handles stopping/starting `LocationService`, cancelling/scheduling WorkManager jobs, updating persisted state, and broadcasting UI status.
+   - Maintains `pending_turn_off_ack` flag to track outstanding confirmation and blocks any self-start while it remains true.
+- **SharedPreferencesHelper**
+  - Stores `power_status`, `pending_turn_off_ack`, and timestamp/reason for the last transition.
+- **HandshakeManager**
+  - Passes TURN_OFF instructions to PowerController.
+  - Immediately triggers a follow-up handshake (`reason=turn_off_ack`) when entering OFF and `pending_turn_off_ack=true`.
+  - Stops periodic refresh while power is OFF, resumes only after acknowledgement clears.
+- **SyncWorker**
+  - Embeds current `power_status` in every payload entry (already partially done) and short-circuits sending new batches when OFF.
+   - If OFF with pending ack, forces a single lightweight send (could reuse handshake endpoint) so the server can clear the flag.
+   - Guards against relaunching `LocationService` via WorkManager while TURN_OFF remains active.
+  - Resumes normal behaviour after acknowledgement.
+- **UI Layer (MainActivity/Fragments)**
+  - Listens for broadcast state updates, displays OFF banner/toast when server stops tracking.
+  - Disables manual start controls until user explicitly requests resume (or acknowledgement received).
+  - Offers manual "Resume Tracking" that calls PowerController to set ON and re-handshake.
+
+Implementation Steps
+--------------------
+1. **Rebuild PowerController**
+   - Recreate file with cohesive logic (stop service, cancel periodic handshake, set prefs, broadcast ServiceState update, schedule ack handshake).
+   - Guard against redundant work (ignore if already OFF and ack pending).
+2. **Shared Preferences Schema**
+   - Reinstate `pending_turn_off_ack` and add new optional `power_transition_reason` for diagnostics.
+   - Provide helper to atomically persist state + pending flag.
+3. **Handshake Rework**
+   - On TURN_OFF: call `PowerController.requestTurnOff(origin="handshake")`.
+   - If `power_instruction != TURN_OFF` and pending ack exists: trigger `markAcknowledged` and resume periodic handshake.
+   - When config changes: only restart service if power is ON and no pending ack.
+4. **SyncWorker Adjustments**
+   - Before processing batches, check PowerController state:
+     - If OFF and ack pending: perform a minimal handshake (or call dedicated `PowerController.enqueueAckHandshake`).
+     - If OFF and no pending ack: skip sending new telemetry but keep draining cache if warranted (decision item below).
+   - Ensure postings always include `power_status` reflecting persisted value.
+   - On receiving TURN_OFF in response: delegate to PowerController.
+5. **Service Lifecycle Updates**
+   - `LocationService.onStartCommand`: refuse to start if saved state is OFF (even when TURN_OFF arrives mid-session), with clear log.
+   - Ensure any delayed intents or WorkManager jobs that would restart the service check the persisted OFF state before doing so.
+   - `onDestroy`: only trigger handshake if power state transitions from ON → OFF by user or error, not during TURN_OFF ack (avoid duplicate handshake).
+6. **UI Feedback**
+   - Extend `ServiceState` to include `powerInstructionSource` (e.g., "server") and `ackPending`.
+   - Fragments display a persistent banner when `powerStatus=OFF` and `ackPending=true` with action button for manual resume (if allowed).
+7. **Manual Resume Flow**
+   - Add button that calls PowerController to set ON and relaunch LocationService, then schedule handshake (`reason=manual_resume`).
+   - If TURN_OFF is still active or ack pending, block the resume request and surface a banner/toast explaining the server-enforced shutdown.
+8. **Logging & Telemetry**
+   - Standardize log prefixes (`PowerController`, `Handshake`, `Sync`) for easier tracing.
+   - Capture timestamps for transitions and ack completion for future analytics.
+
+Special / Edge Cases
+--------------------
+- **App restarted while OFF with pending ack**: On launch, PowerController should detect the state, keep services stopped, and immediately reschedule the acknowledgement handshake.
+- **TURN_OFF arrives mid-session**: Service stops immediately, cancels scheduled jobs, and persists OFF so WorkManager or alarms cannot relaunch it afterward.
+- **User tries to manually start service while TURN_OFF active**: PowerController rejects the request, shows UI toast explaining the server-issued shutdown.
+- **Server issues TURN_OFF repeatedly before ack completes**: PowerController remains idempotent; it does not queue multiple ack jobs.
+- **Network unavailable during ack handshake**: WorkManager should retry with exponential backoff until success; power state remains OFF.
+- **Session expires while OFF**: `SyncWorker`/`HandshakeManager` receive 401, trigger forced logout, and clear pending ack to avoid endless retries.
+- **Server clears instruction without seeing ack**: Next handshake/input with `power_status=OFF` should detect `power_instruction="NONE"` and call `markAcknowledged`, resuming periodic work.
+- **Cached locations while OFF**: Decide whether to keep caching or halt location updates entirely. Preferred: stop location updates when OFF, so no new cache entries appear; any existing cache is flushed once service resumes.
+- **Battery saver / OS kill while OFF**: Because service is stopped, only WorkManager jobs remain; ensure ack handshake uses a reliable constraint (e.g., `NetworkType.CONNECTED`) and maybe `setInitialDelay(0)` to run ASAP.
+- **Configuration change during OFF**: Handshake may deliver new config; persist it but defer service restart until power is ON again.
+
+Testing Strategy
+----------------
+- **Unit Tests**: PowerController logic (state transitions, ack scheduling), SharedPreferencesHelper persistence, Handshake response handling.
+- **Instrumentation**: Simulate server TURN_OFF → verify service stops, UI updates, ack handshake is enqueued once.
+- **Integration (manual)**:
+  1. Start tracking, confirm telemetry.
+  2. Force server TURN_OFF, observe APK stops, server flag cleared after ack.
+  3. Attempt manual restart (blocked until allowed).
+  4. Server sends NONE; user resumes service.
+  5. Network loss during ack; ensure retry occurs once connectivity returns.
+- **Regression**: Validate normal ON flow unaffected (registrations, sync intervals, login/logout).
+
+Open Decisions
+--------------
+- Should TURN_OFF acknowledgement reuse `/api/devices/handshake` with reason, or send a single telemetry payload flagged `power_status="OFF"`? (Server alignment needed.)
+- Should we allow the user to override TURN_OFF (e.g., emergency resume) or strictly follow server command? UX requirement to be clarified.
+- Do we flush cached locations automatically when entering OFF, or leave them until service resumes? Depends on server expectations.
+
+Next Steps
+----------
+1. Confirm open decisions with backend team.
+2. Implement PowerController + shared prefs updates.
+3. Wire handshake/sync logic to new controller.
+4. Update UI behaviour and copy.
+5. Write tests and perform manual E2E validation.
+6. Document behaviour in `docs_apk/services.md` and API contract.
+
+For any change, keep logs bilingual (CZ/EN) as decided earlier and default to ASCII characters in code and docs.
+
+Progress Snapshot (2025-11-13)
+------------------------------
+- ✅ Shared preferences extended with TURN_OFF metadata and pending-ack tracking.
+- ✅ PowerController rebuilt to enforce TURN_OFF, block restarts, and manage acknowledgements.
+- ✅ HandshakeManager and SyncWorker now delegate TURN_OFF handling to the controller and suppress restarts while OFF.
+- ✅ LocationService and MainActivity updated to respect pending acknowledgements, broadcast status, and disable UI controls.
+- ☐ Tests, documentation updates, and UX refinements (banner copy, fragments) remain pending.

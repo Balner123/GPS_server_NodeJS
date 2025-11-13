@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusTextView: TextView
     private lateinit var toggleButton: TextView
+    private lateinit var serverInstructionBanner: TextView
     private lateinit var lastConnectionStatusTextView: TextView
     private lateinit var countdownTextView: TextView
     private lateinit var lastLocationTextView: TextView
@@ -53,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private val gson = Gson()
     private var isServiceRunning = false
     private var lastPowerStatus: String = ""
+    private var lastAckPending: Boolean = false
 
     private val logoutReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -76,6 +78,33 @@ class MainActivity : AppCompatActivity() {
                         cachedCountTextView.text = "Pozic v mezipaměti: ${serviceState.cachedCount}"
                         val powerStatus = serviceState.powerStatus
                         powerStatusTextView.text = "Power: ${powerStatus}"
+                        toggleButton.isEnabled = !serviceState.ackPending
+                        serverInstructionBanner.visibility = if (serviceState.ackPending) View.VISIBLE else View.GONE
+                        serverInstructionBanner.text = if (serviceState.ackPending) {
+                            val originHint = serviceState.powerInstructionSource?.takeIf { it.isNotBlank() }
+                            if (originHint != null) {
+                                "Službu vypnul server. Čeká se na potvrzení. (" + originHint + ")"
+                            } else {
+                                "Službu vypnul server. Čeká se na potvrzení."
+                            }
+                        } else {
+                            ""
+                        }
+                        if (serviceState.ackPending && !lastAckPending) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Službu vypnul server, čeká se na potvrzení.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        if (!serviceState.ackPending && lastAckPending) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Server potvrdil vypnutí. Můžete službu znovu spustit.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        lastAckPending = serviceState.ackPending
                         if (!powerStatus.equals(lastPowerStatus, ignoreCase = true)) {
                             if (powerStatus.equals("OFF", ignoreCase = true) && serviceState.connectionStatus.contains("instrukce", true)) {
                                 Toast.makeText(this@MainActivity, "Službu vypnul server.", Toast.LENGTH_LONG).show()
@@ -122,6 +151,7 @@ class MainActivity : AppCompatActivity() {
         // Propojení UI prvků
         statusTextView = findViewById(R.id.statusTextView)
         toggleButton = findViewById(R.id.toggleButton)
+        serverInstructionBanner = findViewById(R.id.serverInstructionBanner)
         lastConnectionStatusTextView = findViewById(R.id.lastConnectionStatusTextView)
         countdownTextView = findViewById(R.id.countdownTextView)
         lastLocationTextView = findViewById(R.id.lastLocationTextView)
@@ -131,7 +161,9 @@ class MainActivity : AppCompatActivity() {
         consoleScrollView = findViewById(R.id.consoleScrollView)
 
         lastPowerStatus = SharedPreferencesHelper.getPowerState(this).toString()
+        lastAckPending = SharedPreferencesHelper.isTurnOffAckPending(this)
         powerStatusTextView.text = "Power: ${lastPowerStatus}"
+        toggleButton.isEnabled = !lastAckPending
 
         updateUiState(false) // Nastaví výchozí stav (služba není spuštěna)
 
@@ -194,7 +226,12 @@ class MainActivity : AppCompatActivity() {
                 sendLogoutRequest(serverUrl, it)
             }
 
-            SharedPreferencesHelper.setPowerState(this@MainActivity, PowerState.OFF)
+            SharedPreferencesHelper.setPowerState(
+                this@MainActivity,
+                PowerState.OFF,
+                pendingAck = false,
+                reason = "logout"
+            )
             sharedPrefs.edit()
                 .remove("session_cookie")
                 .putBoolean("isAuthenticated", false)
@@ -255,11 +292,12 @@ class MainActivity : AppCompatActivity() {
         LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, statusFilter)
 
         val logoutFilter = IntentFilter(LocationService.ACTION_FORCE_LOGOUT)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(logoutReceiver, logoutFilter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(logoutReceiver, logoutFilter)
-        }
+        ContextCompat.registerReceiver(
+            this,
+            logoutReceiver,
+            logoutFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
         // Požádáme službu o stav pouze pokud má zůstat zapnutá
         if (SharedPreferencesHelper.getPowerState(this) == PowerState.ON) {
@@ -280,6 +318,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateUiState(isServiceRunning: Boolean) {
+        val ackPending = SharedPreferencesHelper.isTurnOffAckPending(this)
+        toggleButton.isEnabled = !ackPending
+        serverInstructionBanner.visibility = if (ackPending) View.VISIBLE else View.GONE
+        if (ackPending) {
+            val originHint = SharedPreferencesHelper.getPowerTransitionReason(this)?.takeIf { it.isNotBlank() }
+            serverInstructionBanner.text = if (originHint != null) {
+                "Službu vypnul server. Čeká se na potvrzení. (" + originHint + ")"
+            } else {
+                "Službu vypnul server. Čeká se na potvrzení."
+            }
+        } else {
+            serverInstructionBanner.text = ""
+        }
+        if (ackPending) {
+            statusTextView.text = "Službu vypnul server"
+            toggleButton.text = "OFF"
+            toggleButton.setBackgroundResource(R.drawable.button_bg_off)
+            return
+        }
         if (isServiceRunning) {
             statusTextView.text = "Služba je aktivní"
             toggleButton.text = "ON"
@@ -324,18 +381,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startLocationService() {
-        SharedPreferencesHelper.setPowerState(this, PowerState.ON)
-        val intent = Intent(this, LocationService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
+        if (!PowerController.requestTurnOn(this, origin = "manual_button")) {
+            Toast.makeText(this, "Nelze spustit – čeká se na potvrzení TURN_OFF.", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun stopLocationService() {
         stopService(Intent(this, LocationService::class.java))
-        SharedPreferencesHelper.setPowerState(this, PowerState.OFF)
+        SharedPreferencesHelper.setPowerState(this, PowerState.OFF, pendingAck = false, reason = "manual_stop")
+        HandshakeManager.launchHandshake(this, reason = "manual_stop")
     }
 
     private fun runPreFlightChecks() {

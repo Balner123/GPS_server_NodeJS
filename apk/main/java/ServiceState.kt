@@ -6,5 +6,7 @@ data class ServiceState(
     var connectionStatus: String = "Čekání na akci",
     var nextUpdateTimestamp: Long = 0,
     var cachedCount: Int = 0,
-    var powerStatus: String = PowerState.OFF.toString()
+    var powerStatus: String = PowerState.OFF.toString(),
+    var ackPending: Boolean = false,
+    var powerInstructionSource: String? = null
 )

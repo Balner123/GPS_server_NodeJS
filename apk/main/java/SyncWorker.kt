@@ -54,6 +54,13 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             return Result.success()
         }
 
+        if (SharedPreferencesHelper.isTurnOffAckPending(applicationContext)) {
+            ConsoleLogger.log("SyncWorker: čeká se na potvrzení TURN_OFF, synchronizace se neprovádí.")
+            HandshakeManager.launchHandshake(applicationContext, reason = "sync_turn_off_ack")
+            HandshakeManager.enqueueHandshakeWork(applicationContext)
+            return Result.success()
+        }
+
         val batchSize = 50
         var continueSync = true
 
@@ -188,12 +195,30 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             editor.apply()
         }
 
-        return applyPowerInstruction(response.power_instruction)
+        val instruction = response.power_instruction?.uppercase(Locale.US)
+        ConsoleLogger.log(
+            "SyncWorker: server responded with power_instruction=${instruction ?: "NONE"}, pendingAck=${SharedPreferencesHelper.isTurnOffAckPending(applicationContext)}"
+        )
+        return when (instruction) {
+            "TURN_OFF" -> {
+                PowerController.requestTurnOff(applicationContext, origin = "sync")
+                false
+            }
+            else -> {
+                PowerController.markTurnOffAcknowledged(applicationContext, origin = "sync")
+                true
+            }
+        }
     }
 
     private fun restartLocationServiceIfActive() {
         if (SharedPreferencesHelper.getPowerState(applicationContext) == PowerState.OFF) {
             ConsoleLogger.log("SyncWorker: konfigurace změněna, ale služba je vypnutá. Restart se neprovádí.")
+            return
+        }
+
+        if (SharedPreferencesHelper.isTurnOffAckPending(applicationContext)) {
+            ConsoleLogger.log("SyncWorker: restart služby blokován – čeká se na potvrzení TURN_OFF.")
             return
         }
 
@@ -207,21 +232,13 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         }
     }
 
-    private fun applyPowerInstruction(instruction: String?): Boolean {
-        return when (instruction?.uppercase(Locale.US)) {
-            "TURN_OFF" -> {
-                PowerController.handleTurnOffInstruction(applicationContext, origin = "sync")
-                false
-            }
-            else -> {
-                PowerController.markTurnOffAcknowledged(applicationContext)
-                true
-            }
-        }
-    }
-
     private fun handleUnauthorized() {
-        SharedPreferencesHelper.setPowerState(applicationContext, PowerState.OFF)
+        SharedPreferencesHelper.setPowerState(
+            applicationContext,
+            PowerState.OFF,
+            pendingAck = false,
+            reason = "unauthorized"
+        )
         applicationContext.stopService(Intent(applicationContext, LocationService::class.java))
 
         val logoutIntent = Intent(LocationService.ACTION_FORCE_LOGOUT).apply {

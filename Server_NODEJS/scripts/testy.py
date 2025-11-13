@@ -7,8 +7,8 @@ from typing import Dict, Optional
 import requests
 
 # --- Configuration ---
-#BASE_URL = "https://lotr-system.xyz"
-BASE_URL = "http://localhost:5000"
+BASE_URL = "https://lotr-system.xyz"
+#BASE_URL = "http://localhost:5000"
 
 # Změňte tyto údaje, aby odpovídaly existujícímu uživateli na serveru
 TEST_USERNAME = "lotr"
@@ -186,8 +186,7 @@ def main() -> int:
         print("Odeslání dat se nezdařilo.")
         return 1
 
-    # Simulujeme další handshake s aktualizovaným uptime i power statusem
-    state.next_uptime()
+
     follow_up = perform_handshake(state)
     if follow_up:
         print(f"Instrukce po potvrzení stavu: {follow_up.get('power_instruction', 'NONE')}")
