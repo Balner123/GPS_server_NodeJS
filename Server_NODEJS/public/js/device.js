@@ -862,8 +862,9 @@ async function selectDevice(deviceId, options = {}) {
         updateGeofenceControls();
 
         const powerCard = document.getElementById('power-control-card');
+        powerCard.style.display = 'block';
+        /*
         if (powerCard) {
-            // Only show Power Control for HW devices, not APK
             if (deviceType === 'HW') {
                 powerCard.style.display = 'block';
             } else {
@@ -871,7 +872,7 @@ async function selectDevice(deviceId, options = {}) {
             }
         }
         updatePowerSummary(settings);
-
+        */
     } catch (error) {
         displayAlert(`Error loading settings for ${deviceId}.`, 'danger');
     }
