@@ -7,6 +7,13 @@ const isAuthenticated = (req, res, next) => {
   res.redirect('/login');
 };
 
+const isApiAuthenticated = (req, res, next) => {
+  if (req.session.isAuthenticated) {
+    return next();
+  }
+  return res.status(401).json({ success: false, error: 'Authentication required.' });
+};
+
 const isUser = (req, res, next) => {
   if (req.session.isAuthenticated && req.session.user.username !== 'root') {
     return next();
@@ -70,4 +77,4 @@ const authenticateDevice = async (req, res, next) => {
   }
 };
 
-module.exports = { isAuthenticated, isUser, isRoot, authenticateDevice };
+module.exports = { isAuthenticated, isUser, isRoot, authenticateDevice, isApiAuthenticated };

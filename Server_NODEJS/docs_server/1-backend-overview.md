@@ -59,3 +59,15 @@ Další poznámky:
 - **Swagger UI** je dostupné na `/api-docs` (viz `swaggerDef.js`).
 - **Sequelize sync**: Aplikace volá `sequelize.sync({ alter: true })` při startu – menší změny schématu se mohou promítnout automaticky (doporučeno pro vývoj).
 - **Session cookie** používá `sameSite: 'lax'`, `httpOnly: true` a délku 6 hodin; `secure` je řízeno přes `NODE_ENV === 'using_ssl'`.
+
+## 1.5. Logování a observabilita
+
+Základní serverový logger je implementován v `utils/logger.js` a všechny HTTP požadavky procházejí middlewarem `logger.requestLogger()` registrovaným v `server.js`.
+
+- **Úložiště logů**: Výstup je ukládán do souboru `log.txt` v kořenové složce serveru. Logger automaticky zakládá soubor (i nadřazené složky) a zapisuje v append módu.
+- **Formát**: Každý řádek obsahuje ISO timestamp, úroveň (resp. HTTP metodu) a JSON serializovaná metadata (např. `requestId`, `statusCode`, `durationMs`).
+- **Oddělené úrovně pro metody**: Od listopadu 2025 je úroveň logu svázána s metodou. GET požadavky používají úroveň `[GET]` a jsou logovány pouze jedním stručným řádkem (`GET /route ...`) bez payloadu. Zbytek metod (POST, PUT, DELETE, …) zachovává detailní logování payloadů i odpovědí a úroveň odpovídající metodě (`[POST]`, `[PUT]`, …).
+- **Maskování citlivých dat**: Logger automaticky rediguje hodnoty klíčů jako `password`, `token`, `authorization` atd. Funkce `sanitizePayload` navíc ořezává příliš velké objekty podle hodnoty `LOGGER_MAX_BODY_LENGTH` (výchozí 8192 bajtů, konfigurovatelná přes env).
+- **Kontekstové loggery**: Volání `req.log = logger.child({ ... })` umožňuje controllerům a middleware sdílet stejné `requestId` a přidávat vlastní metadata.
+
+> Tip: Pro rychlé sledování nových záznamů použijte `tail -f log.txt` (nebo PowerShell `Get-Content log.txt -Wait`).

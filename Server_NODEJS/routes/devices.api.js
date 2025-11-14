@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const deviceController = require('../controllers/deviceController');
-const { validateCoordinates, validateSettings } = require('../middleware/validators');
+const { validateSettings, validateDeviceInputPayload } = require('../middleware/validators');
 const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/authorization');
 
 /**
@@ -251,7 +251,7 @@ router.post('/handshake', deviceController.handleDeviceHandshake);
  *       '500':
  *         description: Server error.
  */
-router.post('/input', authenticateDevice, deviceController.handleDeviceInput);
+router.post('/input', authenticateDevice, validateDeviceInputPayload, deviceController.handleDeviceInput);
 
 /**
  * @swagger

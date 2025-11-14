@@ -35,9 +35,6 @@ class DeviceState:
         if normalized == "TURN_OFF" and self.power_status != "OFF":
             print("Instrukce TURN_OFF přijatá – zařízení přechází do OFF režimu.")
             self.power_status = "OFF"
-        elif normalized == "TURN_ON" and self.power_status != "ON":
-            print("Instrukce TURN_ON přijatá – zařízení přechází do ON režimu.")
-            self.power_status = "ON"
 
 
 def json_request(method: str, url: str, payload: Dict) -> Optional[requests.Response]:

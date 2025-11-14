@@ -17,8 +17,21 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // Middleware (order is important)
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({
+  verify: (req, res, buf) => {
+    if (!req.rawBody && buf && buf.length) {
+      req.rawBody = buf.toString('utf8');
+    }
+  }
+}));
+app.use(express.urlencoded({
+  extended: false,
+  verify: (req, res, buf) => {
+    if (!req.rawBody && buf && buf.length) {
+      req.rawBody = buf.toString('utf8');
+    }
+  }
+}));
 app.use(logger.requestLogger());
 app.use(express.static(path.join(__dirname, 'public'))); // Static files are public
 

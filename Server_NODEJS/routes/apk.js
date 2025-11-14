@@ -136,6 +136,6 @@ router.post('/logout', authController.logoutApk);
  *       '500':
  *         description: Server error.
  */
-router.post('/register-device', authorization.isAuthenticated, deviceController.registerDeviceFromApk);
+router.post('/register-device', authorization.isApiAuthenticated, deviceController.registerDeviceFromApk);
 
 module.exports = router;

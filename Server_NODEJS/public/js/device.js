@@ -862,17 +862,13 @@ async function selectDevice(deviceId, options = {}) {
         updateGeofenceControls();
 
         const powerCard = document.getElementById('power-control-card');
-        powerCard.style.display = 'block';
-        /*
         if (powerCard) {
-            if (deviceType === 'HW') {
-                powerCard.style.display = 'block';
-            } else {
-                powerCard.style.display = 'none';
-            }
+            powerCard.style.display = deviceType === 'HW' ? 'block' : 'none';
         }
-        updatePowerSummary(settings);
-        */
+        updatePowerSummary({
+            power_instruction: settings.power_instruction,
+            power_status: settings.power_status
+        });
     } catch (error) {
         displayAlert(`Error loading settings for ${deviceId}.`, 'danger');
     }
@@ -1001,7 +997,7 @@ function updateMap(fitBounds) {
             markerOptions.icon = defaultIcon;
         }
 
-        if (useClusters && point.type === 'cluster' && clusterRadiusLayer) {
+        if (useClusters && point.type === 'cluster' && clusterRadiusLayer && isLatest) {
             const circle = L.circle([lat, lon], {
                 radius: Number(point.clusterThreshold) || clusterDistanceThreshold,
                 color: '#0d6efd',

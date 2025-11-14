@@ -3,6 +3,7 @@ const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const { sendGeofenceAlertEmail, sendGeofenceReturnEmail } = require('../utils/emailSender');
 const logger = require('../utils/logger');
+const { sanitizePayload } = require('../utils/logger');
 const { getRequestLogger } = require('../utils/requestLogger');
 
 // --- Geofencing Helper Functions ---
@@ -133,7 +134,7 @@ function normalizePowerInstruction(instruction) {
     return null;
   }
   const normalized = String(instruction).trim().toUpperCase();
-  if (normalized === 'NONE' || normalized === 'TURN_OFF' || normalized === 'TURN_ON') {
+  if (normalized === 'NONE' || normalized === 'TURN_OFF') {
     return normalized;
   }
   return null;
@@ -155,14 +156,52 @@ function shouldClearPowerInstruction(instruction, status) {
     return true;
   }
 
-  if (normalizedInstruction === 'TURN_ON' && normalizedStatus === 'ON') {
-    return true;
-  }
-
   return false;
 }
 
 // --- End Geofencing Helpers ---
+
+const MAX_PAYLOAD_LOG_LENGTH = 4096;
+
+function truncateString(value, maxLength = MAX_PAYLOAD_LOG_LENGTH) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength)}... [truncated ${value.length - maxLength} chars]`;
+}
+
+function snapshotPayload(payload, maxArrayItems = 5) {
+  if (payload === null || payload === undefined) {
+    return payload;
+  }
+
+  if (Array.isArray(payload)) {
+    return {
+      type: 'array',
+      totalItems: payload.length,
+      sample: payload.slice(0, maxArrayItems).map(item => sanitizePayload(item))
+    };
+  }
+
+  if (typeof payload === 'object') {
+    return sanitizePayload(payload);
+  }
+
+  return payload;
+}
+
+function logRequestPayload(log, req, label) {
+  try {
+    const snapshot = snapshotPayload(req.body);
+    const rawBody = typeof req.rawBody === 'string' ? truncateString(req.rawBody) : undefined;
+    log.info(label, { rawBody, snapshot });
+  } catch (error) {
+    log.warn('Failed to log payload snapshot', { error: error.message });
+  }
+}
 
 
 
@@ -264,11 +303,7 @@ const updateDeviceSettings = async (req, res) => {
 const handleDeviceInput = async (req, res) => {
   try {
     const log = getRequestLogger(req, { controller: 'device', action: 'handleDeviceInput' });
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      log.warn('Device input validation failed', { errors: errors.array() });
-      return res.status(400).json({ errors: errors.array() });
-    }
+    logRequestPayload(log, req, 'Device input payload received');
 
     let dataPoints = Array.isArray(req.body) ? req.body : [req.body];
     
@@ -292,29 +327,16 @@ const handleDeviceInput = async (req, res) => {
       return res.status(400).json({ error: 'Device ID is missing in the payload.' });
     }
 
-    const device = await db.Device.findOne({ 
-      where: { 
-    	device_id: deviceId,
-    	user_id: req.user.id 
-      } 
-    });
+    const device = req.device;
 
-    if (!device) {
-      // Check if the device exists at all to give a more specific error
-      const deviceExists = await db.Device.findOne({ where: { device_id: deviceId } });
-      if (deviceExists) {
-        log.warn('Unauthorized device payload', { deviceId, userId: req.user.id });
-        // Device exists but doesn't belong to this user
-        return res.status(403).json({ 
-          error: `Forbidden. You do not have permission to send data for device ID ${deviceId}.` 
-        });
-      }
-      log.warn('Payload received for unregistered device', { deviceId });
-      // Device is not registered at all
-      return res.status(404).json({ 
-        registered: false,
-        message: `Device with ID ${deviceId} is not registered.` 
-      });
+    if (!device || !req.user) {
+      log.error('Device authentication context missing', { deviceId });
+      return res.status(500).json({ error: 'Device context not available after authentication.' });
+    }
+
+    if (device.device_id !== deviceId) {
+      log.warn('Payload deviceId mismatch', { deviceId, authenticatedDevice: device.device_id });
+      return res.status(400).json({ error: 'Payload device ID does not match authenticated device.' });
     }
 
     const t = await db.sequelize.transaction();
@@ -480,6 +502,7 @@ const updatePowerInstruction = async (req, res) => {
   const handleDeviceHandshake = async (req, res) => {
     try {
       const log = getRequestLogger(req, { controller: 'device', action: 'handleDeviceHandshake' });
+      logRequestPayload(log, req, 'Device handshake payload received');
       const deviceId = req.body.device_id || req.body.deviceId || req.body.device;
 
       if (!deviceId) {

@@ -300,13 +300,17 @@ const loginApk = async (req, res) => {
         });
 
         if (!user) {
-            return res.status(401).json({ success: false, error: 'User not found.' });
+          return res.status(401).json({ success: false, error: 'User not found.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return res.status(401).json({ success: false, error: 'Invalid password.' });
+          return res.status(401).json({ success: false, error: 'Invalid password.' });
+        }
+
+        if (!user.is_verified) {
+          return res.status(403).json({ success: false, error: 'Account not verified. Please verify your email before using the APK client.' });
         }
 
         // Step 3: Create session
