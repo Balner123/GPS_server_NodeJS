@@ -2,6 +2,7 @@ const { Sequelize } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const logger = require('./utils/logger');
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -10,16 +11,19 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST,
     dialect: 'mysql',
-    logging: false,
+    benchmark: true,
+    logging: (sql, timing) => {
+      logger.sql(sql, { durationMs: timing });
+    },
   }
 );
 
 sequelize.authenticate()
   .then(() => {
-    console.log('Connection has been established successfully with Sequelize.');
+    logger.info('Sequelize connection established');
   })
   .catch(err => {
-    console.error('Unable to connect to the database with Sequelize:', err);
+    logger.error('Unable to connect to the database with Sequelize', err);
   });
 
 const db = {};
@@ -44,9 +48,9 @@ db.Sequelize = Sequelize;
 
 // Sync database schema
 sequelize.sync({ alter: true }).then(() => {
-  console.log('Database schema synchronized.');
+  logger.info('Database schema synchronized');
 }).catch(err => {
-  console.error('Error synchronizing database schema:', err);
+  logger.error('Error synchronizing database schema', err);
 });
 
 module.exports = db;

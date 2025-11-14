@@ -103,7 +103,16 @@ docker-compose down
     DB_NAME=gps_tracking
     ```
 
-4.  **Spusťte server:**
+4.  **Inicializujte databázi a vytvořte root účet:**
+    ```bash
+    # vytvořte databázi/tabulky (jednorázově)
+    mysql -u <user> -p < db/init-db.sql
+
+    # poté vytvořte root účet podle .env proměnné ROOT_PASS
+    npm run seed-root
+    ```
+
+5.  **Spusťte server:**
     -   Pro produkční běh:
         ```bash
         npm start

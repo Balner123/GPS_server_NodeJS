@@ -1,8 +1,10 @@
 
 const db = require('../database');
+const { getRequestLogger } = require('../utils/requestLogger');
 
 const getAdminPage = async (req, res) => {
     try {
+        const log = getRequestLogger(req, { controller: 'administration', action: 'getAdminPage' });
         const userSearch = req.query.userSearch || '';
         const deviceSearch = req.query.deviceSearch || '';
         const locationSearch = req.query.locationSearch || '';
@@ -83,6 +85,13 @@ const getAdminPage = async (req, res) => {
 
         const alertsTotalPages = Math.ceil(alertsCount / alertsPageSize);
 
+        log.info('Administration page data loaded', {
+            userCount: users.length,
+            deviceCount: devices.length,
+            locationCount: locations.length,
+            alertCount: alerts.length
+        });
+
         res.render('administration', {
             currentPage: 'administration',
             users,
@@ -99,7 +108,8 @@ const getAdminPage = async (req, res) => {
             error: req.flash('error')
         });
     } catch (err) {
-        console.error("Error loading administration data:", err);
+        const log = getRequestLogger(req, { controller: 'administration', action: 'getAdminPage' });
+        log.error('Error loading administration data', err);
         res.status(500).send("Error loading administration data. Check server logs.");
     }
 };
@@ -111,11 +121,14 @@ const deleteUserAndData = async (req, res) => {
         return res.redirect('/administration');
     }
     try {
+        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteUserAndData', targetUserId: userId });
         await db.User.destroy({ where: { id: userId } });
         req.flash('success', 'User has been deleted successfully.');
+        log.info('User deleted from administration');
         res.redirect('/administration');
     } catch (err) {
-        console.error("Error deleting user and data:", err);
+        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteUserAndData', targetUserId: userId });
+        log.error('Error deleting user and data', err);
         req.flash('error', 'An error occurred while deleting the user.');
         res.redirect('/administration');
     }
@@ -126,11 +139,13 @@ const deleteDeviceAndData = async (req, res) => {
     const t = await db.sequelize.transaction();
 
     try {
+        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteDeviceAndData', deviceId });
         const device = await db.Device.findOne({ where: { id: deviceId } });
 
         if (!device) {
             await t.rollback();
             req.flash('error', 'Device not found.');
+            log.warn('Attempted to delete missing admin device');
             return res.redirect('/administration');
         }
 
@@ -145,10 +160,12 @@ const deleteDeviceAndData = async (req, res) => {
 
         await t.commit();
         req.flash('success', `Device '${device.name || device.device_id}' and all its data have been deleted successfully.`);
+        log.info('Device deleted from admin panel');
         res.redirect('/administration');
     } catch (err) {
         await t.rollback();
-        console.error(`Error deleting device ${deviceId}:`, err);
+        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteDeviceAndData', deviceId });
+        log.error('Error deleting device from administration', err);
         req.flash('error', 'Failed to delete device. An internal server error occurred.');
         res.redirect('/administration');
     }
@@ -157,11 +174,14 @@ const deleteDeviceAndData = async (req, res) => {
 const verifyUser = async (req, res) => {
     const userId = req.params.userId;
     try {
+        const log = getRequestLogger(req, { controller: 'administration', action: 'verifyUser', targetUserId: userId });
         await db.User.update({ is_verified: true }, { where: { id: userId } });
         req.flash('success', 'User has been verified successfully.');
+        log.info('User verified via admin');
         res.redirect('/administration');
     } catch (err) {
-        console.error("Error verifying user:", err);
+        const log = getRequestLogger(req, { controller: 'administration', action: 'verifyUser', targetUserId: userId });
+        log.error('Error verifying user in admin', err);
         req.flash('error', 'An error occurred while verifying the user.');
         res.redirect('/administration');
     }
@@ -170,11 +190,14 @@ const verifyUser = async (req, res) => {
 const deleteAlert = async (req, res) => {
     const alertId = req.params.alertId;
     try {
+        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteAlert', alertId });
         await db.Alert.destroy({ where: { id: alertId } });
         req.flash('success', 'Alert has been deleted successfully.');
+        log.info('Alert deleted from admin');
         res.redirect('/administration');
     } catch (err) {
-        console.error("Error deleting alert:", err);
+        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteAlert', alertId });
+        log.error('Error deleting alert in admin', err);
         req.flash('error', 'An error occurred while deleting the alert.');
         res.redirect('/administration');
     }

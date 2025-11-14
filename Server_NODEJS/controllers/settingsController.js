@@ -2,14 +2,17 @@ const { sendVerificationEmail } = require('../utils/emailSender');
 const bcrypt = require('bcryptjs');
 const db = require('../database');
 const { body, validationResult } = require('express-validator');
+const { getRequestLogger } = require('../utils/requestLogger');
 
 const getSettingsPage = async (req, res) => {
     try {
+        const log = getRequestLogger(req, { controller: 'settings', action: 'getSettingsPage' });
         const user = await db.User.findByPk(req.session.user.id);
         if (!user) {
             req.flash('error', 'User not found.');
             return res.redirect('/login');
         }
+        log.info('Settings page rendered');
         res.render('settings', {
             currentPage: 'settings',
             user: user, // Pass the full user object
@@ -17,7 +20,8 @@ const getSettingsPage = async (req, res) => {
             error: req.flash('error')
         });
     } catch (err) {
-        console.error("Error fetching user for settings:", err);
+        const log = getRequestLogger(req, { controller: 'settings', action: 'getSettingsPage' });
+        log.error('Error fetching user for settings', err);
         req.flash('error', 'An error occurred while loading settings.');
         res.redirect('/');
     }
@@ -26,6 +30,7 @@ const getSettingsPage = async (req, res) => {
 const updateUsername = async (req, res) => {
     const { username } = req.body;
     const userId = req.session.user.id;
+    const log = getRequestLogger(req, { controller: 'settings', action: 'updateUsername', userId });
 
     if (!username || username.trim().length === 0) {
         req.flash('error', 'Username cannot be empty.');
@@ -46,8 +51,9 @@ const updateUsername = async (req, res) => {
         await db.User.update({ username: username }, { where: { id: userId } });
         req.session.user.username = username; // Update username in session
         req.flash('success', 'Username has been successfully changed.');
+        log.info('Username updated');
     } catch (err) {
-        console.error("Error updating username:", err);
+        log.error('Error updating username', err);
         req.flash('error', 'An error occurred while changing the username.');
     }
     res.redirect('/settings');
@@ -55,6 +61,7 @@ const updateUsername = async (req, res) => {
 
 const updatePassword = async (req, res) => {
     const userId = req.session.user.id;
+    const log = getRequestLogger(req, { controller: 'settings', action: 'updatePassword', userId });
 
     try {
         const user = await db.User.findByPk(userId);
@@ -104,9 +111,10 @@ const updatePassword = async (req, res) => {
         const newHash = await bcrypt.hash(newPassword, 10);
         await user.update({ password: newHash });
         req.flash('success', 'Password has been successfully changed.');
+        log.info('Password updated');
 
     } catch (err) {
-        console.error("Error changing password:", err);
+        log.error('Error changing password', err);
         req.flash('error', 'An error occurred while changing the password.');
     }
     res.redirect('/settings');
@@ -114,6 +122,7 @@ const updatePassword = async (req, res) => {
 
 const updateEmail = async (req, res) => {
     const userId = req.session.user.id;
+    const log = getRequestLogger(req, { controller: 'settings', action: 'updateEmail', userId });
 
     try {
         const user = await db.User.findByPk(userId);
@@ -156,10 +165,11 @@ const updateEmail = async (req, res) => {
         req.session.pendingEmailChange = true;
 
         req.flash('success', 'A verification code has been sent to your new email address.');
+        log.info('Email change initiated');
         return res.redirect('/verify-email');
 
     } catch (err) {
-        console.error("Error updating email:", err);
+        log.error('Error updating email', err);
         req.flash('error', 'An error occurred while changing the email.');
         return res.redirect('/settings');
     }
@@ -168,6 +178,7 @@ const updateEmail = async (req, res) => {
 const deleteAccount = async (req, res) => {
     const userId = req.session.user.id;
     try {
+        const log = getRequestLogger(req, { controller: 'settings', action: 'deleteAccount', userId });
         const user = await db.User.findByPk(userId);
         if (!user) {
             req.flash('error', 'User not found.');
@@ -187,10 +198,12 @@ const deleteAccount = async (req, res) => {
 
         req.session.pendingDeletionUserId = userId; // Store user ID in session for deletion confirmation
         req.flash('success', 'A verification code has been sent to your email to confirm account deletion.');
+        log.info('Account deletion initiated');
         return res.redirect('/settings/confirm-delete');
 
     } catch (err) {
-        console.error("Error initiating account deletion:", err);
+        const log = getRequestLogger(req, { controller: 'settings', action: 'deleteAccount', userId });
+        log.error('Error initiating account deletion', err);
         req.flash('error', 'An error occurred while initiating account deletion.');
         res.redirect('/settings');
     }
@@ -198,6 +211,7 @@ const deleteAccount = async (req, res) => {
 
 const setPassword = async (req, res) => {
     const userId = req.session.user.id;
+    const log = getRequestLogger(req, { controller: 'settings', action: 'setPassword', userId });
 
     try {
         const user = await db.User.findByPk(userId);
@@ -245,9 +259,10 @@ const setPassword = async (req, res) => {
         await user.update({ password: newHash });
 
         req.flash('success', 'Your password has been set successfully. You can now use it for external devices.');
+        log.info('Password set for federated user');
 
     } catch (err) {
-        console.error("Error setting password:", err);
+        log.error('Error setting password', err);
         req.flash('error', 'An error occurred while setting your password.');
     }
     res.redirect('/settings');
@@ -255,6 +270,7 @@ const setPassword = async (req, res) => {
 
 const disconnect = async (req, res) => {
     const userId = req.session.user.id;
+    const log = getRequestLogger(req, { controller: 'settings', action: 'disconnect', userId });
 
     try {
         const user = await db.User.findByPk(userId);
@@ -307,15 +323,16 @@ const disconnect = async (req, res) => {
 
         req.session.destroy((err) => {
             if (err) {
-                console.error("Error destroying session after disconnect:", err);
+                log.error('Error destroying session after disconnect', err);
                 return res.redirect('/login');
             }
             res.clearCookie('connect.sid');
+            log.info('Account disconnected from provider');
             res.redirect('/login');
         });
 
     } catch (err) {
-        console.error("Error disconnecting account:", err);
+        log.error('Error disconnecting account', err);
         req.flash('error', 'An error occurred while disconnecting your account.');
         res.redirect('/settings');
     }
@@ -336,6 +353,7 @@ const getConfirmDeletePage = (req, res) => {
 const confirmDeleteAccount = async (req, res) => {
     const userId = req.session.pendingDeletionUserId;
     const { code } = req.body;
+    const log = getRequestLogger(req, { controller: 'settings', action: 'confirmDeleteAccount', userId });
 
     if (!userId) {
         req.flash('error', 'Session expired or no pending deletion.');
@@ -375,16 +393,17 @@ const confirmDeleteAccount = async (req, res) => {
 
         req.session.destroy((err) => {
             if (err) {
-                console.error("Error destroying session after account deletion:", err);
+                log.error('Error destroying session after account deletion', err);
                 return res.redirect('/login');
             }
             res.clearCookie('connect.sid');
             req.flash('success', 'Your account has been successfully deleted.');
+            log.info('Account deleted');
             res.redirect('/login');
         });
 
     } catch (err) {
-        console.error("Error confirming account deletion:", err);
+        log.error('Error confirming account deletion', err);
         req.flash('error', 'An error occurred while confirming account deletion.');
         res.redirect('/settings/confirm-delete');
     }
@@ -398,6 +417,7 @@ const resendDeletionCode = async (req, res) => {
     }
 
     try {
+        const log = getRequestLogger(req, { controller: 'settings', action: 'resendDeletionCode', userId });
         const user = await db.User.findByPk(userId);
         if (!user) {
             req.flash('error', 'User not found.');
@@ -415,11 +435,13 @@ const resendDeletionCode = async (req, res) => {
 
         await sendVerificationEmail(user.email, code, 'account_deletion');
 
+        log.info('Deletion code resent');
         req.flash('success', 'New verification code sent to your email.');
         res.redirect('/settings/confirm-delete');
 
     } catch (err) {
-        console.error("Error during resend deletion code:", err);
+        const log = getRequestLogger(req, { controller: 'settings', action: 'resendDeletionCode', userId });
+        log.error('Error during resend deletion code', err);
         req.flash('error', 'Error during server.');
         res.redirect('/settings/confirm-delete');
     }
@@ -428,33 +450,32 @@ const resendDeletionCode = async (req, res) => {
 const cancelDeleteAccount = async (req, res) => {
     const userId = req.session.pendingDeletionUserId;
     if (!userId) {
-        // If there's no pending deletion, just redirect them.
         return res.redirect('/settings');
     }
+
+    const log = getRequestLogger(req, { controller: 'settings', action: 'cancelDeleteAccount', userId });
 
     try {
         const user = await db.User.findByPk(userId);
         if (user) {
-            // Clear the deletion-related fields
             await user.update({
                 deletion_code: null,
                 deletion_code_expires: null
             });
         }
-        
-        // Clear the session flag
+
         delete req.session.pendingDeletionUserId;
 
+        log.info('Account deletion cancelled');
         req.flash('success', 'Account deletion has been successfully cancelled.');
         res.redirect('/settings');
 
     } catch (err) {
-        console.error("Error cancelling account deletion:", err);
+        log.error('Error cancelling account deletion', err);
         req.flash('error', 'An error occurred while cancelling the account deletion.');
         res.redirect('/settings');
     }
 };
-
 module.exports = {
     getSettingsPage,
     updateUsername,

@@ -39,10 +39,6 @@ passport.use(new GoogleStrategy({
             provider_data: JSON.stringify(profile),
             is_verified: true // Also mark as verified if not already
           });
-        } else {
-          // Optional: Handle non-verified emails, e.g., by flashing a message.
-          // For now, we proceed as if the user was found, but the link is not created.
-          // The user will be logged into their local account.
         }
       }
     }
@@ -64,7 +60,7 @@ passport.use(new GoogleStrategy({
             provider: 'google',
             provider_id: providerId,
             provider_data: JSON.stringify(profile),
-            is_verified: true // Account is verified by Google
+            is_verified: true,
         });
         return done(null, newUser);
     }

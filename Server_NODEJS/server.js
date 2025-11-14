@@ -6,6 +6,7 @@ const session = require('express-session');
 const flash = require('connect-flash');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swaggerDef');
+const logger = require('./utils/logger');
 
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy
@@ -18,6 +19,7 @@ app.set('views', path.join(__dirname, 'views'));
 // Middleware (order is important)
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(logger.requestLogger());
 app.use(express.static(path.join(__dirname, 'public'))); // Static files are public
 
 // Session middleware
@@ -88,22 +90,20 @@ app.use('/api/settings', require('./routes/settings.api'));
 app.use('/api/admin', require('./routes/administration.api'));
 app.use('/api/apk', require('./routes/apk'));
 app.use('/api/hw', require('./routes/hw.api.js'));
+app.use('/api/logs', require('./routes/logs.api'));
 
 // --- Swagger UI Setup ---
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error("--- UNHANDLED ERROR ---");
-  console.error("Request URL:", req.originalUrl);
-  console.error("Request Method:", req.method);
-  
-  if (err instanceof Error) {
-    console.error("Error Stack:", err.stack);
-  } else {
-    console.error("Raw Error:", err);
-  }
-  console.error("--- END UNHANDLED ERROR ---");
+  const errLogger = req.log || logger;
+  errLogger.error('Unhandled error in request', {
+    url: req.originalUrl,
+    method: req.method,
+    stack: err instanceof Error ? err.stack : undefined,
+    error: err instanceof Error ? err.message : err
+  });
 
   if (res.headersSent) {
     return next(err);
@@ -113,5 +113,6 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}/`);
+  logger.info('Server started', { port, url: `http://localhost:${port}/` });
+  console.log(`Server is running on http://localhost:${port}/`);
 });

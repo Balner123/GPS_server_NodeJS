@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const db = require('../database');
 const { sendVerificationEmail } = require('../utils/emailSender');
+const { getRequestLogger } = require('../utils/requestLogger');
 
 const getLoginPage = (req, res) => {
   if (req.session.isAuthenticated) {
@@ -11,6 +12,8 @@ const getLoginPage = (req, res) => {
 
 const loginUser = async (req, res) => {
   const { identifier, password } = req.body;
+  const log = getRequestLogger(req, { controller: 'auth', action: 'loginUser', identifier });
+  log.info('Login attempt received');
 
   if (!identifier || !password) {
     return res.status(400).render('login', { error: 'Please enter your username or email and password.', currentPage: 'login' });
@@ -27,6 +30,7 @@ const loginUser = async (req, res) => {
     });
 
     if (!user) {
+      log.warn('Login failed: user not found');
       return res.status(401).render('login', { error: 'Invalid login credentials.', currentPage: 'login' });
     }
 
@@ -44,7 +48,7 @@ const loginUser = async (req, res) => {
         try {
           await sendVerificationEmail(user.email, code);
         } catch (mailErr) {
-          console.error('Error sending email:', mailErr);
+          log.error('Error sending verification email', mailErr);
           req.flash('error', 'Failed to send verification email. Please try again.');
           return res.redirect('/login');
         }
@@ -56,26 +60,30 @@ const loginUser = async (req, res) => {
 
       req.session.isAuthenticated = true;
       req.session.user = { id: user.id, username: user.username, email: user.email };
+      log.info('User logged in successfully', { userId: user.id });
 
       if (user.username === 'root') {
         return res.redirect('/administration');
       }
       res.redirect('/');
     } else {
+      log.warn('Login failed: password mismatch');
       return res.status(401).render('login', { error: 'Invalid login credentials.', currentPage: 'login' });
     }
   } catch (err) {
-    console.error("Error during login:", err);
+    log.error('Error during login', err);
     res.status(500).render('login', { error: 'Server error occurred. Please try again later.', currentPage: 'login' });
   }
 };
 
 const logoutUser = (req, res) => {
+  const log = getRequestLogger(req, { controller: 'auth', action: 'logoutUser' });
   req.session.destroy(err => {
     if (err) {
-      console.error("Logout error:", err);
+      log.error('Logout error', err);
       return res.redirect('/');
     }
+    log.info('User logged out');
     res.clearCookie('connect.sid');
     res.redirect('/login');
   });
@@ -91,6 +99,8 @@ const getRegisterPage = (req, res) => {
 const registerUser = async (req, res) => {
   const { username, email, password, confirmPassword, use_weak_password } = req.body;
   const input = req.body;
+  const log = getRequestLogger(req, { controller: 'auth', action: 'registerUser', username, email });
+  log.info('Registration attempt received');
 
   if (!username || !email || !password || !confirmPassword) {
     return res.status(400).render('register', { error: 'All fields are required.', currentPage: 'register', input });
@@ -157,7 +167,7 @@ const registerUser = async (req, res) => {
     try {
       await sendVerificationEmail(email, code);
     } catch (mailErr) {
-      console.error('Error sending verification email:', mailErr);
+      log.error('Error sending verification email during registration', mailErr);
       req.flash('error', 'Failed to send verification email.');
       return res.redirect('/register');
     }
@@ -166,7 +176,7 @@ const registerUser = async (req, res) => {
     return res.redirect('/verify-email');
 
   } catch (err) {
-    console.error("Registration error:", err);
+    log.error('Registration error', err);
     res.status(500).render('register', { error: 'Server error occurred during registration.', currentPage: 'register', input });
   }
 };
@@ -185,6 +195,8 @@ const getVerifyEmailPage = (req, res) => {
 const verifyEmailCode = async (req, res) => {
   const { code } = req.body;
   const userId = req.session.pendingUserId;
+  const log = getRequestLogger(req, { controller: 'auth', action: 'verifyEmailCode', userId });
+  log.info('Verifying email code');
 
   if (!userId) {
     req.flash('error', 'Session expired. Please try again.');
@@ -257,7 +269,7 @@ const verifyEmailCode = async (req, res) => {
     return res.redirect('/login');
 
   } catch (err) {
-    console.error('Error verifying email:', err);
+    log.error('Error verifying email', err);
     return res.render('verify-email', { error: 'Server error occurred.', currentPage: 'verify-email' });
   }
 };
@@ -268,6 +280,8 @@ const verifyEmailCode = async (req, res) => {
 const loginApk = async (req, res) => {
 
     const { identifier, password, installationId } = req.body;
+  const log = getRequestLogger(req, { controller: 'auth', action: 'loginApk', identifier, installationId });
+  log.info('APK login attempt');
 
     if (!identifier || !password) {
         return res.status(400).json({ success: false, error: 'Missing username or password.' });
@@ -309,21 +323,25 @@ const loginApk = async (req, res) => {
 
         const device_is_registered = !!device; // Convert to boolean (true if device is not null)
 
+        log.info('APK login successful', { userId: user.id, deviceIsRegistered: device_is_registered });
+
         // Step 5: Send response with new flag
         res.status(200).json({ success: true, device_is_registered: device_is_registered });
 
     } catch (error) {
-        console.error('Error during APK login:', error);
+        log.error('Error during APK login', error);
         res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 };
 
 const logoutApk = (req, res) => {
+      const log = getRequestLogger(req, { controller: 'auth', action: 'logoutApk' });
       req.session.destroy(err => {
         if (err) {
-          console.error("API Logout error:", err);
+          log.error('API logout error', err);
           return res.status(500).json({ success: false, error: 'Error during logout.' });
         }
+        log.info('APK logout successful');
         res.clearCookie('connect.sid');
         res.status(200).json({ success: true, message: 'Logout successful.' });
       });
@@ -337,6 +355,7 @@ const resendVerificationCodeFromPage = async (req, res) => {
   }
 
   try {
+    const log = getRequestLogger(req, { controller: 'auth', action: 'resendVerificationCodeFromPage', userId });
     const user = await db.User.findByPk(userId);
     if (!user) {
       return res.redirect('/login');
@@ -360,10 +379,12 @@ const resendVerificationCodeFromPage = async (req, res) => {
 
     await sendVerificationEmail(targetEmail, code);
 
+    log.info('Verification code resent');
     req.flash('success', 'New verification code sent to your email.');
     res.redirect('/verify-email');
   } catch (err) {
-    console.error("Error during resend from page:", err);
+    const log = getRequestLogger(req, { controller: 'auth', action: 'resendVerificationCodeFromPage', userId });
+    log.error('Error during resend from page', err);
     req.flash('error', 'Error during server.');
     res.redirect('/verify-email');
   }
@@ -372,6 +393,7 @@ const resendVerificationCodeFromPage = async (req, res) => {
 const setInitialPassword = async (req, res) => {
     const { newPassword, confirmPassword, use_weak_password } = req.body;
     const userId = req.session.user.id;
+  const log = getRequestLogger(req, { controller: 'auth', action: 'setInitialPassword', userId });
 
     try {
         const user = await db.User.findByPk(userId);
@@ -415,11 +437,12 @@ const setInitialPassword = async (req, res) => {
         const newHash = await bcrypt.hash(newPassword, 10);
         await user.update({ password: newHash });
 
+        log.info('Initial password set');
         req.flash('success', 'Your password has been set successfully! You can now use it for external devices.');
         res.redirect('/');
 
     } catch (err) {
-        console.error("Error setting initial password:", err);
+        log.error('Error setting initial password', err);
         req.flash('error', 'An error occurred while setting your password.');
         res.redirect('/set-password');
     }
@@ -434,6 +457,7 @@ const cancelEmailChange = async (req, res) => {
   }
 
   try {
+    const log = getRequestLogger(req, { controller: 'auth', action: 'cancelEmailChange', userId });
     const user = await db.User.findByPk(userId);
 
     if (user) {
@@ -447,10 +471,12 @@ const cancelEmailChange = async (req, res) => {
     delete req.session.pendingUserId;
     delete req.session.pendingEmailChange;
 
+    log.info('Pending email change canceled');
     req.flash('success', 'Email change has been successfully canceled.');
     res.redirect('/settings');
   } catch (err) {
-    console.error('Error canceling email change:', err);
+    const log = getRequestLogger(req, { controller: 'auth', action: 'cancelEmailChange', userId });
+    log.error('Error canceling email change', err);
     req.flash('error', 'An error occurred while canceling the email change.');
     res.redirect('/settings');
   }

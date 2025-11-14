@@ -2,6 +2,8 @@ const db = require('../database');
 const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const { sendGeofenceAlertEmail, sendGeofenceReturnEmail } = require('../utils/emailSender');
+const logger = require('../utils/logger');
+const { getRequestLogger } = require('../utils/requestLogger');
 
 // --- Geofencing Helper Functions ---
 
@@ -52,17 +54,24 @@ function isPointInCircle(point, circle) {
  * @param {object} location - The location object that triggered the alert.
  */
 async function createGeofenceAlertRecord(device, location) {
-    console.log(`Creating geofence alert record for device: ${device.name || device.device_id}`);
-    try {
-        await db.Alert.create({
-            device_id: device.id,
-            user_id: device.user_id,
-            type: 'geofence',
-            message: `Device '${device.name || device.device_id}' has left the defined geofence area.`
-        });
-    } catch (error) {
-        console.error('Failed to create geofence alert record:', error);
-    }
+  const geofenceLogger = logger.child({
+    controller: 'device',
+    action: 'createGeofenceAlertRecord',
+    deviceId: device.device_id,
+    userId: device.user_id
+  });
+  geofenceLogger.info('Creating geofence alert record');
+  try {
+    await db.Alert.create({
+      device_id: device.id,
+      user_id: device.user_id,
+      type: 'geofence',
+      message: `Device '${device.name || device.device_id}' has left the defined geofence area.`
+    });
+    geofenceLogger.info('Geofence alert record stored');
+  } catch (error) {
+    geofenceLogger.error('Failed to create geofence alert record', error);
+  }
 }
 
 function generateGpx(deviceName, locations) {
@@ -159,7 +168,9 @@ function shouldClearPowerInstruction(instruction, status) {
 
 const getDeviceSettings = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'getDeviceSettings' });
     const deviceId = req.params.deviceId;
+    log.info('Fetching device settings', { deviceId });
     const device = await db.Device.findOne({ 
       where: { 
         device_id: deviceId,
@@ -167,8 +178,10 @@ const getDeviceSettings = async (req, res) => {
       } 
     });
     if (!device) {
+      log.warn('Device not found when requesting settings', { deviceId });
       return res.status(404).json({ error: 'Device not found' });
     }
+    log.info('Device settings fetched', { deviceId });
     res.json({
       interval_gps: device.interval_gps,
       interval_send: device.interval_send,
@@ -181,19 +194,23 @@ const getDeviceSettings = async (req, res) => {
       power_instruction: device.power_instruction
     });
   } catch (err) {
-    console.error("Error getting device settings:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'getDeviceSettings' });
+    log.error('Error getting device settings', err);
     res.status(500).json({ error: err.message });
   }
 };
 
 const updateDeviceSettings = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'updateDeviceSettings' });
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      log.warn('Device settings validation failed', { errors: errors.array() });
       // Surface a clear error message for the frontend while preserving details
       return res.status(400).json({ success: false, error: 'Validation failed', details: errors.array() });
     }
     const { deviceId, interval_gps, interval_send, satellites, mode } = req.body;
+    log.info('Updating device settings', { deviceId, mode });
 
     // Find device to disambiguate between "not found" and "no changes"
     const device = await db.Device.findOne({
@@ -204,6 +221,7 @@ const updateDeviceSettings = async (req, res) => {
     });
 
     if (!device) {
+      log.warn('Device not found while updating settings', { deviceId });
       return res.status(404).json({ error: 'Device not found' });
     }
 
@@ -220,6 +238,7 @@ const updateDeviceSettings = async (req, res) => {
     );
 
     if (noChanges) {
+      log.info('Device settings unchanged', { deviceId });
       return res.status(200).json({ success: true, message: 'No changes detected.' });
     }
 
@@ -233,28 +252,34 @@ const updateDeviceSettings = async (req, res) => {
       }
     );
 
+    log.info('Device settings updated', { deviceId });
     res.json({ success: true, message: 'Settings updated successfully.' });
   } catch (err) {
-    console.error("Error in updateDeviceSettings:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'updateDeviceSettings' });
+    log.error('Error in updateDeviceSettings', err);
     res.status(500).json({ error: err.message });
   }
 };
 
 const handleDeviceInput = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'handleDeviceInput' });
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      log.warn('Device input validation failed', { errors: errors.array() });
       return res.status(400).json({ errors: errors.array() });
     }
 
     let dataPoints = Array.isArray(req.body) ? req.body : [req.body];
     
     if (dataPoints.length === 0) {
+        log.warn('Device input was empty');
         return res.status(400).json({ error: 'Request body cannot be empty.' });
     }
 
   const firstPoint = dataPoints[0];
   const { device: deviceId } = firstPoint;
+    log.info('Processing device payload', { deviceId, points: dataPoints.length });
     const reportedPowerStatus = normalizePowerStatus(
       firstPoint.power_status || firstPoint.powerStatus || req.body.power_status || req.body.powerStatus
     );
@@ -263,7 +288,8 @@ const handleDeviceInput = async (req, res) => {
     );
 
     if (!deviceId) {
-        return res.status(400).json({ error: 'Device ID is missing in the payload.' });
+      log.warn('Device ID missing in payload');
+      return res.status(400).json({ error: 'Device ID is missing in the payload.' });
     }
 
     const device = await db.Device.findOne({ 
@@ -277,11 +303,13 @@ const handleDeviceInput = async (req, res) => {
       // Check if the device exists at all to give a more specific error
       const deviceExists = await db.Device.findOne({ where: { device_id: deviceId } });
       if (deviceExists) {
+        log.warn('Unauthorized device payload', { deviceId, userId: req.user.id });
         // Device exists but doesn't belong to this user
         return res.status(403).json({ 
           error: `Forbidden. You do not have permission to send data for device ID ${deviceId}.` 
         });
       }
+      log.warn('Payload received for unregistered device', { deviceId });
       // Device is not registered at all
       return res.status(404).json({ 
         registered: false,
@@ -312,6 +340,7 @@ const handleDeviceInput = async (req, res) => {
       if (locationsToCreate.length > 0) {
         await db.Location.bulkCreate(locationsToCreate, { transaction: t, validate: true });
         lastLocation = locationsToCreate[locationsToCreate.length - 1];
+        log.info('Locations stored for device', { deviceId, count: locationsToCreate.length });
       }
 
       const now = new Date();
@@ -334,6 +363,7 @@ const handleDeviceInput = async (req, res) => {
       await device.save({ transaction: t });
       
       await t.commit();
+      log.info('Device payload transaction committed', { deviceId });
       
       // --- Geofence Check ---
       if (lastLocation && device.geofence) {
@@ -351,7 +381,7 @@ const handleDeviceInput = async (req, res) => {
 
         // Case 1: Device is OUTSIDE and alert is NOT active yet
         if (!isInside && !device.geofence_alert_active) {
-            console.log(`Device ${device.device_id} left geofence. Triggering alert.`);
+            log.warn('Device left geofence', { deviceId: device.device_id });
             device.geofence_alert_active = true;
             await device.save(); // Save the new alert state
             await createGeofenceAlertRecord(device, lastLocation); // Create DB record
@@ -361,7 +391,7 @@ const handleDeviceInput = async (req, res) => {
         }
         // Case 2: Device is INSIDE and alert IS active
         else if (isInside && device.geofence_alert_active) {
-            console.log(`Device ${device.device_id} returned to geofence. Resolving alert.`);
+            log.info('Device returned to geofence', { deviceId: device.device_id });
             device.geofence_alert_active = false;
             await device.save(); // Save the new alert state
             if (user && user.email) {
@@ -371,26 +401,29 @@ const handleDeviceInput = async (req, res) => {
       }
       // --- End Geofence Check ---
 
+      log.info('Device payload processed successfully', { deviceId });
       res.status(200).json({ 
         success: true,
       });
 
     } catch (err) {
       await t.rollback();
-      console.error("Error in handleDeviceInput transaction:", err);
+      log.error('Error in handleDeviceInput transaction', err);
       if (err.message.includes('latitude and longitude')) {
           return res.status(400).json({ error: err.message });
       }
       res.status(500).json({ error: 'An error occurred during the database transaction.' });
     }
   } catch (err) {
-      console.error("Error in handleDeviceInput:", err);
+      const log = getRequestLogger(req, { controller: 'device', action: 'handleDeviceInput' });
+      log.error('Error in handleDeviceInput', err);
       res.status(500).json({ error: 'An unexpected error occurred.' });
   }
 };
 
 const updatePowerInstruction = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'updatePowerInstruction' });
     const deviceId = req.body.deviceId || req.body.device_id;
     const rawInstruction = req.body.power_instruction || req.body.powerInstruction;
 
@@ -409,6 +442,8 @@ const updatePowerInstruction = async (req, res) => {
       return res.status(400).json({ success: false, error: `Unsupported power instruction '${instruction}'.` });
     }
 
+    log.info('Updating power instruction', { deviceId, instruction });
+
     const device = await db.Device.findOne({
       where: {
         device_id: deviceId,
@@ -417,6 +452,7 @@ const updatePowerInstruction = async (req, res) => {
     });
 
     if (!device) {
+      log.warn('Device not found when updating power instruction', { deviceId });
       return res.status(404).json({ success: false, error: 'Device not found or you do not have permission to control it.' });
     }
 
@@ -428,28 +464,33 @@ const updatePowerInstruction = async (req, res) => {
 
     await device.save();
 
+    log.info('Power instruction updated', { deviceId, instruction: device.power_instruction });
     return res.json({
       success: true,
       power_instruction: device.power_instruction,
       power_status: device.power_status
     });
   } catch (error) {
-    console.error('Error updating power instruction:', error);
+    const log = getRequestLogger(req, { controller: 'device', action: 'updatePowerInstruction' });
+    log.error('Error updating power instruction', error);
     return res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 };
 
   const handleDeviceHandshake = async (req, res) => {
     try {
+      const log = getRequestLogger(req, { controller: 'device', action: 'handleDeviceHandshake' });
       const deviceId = req.body.device_id || req.body.deviceId || req.body.device;
 
       if (!deviceId) {
+        log.warn('Handshake missing device ID');
         return res.status(400).json({ success: false, error: 'Missing device_id.' });
       }
 
       const device = await db.Device.findOne({ where: { device_id: deviceId } });
 
       if (!device) {
+        log.warn('Handshake from unregistered device', { deviceId });
         return res.status(200).json({ registered: false });
       }
 
@@ -482,19 +523,22 @@ const updatePowerInstruction = async (req, res) => {
         await device.save();
       }
 
+      log.info('Handshake successful', { deviceId });
       return res.status(200).json({
         registered: true,
         config: buildDeviceConfigPayload(device),
         power_instruction: device.power_instruction
       });
     } catch (error) {
-      console.error('Error during device handshake:', error);
+      const log = getRequestLogger(req, { controller: 'device', action: 'handleDeviceHandshake' });
+      log.error('Error during device handshake', error);
       return res.status(500).json({ success: false, error: 'Internal server error.' });
     }
   };
 
 const getCurrentCoordinates = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'getCurrentCoordinates' });
     const devices = await db.Device.findAll({
       where: { 
         user_id: req.session.user.id
@@ -531,9 +575,11 @@ const getCurrentCoordinates = async (req, res) => {
       };
     });
 
+    log.info('Returning current coordinates', { count: coordinates.length });
     res.json(coordinates);
   } catch (err) {
-    console.error("Error:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'getCurrentCoordinates' });
+    log.error('Error fetching current coordinates', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -627,7 +673,9 @@ function clusterLocations(locations, distanceThreshold) {
 
 const getDeviceData = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'getDeviceData' });
     const deviceId = req.query.id;
+    log.info('Fetching device data', { deviceId });
     const device = await db.Device.findOne({
       where: { 
         device_id: deviceId,
@@ -636,6 +684,7 @@ const getDeviceData = async (req, res) => {
     });
 
     if (!device) {
+      log.warn('Device not found when fetching data', { deviceId });
       return res.status(404).json({ error: 'Device not found' });
     }
     // Načteme lokace seřazené VZESTUPNĚ pro správnou funkci algoritmu
@@ -647,10 +696,12 @@ const getDeviceData = async (req, res) => {
     const DISTANCE_THRESHOLD_METERS = 25; // Updated threshold
     const processedLocations = clusterLocations(rawLocations, DISTANCE_THRESHOLD_METERS);
 
+    log.info('Device data returned', { deviceId, count: processedLocations.length });
     res.json(processedLocations);
 
   } catch (err) {
-    console.error("Error in getDeviceData:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'getDeviceData' });
+    log.error('Error in getDeviceData', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -664,6 +715,7 @@ const deleteDevice = async (req, res) => {
   const t = await db.sequelize.transaction(); // Start transaction
 
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'deleteDevice', deviceId });
     // Find device to get its internal ID. Admin (root) can delete any device.
     const findOptions = { where: { device_id: deviceId } };
     if (!req.session.user.isRoot) {
@@ -673,6 +725,7 @@ const deleteDevice = async (req, res) => {
     const device = await db.Device.findOne(findOptions);
 
     if (!device) {
+      log.warn('Attempt to delete non-existent device');
       await t.rollback();
       return res.status(404).json({ error: 'Device not found or you do not have permission to delete it.' });
     }
@@ -688,10 +741,12 @@ const deleteDevice = async (req, res) => {
 
     await t.commit(); // Commit the transaction
 
+    log.info('Device deleted with associated data');
     res.status(200).json({ message: `Device '${deviceId}' and all its data have been deleted successfully.` });
   } catch (err) {
     await t.rollback(); // Rollback on any error
-    console.error(`Error deleting device ${deviceId}:`, err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'deleteDevice', deviceId });
+    log.error('Error deleting device', err);
     res.status(500).json({ error: 'Failed to delete device. An internal server error occurred.' });
   }
 };
@@ -699,6 +754,7 @@ const deleteDevice = async (req, res) => {
 const removeDeviceFromUser = async (req, res) => {
   const { deviceId } = req.params;
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'removeDeviceFromUser', deviceId });
     const device = await db.Device.findOne({ 
       where: { 
         device_id: deviceId, 
@@ -708,16 +764,19 @@ const removeDeviceFromUser = async (req, res) => {
 
     if (!device) {
       req.flash('error', 'Device not found or you do not have permission to remove it.');
+      log.warn('Attempted to remove device without permission');
       return res.redirect('/devices');
     }
 
     await device.destroy();
+    log.info('Device unregistered for user');
 
     req.flash('success', `Registration for device "${deviceId}" has been successfully canceled.`);
     res.redirect('/devices');
 
   } catch (err) {
-    console.error("Error removing device from user:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'removeDeviceFromUser', deviceId });
+    log.error('Error removing device from user', err);
     req.flash('error', 'Error during device removal.');
     res.redirect('/devices');
   }
@@ -725,10 +784,12 @@ const removeDeviceFromUser = async (req, res) => {
 
 const getDevicesPage = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'getDevicesPage' });
     const userDevices = await db.Device.findAll({
       where: { user_id: req.session.user.id },
       order: [['created_at', 'DESC']]
     });
+    log.info('Devices page loaded', { count: userDevices.length });
     res.render('manage-devices', { 
       devices: userDevices,
       error: req.flash('error'),
@@ -736,7 +797,8 @@ const getDevicesPage = async (req, res) => {
       currentPage: 'devices'
     });
   } catch (err) {
-    console.error("Error fetching devices for management page:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'getDevicesPage' });
+    log.error('Error fetching devices for management page', err);
     res.status(500).render('manage-devices', { 
       devices: [], 
       error: ['Error loading your devices.'],
@@ -789,6 +851,8 @@ const registerDeviceFromApk = async (req, res) => {
   }
 
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'registerDeviceFromApk', deviceId: installationId });
+    log.info('Registering device from APK', { deviceName });
     const result = await registerDeviceForUser({
       user: req.session.user,
       deviceId: installationId,
@@ -797,20 +861,24 @@ const registerDeviceFromApk = async (req, res) => {
     });
 
     if (result.status === 'created') {
+      log.info('Device registered from APK');
       return res.status(201).json({ success: true, message: 'Device registered successfully.' });
     }
 
     if (result.status === 'already-owned') {
+      log.info('Device already owned by user via APK');
       return res.status(200).json({ success: true, message: 'Device is already registered.' });
     }
 
     if (result.status === 'conflict') {
+      log.warn('APK registration conflict', { ownerId: result.device.user_id });
       return res.status(409).json({ success: false, error: 'This device ID already exists.' });
     }
 
     return res.status(500).json({ success: false, error: 'Unexpected registration state.' });
   } catch (error) {
-    console.error('Error during device registration from APK:', error);
+    const log = getRequestLogger(req, { controller: 'device', action: 'registerDeviceFromApk', deviceId: installationId });
+    log.error('Error during device registration from APK', error);
     if (error.name === 'SequelizeUniqueConstraintError') {
       return res.status(409).json({ success: false, error: 'This device ID already exists.' });
     }
@@ -826,6 +894,8 @@ const registerDeviceFromHardware = async (req, res) => {
   }
 
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'registerDeviceFromHardware', deviceId });
+    log.info('Hardware registration request received', { username });
     // 1. Authenticate user
     const user = await db.User.findOne({ where: { username: username } });
 
@@ -847,21 +917,25 @@ const registerDeviceFromHardware = async (req, res) => {
     });
 
     if (result.status === 'created') {
+      log.info('Hardware device registered');
       return res.status(201).json({ success: true, message: 'Device registered successfully.' });
     }
 
     if (result.status === 'already-owned') {
+      log.info('Hardware device already registered to user');
       return res.status(200).json({ success: true, message: 'Device already registered to your account.' });
     }
 
     if (result.status === 'conflict') {
+      log.warn('Hardware registration conflict');
       return res.status(409).json({ success: false, error: 'Device already registered to another user.' });
     }
 
     return res.status(500).json({ success: false, error: 'Unexpected registration state.' });
 
   } catch (error) {
-    console.error('Error during hardware device registration:', error);
+    const log = getRequestLogger(req, { controller: 'device', action: 'registerDeviceFromHardware', deviceId });
+    log.error('Error during hardware device registration', error);
     res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 };
@@ -883,6 +957,8 @@ const registerDeviceUnified = async (req, res) => {
   }
 
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'registerDeviceUnified', deviceId, clientType });
+    log.info('Unified registration request received');
     if (clientType === 'APK') {
       if (!req.session.user || !req.session.user.id) {
         return res.status(401).json({ success: false, error: 'User is not logged in.' });
@@ -896,12 +972,15 @@ const registerDeviceUnified = async (req, res) => {
       });
 
       if (result.status === 'created') {
+        log.info('Unified APK registration created');
         return res.status(201).json({ success: true, message: 'Device registered successfully.' });
       }
       if (result.status === 'already-owned') {
+        log.info('Unified APK registration already owned');
         return res.status(200).json({ success: true, message: 'Device is already registered.' });
       }
       if (result.status === 'conflict') {
+        log.warn('Unified APK registration conflict');
         return res.status(409).json({ success: false, error: 'Device already registered to another user.' });
       }
 
@@ -935,21 +1014,26 @@ const registerDeviceUnified = async (req, res) => {
       });
 
       if (result.status === 'created') {
+        log.info('Unified HW registration created', { userId: user.id });
         return res.status(201).json({ success: true, message: 'Device registered successfully.' });
       }
       if (result.status === 'already-owned') {
+        log.info('Unified HW registration already owned', { userId: user.id });
         return res.status(200).json({ success: true, message: 'Device already registered to your account.' });
       }
       if (result.status === 'conflict') {
+        log.warn('Unified HW registration conflict');
         return res.status(409).json({ success: false, error: 'Device already registered to another user.' });
       }
 
       return res.status(500).json({ success: false, error: 'Unexpected registration state.' });
     }
 
+    log.warn('Unsupported client type for unified registration');
     return res.status(400).json({ success: false, error: `Unsupported client_type '${clientType}'.` });
   } catch (error) {
-    console.error('Error during unified device registration:', error);
+    const log = getRequestLogger(req, { controller: 'device', action: 'registerDeviceUnified', deviceId, clientType });
+    log.error('Error during unified device registration', error);
     return res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 };
@@ -969,6 +1053,7 @@ const updateDeviceName = async (req, res) => {
   }
 
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'updateDeviceName', deviceId });
     const [affectedRows] = await db.Device.update(
       { name: newName.trim() },
       { 
@@ -980,13 +1065,16 @@ const updateDeviceName = async (req, res) => {
     );
 
     if (affectedRows === 0) {
+      log.warn('Device name update affected no rows');
       return res.status(404).json({ success: false, error: 'Device not found or you do not have permission to edit it.' });
     }
 
+    log.info('Device name updated');
     res.json({ success: true, message: 'Device name updated successfully.' });
 
   } catch (err) {
-    console.error("Error updating device name:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'updateDeviceName', deviceId });
+    log.error('Error updating device name', err);
     res.status(500).json({ success: false, error: 'An internal server error occurred.' });
   }
 };
@@ -1014,6 +1102,7 @@ const updateGeofence = async (req, res) => {
   }
 
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'updateGeofence', deviceId });
     const [affectedRows] = await db.Device.update(
       { geofence: geofence },
       { 
@@ -1025,26 +1114,31 @@ const updateGeofence = async (req, res) => {
     );
 
     if (affectedRows > 0) {
+    log.info('Geofence updated');
     res.json({ success: true, message: 'Geofence updated successfully.' });
     } else {
     // Pokud byla geofence null a snažíme se ji znovu nastavit na null, není to chyba.
     // Záznam se neaktualizoval, ale stav je správný.
     if (geofence === null) {
+        log.info('Geofence removed');
         res.json({ success: true, message: 'Geofence removed.' });
     } else {
+        log.warn('Geofence update attempted on unavailable device');
         return res.status(404).json({ success: false, error: 'Device not found or you do not have permission to edit it.' });
     }
 }
 
 
   } catch (err) {
-    console.error("Error updating geofence:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'updateGeofence', deviceId });
+    log.error('Error updating geofence', err);
     res.status(500).json({ success: false, error: 'An internal server error occurred.' });
   }
 };
 
 const getUnreadAlerts = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'getUnreadAlerts' });
     const userId = req.session.user.id;
     const devices = await db.Device.findAll({ where: { user_id: userId }, attributes: ['id'] });
     const deviceIds = devices.map(d => d.id);
@@ -1057,16 +1151,19 @@ const getUnreadAlerts = async (req, res) => {
       order: [['created_at', 'DESC']]
     });
 
+    log.info('Unread alerts fetched', { count: alerts.length });
     res.json(alerts);
 
   } catch (err) {
-    console.error("Error fetching unread alerts:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'getUnreadAlerts' });
+    log.error('Error fetching unread alerts', err);
     res.status(500).json({ success: false, error: 'An internal server error occurred.' });
   }
 };
 
 const markAlertsAsRead = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'markAlertsAsRead' });
     const { alertIds } = req.body;
     const userId = req.session.user.id;
 
@@ -1087,16 +1184,19 @@ const markAlertsAsRead = async (req, res) => {
       }
     );
 
+    log.info('Alerts marked as read', { alertCount: alertIds.length });
     res.json({ success: true, message: 'Alerts marked as read.' });
 
   } catch (err) {
-    console.error("Error marking alerts as read:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'markAlertsAsRead' });
+    log.error('Error marking alerts as read', err);
     res.status(500).json({ success: false, error: 'An internal server error occurred.' });
   }
 };
 
 const markDeviceAlertsAsRead = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'markDeviceAlertsAsRead' });
     const { deviceId } = req.params;
     const userId = req.session.user.id;
 
@@ -1106,6 +1206,7 @@ const markDeviceAlertsAsRead = async (req, res) => {
     });
 
     if (!device) {
+      log.warn('Attempt to mark alerts for missing device', { deviceId });
       return res.status(404).json({ success: false, error: 'Device not found.' });
     }
 
@@ -1121,16 +1222,19 @@ const markDeviceAlertsAsRead = async (req, res) => {
       await alert.save({ timestamps: false });
     }
 
+    log.info('Alerts for device marked as read', { deviceId });
     res.json({ success: true, message: `Alerts for device ${deviceId} marked as read.` });
 
   } catch (err) {
-    console.error("Error marking device alerts as read:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'markDeviceAlertsAsRead' });
+    log.error('Error marking device alerts as read', err);
     res.status(500).json({ success: false, error: 'An internal server error occurred.' });
   }
 };
 
 const exportDeviceDataAsGpx = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'exportDeviceDataAsGpx' });
     const deviceId = req.params.deviceId;
     const device = await db.Device.findOne({
       where: {
@@ -1140,6 +1244,7 @@ const exportDeviceDataAsGpx = async (req, res) => {
     });
 
     if (!device) {
+      log.warn('GPX export requested for missing device', { deviceId });
       return res.status(404).json({ error: 'Device not found' });
     }
 
@@ -1151,6 +1256,7 @@ const exportDeviceDataAsGpx = async (req, res) => {
     if (locations.length === 0) {
         res.setHeader('Content-Type', 'text/plain');
         res.setHeader('Content-Disposition', `attachment; filename="device_${deviceId}_no_data.txt"`);
+      log.info('GPX export had no data', { deviceId });
         return res.status(404).send('No location data found for this device.');
     }
 
@@ -1158,16 +1264,19 @@ const exportDeviceDataAsGpx = async (req, res) => {
 
     res.setHeader('Content-Type', 'application/gpx+xml');
     res.setHeader('Content-Disposition', `attachment; filename="device_${deviceId}_export.gpx"`);
+    log.info('GPX export generated', { deviceId, points: locations.length });
     res.send(gpxData);
 
   } catch (err) {
-    console.error("Error in exportDeviceDataAsGpx:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'exportDeviceDataAsGpx' });
+    log.error('Error exporting GPX data', err);
     res.status(500).json({ error: err.message });
   }
 };
 
 const getRawDeviceData = async (req, res) => {
   try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'getRawDeviceData' });
     const deviceId = req.query.id;
     const device = await db.Device.findOne({
       where: { 
@@ -1177,6 +1286,7 @@ const getRawDeviceData = async (req, res) => {
     });
 
     if (!device) {
+      log.warn('Raw data requested for missing device', { deviceId });
       return res.status(404).json({ error: 'Device not found' });
     }
 
@@ -1185,10 +1295,12 @@ const getRawDeviceData = async (req, res) => {
       order: [['timestamp', 'ASC']] 
     });
 
+    log.info('Raw device data returned', { deviceId, count: rawLocations.length });
     res.json(rawLocations);
 
   } catch (err) {
-    console.error("Error in getRawDeviceData:", err);
+    const log = getRequestLogger(req, { controller: 'device', action: 'getRawDeviceData' });
+    log.error('Error in getRawDeviceData', err);
     res.status(500).json({ error: err.message });
   }
 };

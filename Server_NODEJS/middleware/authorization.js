@@ -1,3 +1,5 @@
+const { getRequestLogger } = require('../utils/requestLogger');
+
 const isAuthenticated = (req, res, next) => {
   if (req.session.isAuthenticated) {
     return next();
@@ -32,8 +34,10 @@ const isRoot = (req, res, next) => {
 
 const authenticateDevice = async (req, res, next) => {
   const deviceId = req.body.device || (Array.isArray(req.body) && req.body.length > 0 ? req.body[0].device : null);
+  const log = getRequestLogger(req, { middleware: 'authenticateDevice', deviceId });
 
   if (!deviceId) {
+    log.warn('Device authentication missing deviceId');
     return res.status(400).json({ success: false, error: 'Device ID is missing in the request body.' });
   }
 
@@ -41,6 +45,7 @@ const authenticateDevice = async (req, res, next) => {
     const device = await require('../database').Device.findOne({ where: { device_id: deviceId } });
 
     if (!device) {
+      log.warn('Device not found during authentication');
       return res.status(404).json({ success: false, error: `Device with ID ${deviceId} not found or not registered.` });
     }
 
@@ -56,10 +61,11 @@ const authenticateDevice = async (req, res, next) => {
     req.device = device;
     req.user = user; // Attach the user object associated with the device
     req.clientType = device.device_type || (clientTypeFromRequest ? String(clientTypeFromRequest).trim().toUpperCase() : null);
+    log.info('Device authenticated', { userId: user.id, clientType: req.clientType });
     next();
 
   } catch (error) {
-    console.error('Error in authenticateDevice middleware:', error);
+    log.error('Error in authenticateDevice middleware', error);
     res.status(500).json({ success: false, error: 'Internal server error during device authentication.' });
   }
 };

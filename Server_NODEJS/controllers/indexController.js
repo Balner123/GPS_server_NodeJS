@@ -1,7 +1,9 @@
 const db = require('../database');
+const { getRequestLogger } = require('../utils/requestLogger');
 
 const getHomePage = async (req, res) => {
     try {
+        const log = getRequestLogger(req, { controller: 'index', action: 'getHomePage' });
         const devices = await db.Device.findAll({ 
             where: { user_id: req.session.user.id },
             attributes: ['id', 'name'] // Fetch attributes needed by the template
@@ -21,6 +23,7 @@ const getHomePage = async (req, res) => {
             order: [['created_at', 'DESC']]
         });
 
+        log.info('Homepage data loaded', { deviceCount: devices.length, alertCount: alerts.length });
         res.render('index', {
             currentPage: 'index',
             user: req.session.user,
@@ -30,7 +33,8 @@ const getHomePage = async (req, res) => {
             error: req.flash('error')
         });
     } catch (error) {
-        console.error("Error fetching data for homepage:", error);
+        const log = getRequestLogger(req, { controller: 'index', action: 'getHomePage' });
+        log.error('Error fetching data for homepage', error);
         res.render('index', {
             currentPage: 'index',
             user: req.session.user,

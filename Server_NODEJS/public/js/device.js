@@ -818,9 +818,10 @@ async function selectDevice(deviceId, options = {}) {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const settings = await response.json();
         
+        let deviceType = 'N/A';
         if (infoCard) {
             document.getElementById('info-registration-date').textContent = formatTimestamp(settings.created_at);
-            const deviceType = settings.device_type || 'N/A';
+            deviceType = settings.device_type || 'N/A';
             document.getElementById('info-device-type').textContent = deviceType;
 
             const satellitesSetting = document.getElementById('satellites-setting');
@@ -1413,6 +1414,34 @@ function resetPowerSummary() {
     updatePowerSummary({ power_instruction: 'NONE', power_status: 'N/A' });
 }
 
+function logAlertToServer(message, type) {
+    try {
+        const payload = JSON.stringify({
+            message,
+            type,
+            context: {
+                deviceId: typeof selectedDevice !== 'undefined' ? selectedDevice : null,
+                page: window.location.pathname
+            }
+        });
+
+        const endpoint = `${API_BASE_URL}/api/logs/ui`;
+        if (navigator.sendBeacon) {
+            const blob = new Blob([payload], { type: 'application/json' });
+            navigator.sendBeacon(endpoint, blob);
+        } else {
+            fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload,
+                keepalive: true
+            }).catch(() => {});
+        }
+    } catch (err) {
+        console.warn('Failed to record UI alert log', err);
+    }
+}
+
 function displayAlert(message, type = 'info') {
     const toastContainer = document.querySelector('.toast-container');
     if (!toastContainer) return console.error('Toast container not found!');
@@ -1430,4 +1459,5 @@ function displayAlert(message, type = 'info') {
     const toast = new bootstrap.Toast(document.getElementById(toastId), { delay: 5000 });
     toast.show();
     document.getElementById(toastId).addEventListener('hidden.bs.toast', (e) => e.target.remove());
+    logAlertToServer(message, type);
 }

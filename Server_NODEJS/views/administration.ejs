@@ -90,7 +90,9 @@
                             <th>Satellites</th>
                             <th>Mode</th>
                             <th>Last Seen</th>
+                            <th>Geofence</th>
                             <th>Actions</th>
+                            
                         </tr>
                     </thead>
                     <tbody>
@@ -106,6 +108,7 @@
                                 <td><%= device.satellites %></td>
                                 <td><%= device.mode %></td>
                                 <td><%= device.last_seen ? new Date(device.last_seen).toLocaleString() : 'Never' %></td>
+                                <td><%= device.geofence || 'N/A' %></td>
                                 <td>
                                     <form action="/api/admin/delete-device/<%= device.id %>" method="POST" onsubmit="return confirm('Delete this device and all related data?');">
                                         <button type="submit" class="btn btn-danger btn-sm">Delete</button>
