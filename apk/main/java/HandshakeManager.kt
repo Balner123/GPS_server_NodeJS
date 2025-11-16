@@ -81,7 +81,7 @@ object HandshakeManager {
     private fun executeHandshake(context: Context, reason: String) {
         val prefs = SharedPreferencesHelper.getEncryptedSharedPreferences(context)
         val deviceId = prefs.getString("device_id", null) ?: return
-        val sessionCookie = prefs.getString("session_cookie", null) ?: return
+        val sessionCookie = prefs.getString("session_cookie", null)
         val baseUrl = prefs.getString("server_url", BuildConfig.API_BASE_URL) ?: BuildConfig.API_BASE_URL
         val powerState = SharedPreferencesHelper.getPowerState(context)
         val appVersion = BuildConfig.VERSION_NAME
@@ -101,7 +101,11 @@ object HandshakeManager {
         connection.requestMethod = "POST"
         connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
         connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("Cookie", sessionCookie.split(";")[0])
+        sessionCookie
+            ?.split(";")
+            ?.firstOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { connection.setRequestProperty("Cookie", it) }
         connection.connectTimeout = 15000
         connection.readTimeout = 15000
         connection.doOutput = true

@@ -38,33 +38,33 @@ const validateDeviceInputPayload = (req, res, next) => {
     const latitude = toNumber(point.latitude);
     const longitude = toNumber(point.longitude);
 
-    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+    if (!Number.isFinite(latitude) || latitude < -90.0 || latitude > 90.0) {
       errors.push({ index, field: 'latitude', message: 'Latitude must be a number between -90 and 90.' });
     }
 
-    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    if (!Number.isFinite(longitude) || longitude < -180.0 || longitude > 180.0) {
       errors.push({ index, field: 'longitude', message: 'Longitude must be a number between -180 and 180.' });
     }
 
     if (point.speed !== undefined) {
       const speed = toNumber(point.speed);
-      if (!Number.isFinite(speed) || speed < 0 || speed > 1000) {
+      if (!Number.isFinite(speed) || speed < 0.0 || speed > 1000.0) {
         errors.push({ index, field: 'speed', message: 'Speed must be a positive number up to 1000 km/h.' });
       }
     }
 
     if (point.altitude !== undefined) {
       const altitude = toNumber(point.altitude);
-      if (!Number.isFinite(altitude) || altitude < -1000 || altitude > 10000) {
+      if (!Number.isFinite(altitude) || altitude < -1000.0 || altitude > 10000.0) {
         errors.push({ index, field: 'altitude', message: 'Altitude must be between -1000 and 10000 meters.' });
       }
     }
 
     if (point.accuracy !== undefined) {
       const accuracy = toNumber(point.accuracy);
-      if (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 100) {
+      /*if (!Number.isFinite(accuracy) || accuracy < 0.0 || accuracy > 100.0) {
         errors.push({ index, field: 'accuracy', message: 'Accuracy must be between 0 and 100.' });
-      }
+      }*/
     }
 
     if (point.satellites !== undefined) {

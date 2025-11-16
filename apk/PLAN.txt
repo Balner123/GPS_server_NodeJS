@@ -1,0 +1,29 @@
+PLAN: APK Communication Compliance Fixes
+======================================
+
+Scope
+-----
+Ensure the Android APK fulfills the requirements in `APK_comm_requirements.txt` by adjusting handshake/session handling, telemetry payload validation, and TURN_OFF processing so that the server receives proper OFF acknowledgements identical to the user-driven ON/OFF toggle behavior.
+
+Tasks
+-----
+1. Handshake without session cookie
+   - Remove the early return in `HandshakeManager.executeHandshake` when `session_cookie` is missing.
+   - Send the `Cookie` header only if a cookie exists; otherwise handshake using `device_id` only, as specified.
+   - Keep existing logging/retry logic so TURN_OFF acknowledgements are guaranteed to reach the server.
+
+2. Telemetry payload + cookie handling
+   - Update `SyncWorker.doWork` to stop skipping telemetry batches when the session cookie is null.
+   - In `postBatch`, set the `Cookie` header conditionally (only when present) so `/api/devices/input` can authenticate by `device_id` alone.
+   - Omit `accuracy` (and other optional fields) from the JSON payload if their values fall outside the validator ranges (e.g., accuracy < 0). Continue sending required fields (`device`, `latitude`, `longitude`, `timestamp`).
+
+3. TURN_OFF parity with manual toggle
+   - Ensure `PowerController.requestTurnOff` stops the foreground `LocationService` the same way as the UI toggle: call `stopForegroundService`/`stopSelf` via an explicit intent if needed so Android actually destroys the service.
+   - Persist `power_status=OFF` + `pending_ack=true`, broadcast status, cancel periodic handshake, and immediately launch the acknowledgement handshake.
+   - Once the server responds without `TURN_OFF`, call `PowerController.markTurnOffAcknowledged` to clear the pending flag and allow the user to re-enable tracking.
+
+Validation checklist
+--------------------
+- Trigger TURN_OFF from the server, observe that the service stops and an ACK handshake (without cookie) reports `power_status="OFF"`.
+- Resume tracking via the UI toggle and confirm the service restarts, clearing the pending ACK.
+- Capture a telemetry batch without `session_cookie` and confirm `/api/devices/input` accepts the payload (no validator errors on `accuracy`).

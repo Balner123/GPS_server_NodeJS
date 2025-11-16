@@ -1,16 +1,5 @@
-2025-11-13 09:00 - INIT - Starting implementation of TURN_OFF compliance per plan_power_switching.txt. Preparing codebase for PowerController rebuild.
-2025-11-13 09:12 - STEP - Extended SharedPreferencesHelper with TURN_OFF tracking keys, transition metadata, and helpers for pending acknowledgements.
-2025-11-13 09:28 - STEP - Rebuilt PowerController to enforce TURN_OFF shutdowns, gate restarts while acknowledgements are pending, and broadcast OFF state snapshots.
-2025-11-13 09:34 - STEP - Wired HandshakeManager to invoke PowerController, preventing restarts during pending TURN_OFF acknowledgements and honoring server instructions.
-2025-11-13 09:42 - STEP - Updated SyncWorker to respect TURN_OFF directives, halt batch processing during shutdown, and block restarts while acknowledgements await.
-2025-11-13 09:50 - STEP - Adjusted MainActivity UI to disable manual toggles during TURN_OFF, surface status toasts, and route manual restarts through PowerController.
-2025-11-13 09:56 - STEP - Refined LocationService shutdown to preserve pending TURN_OFF acknowledgements and avoid duplicate confirmation handshakes.
-2025-11-13 10:02 - STEP - Blocked LocationService restarts while TURN_OFF acknowledgement is pending and broadcast the waiting state to the UI.
-2025-11-13 10:08 - STEP - Updated SyncWorker to skip uploads during TURN_OFF acknowledgement and trigger dedicated handshake retries.
-2025-11-13 10:12 - STEP - Persisted TURN_OFF acknowledgement metadata and aligned PowerController broadcasts once the server clears the flag.
-2025-11-13 10:18 - STEP - Updated MainActivity status UI to show server-enforced shutdown state and keep controls disabled while acknowledgement is pending.
-2025-11-13 10:20 - NOTE - Added progress snapshot to plan_power_switching.txt to track remaining tasks (tests, docs, UX polish).
-2025-11-13 10:26 - FIX  - Restored SharedPreferencesHelper TURN_OFF helpers inside the object after resolving unresolved reference errors.
-2025-11-13 10:32 - FIX  - Re-registered logoutReceiver via ContextCompat.registerReceiver with NOT_EXPORTED flag to satisfy Android 13+ broadcast requirements.
-2025-11-13 10:38 - STEP - Added detailed logging for TURN_OFF communication flow in HandshakeManager, SyncWorker, and PowerController.
-2025-11-13 10:28 - STEP - Added server instruction banner to MainActivity layout and wired UI logic to display shutdown details while TURN_OFF is active.
+2025-11-16
+- Handshake now executes without requiring a session cookie; Cookie header is attached only when present (HandshakeManager.kt).
+- Telemetry (SyncWorker.kt) no longer skips batches when the cookie is missing, conditionally sets the Cookie header, and filters optional fields to meet validator ranges (e.g., accuracy >= 0).
+- TURN_OFF parity: LocationService listens for a local STOP broadcast so PowerController can stop the foreground service just like the manual toggle, ensuring the service actually shuts down and reports OFF state.
+

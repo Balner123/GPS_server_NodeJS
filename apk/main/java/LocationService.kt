@@ -28,6 +28,7 @@ class LocationService : Service() {
     companion object {
         const val ACTION_BROADCAST_STATUS = "com.example.gpsreporterapp.BROADCAST_STATUS"
         const val ACTION_REQUEST_STATUS_UPDATE = "com.example.gpsreporterapp.REQUEST_STATUS_UPDATE"
+        const val ACTION_STOP_SERVICE = "com.example.gpsreporterapp.STOP_SERVICE"
         const val ACTION_FORCE_LOGOUT = "com.example.gpsreporterapp.FORCE_LOGOUT"
         const val EXTRA_SERVICE_STATE = "extra_service_state"
         const val EXTRA_LOGOUT_MESSAGE = "extra_logout_message"
@@ -75,6 +76,14 @@ class LocationService : Service() {
         }
     }
 
+    private val stopServiceReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            ConsoleLogger.log("LocationService: stop request received via broadcast, shutting down.")
+            stopForegroundSafely()
+            stopSelf()
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         ConsoleLogger.log("Služba LocationService se vytváří.")
@@ -86,6 +95,11 @@ class LocationService : Service() {
         } else {
             registerReceiver(locationProviderReceiver, providerFilter)
         }
+
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            stopServiceReceiver,
+            IntentFilter(ACTION_STOP_SERVICE)
+        )
 
         currentServiceState.powerStatus = SharedPreferencesHelper.getPowerState(this).toString()
 
@@ -366,6 +380,7 @@ class LocationService : Service() {
         ConsoleLogger.log("Služba LocationService se zastavuje.")
         fusedLocationClient.removeLocationUpdates(locationCallback)
         unregisterReceiver(locationProviderReceiver)
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(stopServiceReceiver)
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(applicationContext)
         val transitionReason = if (ackPending) {
             SharedPreferencesHelper.getPowerTransitionReason(applicationContext) ?: "service_destroy"
@@ -393,6 +408,15 @@ class LocationService : Service() {
             instructionSource = transitionReason
         )
         ConsoleLogger.log("Služba LocationService zničena.")
+    }
+
+    private fun stopForegroundSafely() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(Service.STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
     }
 
     override fun onBind(intent: Intent): IBinder? {

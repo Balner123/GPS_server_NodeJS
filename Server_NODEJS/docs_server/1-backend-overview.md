@@ -68,6 +68,6 @@ Základní serverový logger je implementován v `utils/logger.js` a všechny HT
 - **Formát**: Každý řádek obsahuje ISO timestamp, úroveň (resp. HTTP metodu) a JSON serializovaná metadata (např. `requestId`, `statusCode`, `durationMs`).
 - **Oddělené úrovně pro metody**: Od listopadu 2025 je úroveň logu svázána s metodou. GET požadavky používají úroveň `[GET]` a jsou logovány pouze jedním stručným řádkem (`GET /route ...`) bez payloadu. Zbytek metod (POST, PUT, DELETE, …) zachovává detailní logování payloadů i odpovědí a úroveň odpovídající metodě (`[POST]`, `[PUT]`, …).
 - **Maskování citlivých dat**: Logger automaticky rediguje hodnoty klíčů jako `password`, `token`, `authorization` atd. Funkce `sanitizePayload` navíc ořezává příliš velké objekty podle hodnoty `LOGGER_MAX_BODY_LENGTH` (výchozí 8192 bajtů, konfigurovatelná přes env).
-- **Kontekstové loggery**: Volání `req.log = logger.child({ ... })` umožňuje controllerům a middleware sdílet stejné `requestId` a přidávat vlastní metadata.
+- **Kontextové loggery**: Volání `req.log = logger.child({ ... })` umožňuje controllerům a middleware sdílet stejné `requestId` a přidávat vlastní metadata.
 
 > Tip: Pro rychlé sledování nových záznamů použijte `tail -f log.txt` (nebo PowerShell `Get-Content log.txt -Wait`).

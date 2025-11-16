@@ -50,8 +50,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         val clientType = sharedPrefs.getString("client_type", "APK") ?: "APK"
 
         if (sessionCookie.isNullOrBlank()) {
-            ConsoleLogger.log("SyncWorker: chybí session cookie, synchronizace přeskočena.")
-            return Result.success()
+            ConsoleLogger.log("SyncWorker: session cookie missing, fallback to device-auth payload.")
         }
 
         if (SharedPreferencesHelper.isTurnOffAckPending(applicationContext)) {
@@ -82,13 +81,25 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                     put("name", location.deviceName)
                     put("latitude", location.latitude)
                     put("longitude", location.longitude)
-                    put("speed", location.speed)
-                    put("altitude", location.altitude)
-                    put("accuracy", location.accuracy)
-                    put("satellites", location.satellites)
                     put("power_status", location.powerStatus)
                     put("client_type", clientType)
                     put("timestamp", formatTimestamp(location.timestamp))
+                }
+
+                if (location.speed in 0f..1000f) {
+                    jsonObject.put("speed", location.speed)
+                }
+
+                if (location.altitude in -1000.0..10000.0) {
+                    jsonObject.put("altitude", location.altitude)
+                }
+
+                if (location.accuracy >= 0f && location.accuracy <= 100f) {
+                    jsonObject.put("accuracy", location.accuracy)
+                }
+
+                if (location.satellites in 0..50) {
+                    jsonObject.put("satellites", location.satellites)
                 }
                 payload.put(jsonObject)
                 idsToDelete.add(location.id)
@@ -122,12 +133,14 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         return Result.success()
     }
 
-    private fun postBatch(baseUrl: String, sessionCookie: String, payload: JSONArray): String {
+    private fun postBatch(baseUrl: String, sessionCookie: String?, payload: JSONArray): String {
         val url = URL("$baseUrl/api/devices/input")
         val connection = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            setRequestProperty("Cookie", sessionCookie)
+            sessionCookie
+                ?.takeIf { it.isNotBlank() }
+                ?.let { setRequestProperty("Cookie", it) }
             doOutput = true
             connectTimeout = 15000
             readTimeout = 15000

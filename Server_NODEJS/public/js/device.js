@@ -863,8 +863,9 @@ async function selectDevice(deviceId, options = {}) {
 
         const powerCard = document.getElementById('power-control-card');
         if (powerCard) {
-            powerCard.style.display = deviceType === 'HW' ? 'block' : 'none';
+            powerCard.style.display = deviceType === 'HW' ? 'block' : 'block'; //vyrušeni podminky pro testovaci ucely
         }
+
         updatePowerSummary({
             power_instruction: settings.power_instruction,
             power_status: settings.power_status

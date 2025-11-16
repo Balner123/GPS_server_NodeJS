@@ -119,6 +119,7 @@ object PowerController {
 	}
 
 	private fun stopLocationService(context: Context) {
+		LocalBroadcastManager.getInstance(context).sendBroadcast(Intent(LocationService.ACTION_STOP_SERVICE))
 		context.stopService(Intent(context, LocationService::class.java))
 	}
 
