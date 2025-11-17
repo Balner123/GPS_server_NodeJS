@@ -33,11 +33,19 @@ object HandshakeManager {
         .build()
 
     suspend fun performHandshake(context: Context, reason: String = "manual") {
+        ConsoleLogger.info("Handshake: Starting (reason=$reason)")
+
+        if (!NetworkUtils.isOnline(context)) {
+            ConsoleLogger.warn("Handshake: Skipped – internet unavailable")
+            enqueueHandshakeWork(context)
+            return
+        }
+
         val result = runCatching {
             executeHandshake(context, reason)
         }
         result.exceptionOrNull()?.let { error ->
-            ConsoleLogger.log("Handshake selhal ($reason): ${error.message}")
+            ConsoleLogger.error("Handshake: Error ($reason): ${error.message}")
             throw error
         }
     }
@@ -61,7 +69,7 @@ object HandshakeManager {
     }
 
     fun schedulePeriodicHandshake(context: Context, repeatMinutes: Long = 60) {
-        ConsoleLogger.log("Plánování periodického handshake (každých ${repeatMinutes} min)")
+        ConsoleLogger.info("Handshake: Scheduling periodic run every ${repeatMinutes} min")
         val periodicWork = PeriodicWorkRequestBuilder<HandshakeWorker>(repeatMinutes, TimeUnit.MINUTES)
             .setConstraints(handshakeConstraints)
             .setInputData(workDataOf("reason" to "periodic"))
@@ -74,7 +82,7 @@ object HandshakeManager {
     }
 
     fun cancelPeriodicHandshake(context: Context) {
-        ConsoleLogger.log("Ruším periodický handshake")
+        ConsoleLogger.info("Handshake: Cancelling periodic run")
         WorkManager.getInstance(context).cancelUniqueWork(HANDSHAKE_PERIODIC_WORK_NAME)
     }
 
@@ -94,6 +102,10 @@ object HandshakeManager {
             "app_version" to appVersion,
             "platform" to platform,
             "reason" to reason
+        )
+
+        ConsoleLogger.debug(
+            "Handshake: Request: device=$deviceId power=$powerState reason=$reason"
         )
 
         val url = URL("$baseUrl/api/devices/handshake")
@@ -118,8 +130,11 @@ object HandshakeManager {
         val stream = if (responseCode < 400) connection.inputStream else connection.errorStream
         val responseBody = BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
 
+        ConsoleLogger.debug(
+            "Handshake: Response: code=$responseCode body=${responseBody.take(160)}"
+        )
+
         if (responseCode != HttpURLConnection.HTTP_OK) {
-            ConsoleLogger.log("Handshake odpověděl kódem $responseCode: $responseBody")
             return
         }
 
@@ -129,9 +144,9 @@ object HandshakeManager {
 
     private fun handleHandshakeResponse(context: Context, response: HandshakeResponse) {
         if (!response.registered) {
-            ConsoleLogger.log("Handshake: zařízení není registrováno.")
+            ConsoleLogger.error("Handshake: Device is not registered.")
             val intent = Intent(LocationService.ACTION_FORCE_LOGOUT).apply {
-                putExtra(LocationService.EXTRA_LOGOUT_MESSAGE, "Zařízení není registrováno. Přegenerujte registraci.")
+                putExtra(LocationService.EXTRA_LOGOUT_MESSAGE, "Device is not registered. Please re-register it.")
             }
             context.sendBroadcast(intent)
             return
@@ -146,7 +161,7 @@ object HandshakeManager {
             if (prefs.getInt("gps_interval_seconds", 60) != intervalGps) {
                 editor.putInt("gps_interval_seconds", intervalGps)
                 settingsChanged = true
-                ConsoleLogger.log("Handshake: interval GPS změněn na ${intervalGps}s")
+                ConsoleLogger.info("Handshake: GPS interval changed to ${intervalGps}s")
             }
         }
 
@@ -154,7 +169,7 @@ object HandshakeManager {
             if (prefs.getInt("sync_interval_count", 1) != intervalSend) {
                 editor.putInt("sync_interval_count", intervalSend)
                 settingsChanged = true
-                ConsoleLogger.log("Handshake: interval odeslání změněn na ${intervalSend}")
+                ConsoleLogger.info("Handshake: Send interval changed to ${intervalSend}")
             }
         }
 
@@ -164,8 +179,8 @@ object HandshakeManager {
         val isCurrentlyOn = currentPowerState == PowerState.ON
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(context)
 
-        ConsoleLogger.log(
-            "Handshake: received power_instruction=${powerInstruction ?: "NONE"}, current_state=$currentPowerState, ackPending=$ackPending"
+        ConsoleLogger.debug(
+            "Handshake: State: instruction=${powerInstruction ?: "NONE"} current=$currentPowerState ackPending=$ackPending"
         )
 
         if (settingsChanged && isCurrentlyOn && powerInstruction != "TURN_OFF" && !ackPending) {
@@ -181,10 +196,10 @@ object HandshakeManager {
 
     private fun restartLocationService(context: Context) {
         if (SharedPreferencesHelper.getPowerState(context) == PowerState.OFF) {
-            ConsoleLogger.log("Handshake: restart služby přeskočen (power OFF).")
+            ConsoleLogger.info("Handshake: Service restart skipped (power OFF)")
             return
         }
-        ConsoleLogger.log("Handshake: restartuji LocationService pro aplikaci nové konfigurace.")
+        ConsoleLogger.info("Handshake: Restarting LocationService to apply new config")
         context.stopService(Intent(context, LocationService::class.java))
         val intent = Intent(context, LocationService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

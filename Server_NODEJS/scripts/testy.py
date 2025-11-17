@@ -15,7 +15,7 @@ TEST_USERNAME = "lotr"
 TEST_PASSWORD = "lotr"
 
 # Unikátní ID pro naše testovací zařízení (10 znaků dle HW specifikace)
-DEVICE_ID = "0123855789"
+DEVICE_ID = "3333337789"
 
 # Default power status reported by this test device
 DEFAULT_POWER_STATUS = "ON"
@@ -60,7 +60,7 @@ def register_device() -> bool:
         "username": TEST_USERNAME,
         "password": TEST_PASSWORD,
         "device_id": DEVICE_ID,
-        "name": "HW Spec Test Device"
+        "name": "ALER33T TEST Device"
     }
 
     print(f"--- Registrace zařízení {DEVICE_ID} pro uživatele {TEST_USERNAME} ---")

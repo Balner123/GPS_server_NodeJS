@@ -1,46 +1,60 @@
 const { getRequestLogger } = require('../utils/requestLogger');
 
+function hasUserSession(req) {
+  return Boolean(req.session?.isAuthenticated && req.session?.user);
+}
+
 const isAuthenticated = (req, res, next) => {
-  if (req.session.isAuthenticated) {
+  if (hasUserSession(req)) {
     return next();
   }
+  req.flash?.('error', 'Please log in to view this page.');
   res.redirect('/login');
 };
 
 const isApiAuthenticated = (req, res, next) => {
-  if (req.session.isAuthenticated) {
+  if (hasUserSession(req)) {
+    return next();
+  }
+  return res.status(401).json({ success: false, error: 'Authentication required.' });
+};
+
+const isNotRootApi = (req, res, next) => {
+  if (hasUserSession(req) && req.session.user.username === 'root') {
+    return res.status(403).json({ success: false, error: 'Root user cannot access this API endpoint.' });
+  }
+  if (hasUserSession(req)) {
     return next();
   }
   return res.status(401).json({ success: false, error: 'Authentication required.' });
 };
 
 const isUser = (req, res, next) => {
-  if (req.session.isAuthenticated && req.session.user.username !== 'root') {
+  if (hasUserSession(req) && req.session.user.username !== 'root') {
     return next();
   }
-  // If root user tries to access user pages, redirect them to their dashboard
-  if (req.session.isAuthenticated && req.session.user.username === 'root') {
-      return res.redirect('/administration');
+  if (hasUserSession(req) && req.session.user.username === 'root') {
+    return res.redirect('/administration');
   }
-  req.flash('error', 'Please log in to view this page.');
+  req.flash?.('error', 'Please log in to view this page.');
   res.redirect('/login');
 };
 
 const isRoot = (req, res, next) => {
-  if (req.session.isAuthenticated && req.session.user.username === 'root') {
+  if (hasUserSession(req) && req.session.user.username === 'root') {
     return next();
   }
-   // If a normal user tries to access admin page, redirect to their dashboard
-  if (req.session.isAuthenticated && req.session.user.username !== 'root') {
-      req.flash('error', 'You do not have permission to view this page.');
-      return res.redirect('/');
+  if (hasUserSession(req) && req.session.user.username !== 'root') {
+    req.flash?.('error', 'You do not have permission to view this page.');
+    return res.redirect('/');
   }
-  req.flash('error', 'Please log in to view this page.');
+  req.flash?.('error', 'Please log in to view this page.');
   res.redirect('/login');
 };
 
 const authenticateDevice = async (req, res, next) => {
-  const deviceId = req.body.device || (Array.isArray(req.body) && req.body.length > 0 ? req.body[0].device : null);
+  const payload = Array.isArray(req.body) ? req.body[0] : req.body;
+  const deviceId = payload?.device || payload?.device_id || payload?.deviceId || null;
   const log = getRequestLogger(req, { middleware: 'authenticateDevice', deviceId });
 
   if (!deviceId) {
@@ -77,4 +91,4 @@ const authenticateDevice = async (req, res, next) => {
   }
 };
 
-module.exports = { isAuthenticated, isUser, isRoot, authenticateDevice, isApiAuthenticated };
+module.exports = { isAuthenticated, isUser, isRoot, authenticateDevice, isApiAuthenticated, isNotRootApi };

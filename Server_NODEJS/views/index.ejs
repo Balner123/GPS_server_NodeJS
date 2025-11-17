@@ -50,22 +50,39 @@
                     </div>
 
                     <div class="card mt-4 fade-in-on-load" style="animation-delay: 0.3s;">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Active Alerts</h5>
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                Active Alerts
+                            </h5>
+                            <a href="/alerts" class="btn btn-sm btn-outline-primary">View All Alerts</a>
                         </div>
                         <div class="card-body">
                             <% if (typeof alerts !== 'undefined' && alerts.length > 0) { %>
-                                <ul class="list-group list-group-flush">
+                                <div class="list-group">
                                     <% alerts.forEach(alert => { %>
-                                        <li class="list-group-item list-group-item-danger">
-                                            <a href="/devices?id=<%= alert.Device.device_id %>" class="text-decoration-none text-dark">
-                                                <strong><%= alert.Device.name || alert.Device.device_id %>:</strong>
-                                                <p class="mb-1"><%= alert.message %></p>
-                                                <small class="text-muted"><%= new Date(alert.created_at).toLocaleString() %></small>
-                                            </a>
-                                        </li>
+                                        <% 
+                                            let bgColorClass = 'bg-danger'; // Default for geofence
+                                            let iconClass = 'fa-exclamation-triangle text-white'; // Icon white
+                                            let textColorClass = 'text-white'; // Text white
+
+                                            if (alert.type === 'geofence_return') {
+                                                bgColorClass = 'bg-info'; // Changed to info for return
+                                                iconClass = 'fa-info-circle text-white'; // Icon white
+                                                textColorClass = 'text-white'; // Text white
+                                            }
+                                        %>
+                                        <a href="/devices?id=<%= alert.Device.device_id %>" class="list-group-item list-group-item-action flex-column align-items-start mb-2 rounded <%= bgColorClass %>">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1 <%= textColorClass %>">
+                                                    <i class="fas <%= iconClass %> me-2"></i>
+                                                    <%= alert.Device ? alert.Device.name : 'N/A' %>
+                                                </h6>
+                                                <small class="<%= textColorClass %>"><%= new Date(alert.created_at).toLocaleString() %></small>
+                                            </div>
+                                            <small class="badge bg-secondary text-light"><%= alert.type %></small>
+                                        </a>
                                     <% }); %>
-                                </ul>
+                                </div>
                             <% } else { %>
                                 <p class="text-muted">No active alerts.</p>
                             <% } %>

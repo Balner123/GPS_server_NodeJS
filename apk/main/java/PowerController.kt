@@ -14,23 +14,23 @@ object PowerController {
 		val currentState = SharedPreferencesHelper.getPowerState(context)
 		val alreadyPending = SharedPreferencesHelper.isTurnOffAckPending(context)
 
-		ConsoleLogger.log(
+		ConsoleLogger.info(
 			"PowerController[$origin]: TURN_OFF instruction intercepted (currentState=$currentState, pendingAck=$alreadyPending)"
 		)
 
 		if (currentState == PowerState.OFF && alreadyPending) {
-			ConsoleLogger.log("PowerController[$origin]: TURN_OFF already pending; broadcasting snapshot only.")
+			ConsoleLogger.debug("PowerController[$origin]: TURN_OFF already pending; broadcasting snapshot only.")
 			broadcastSnapshot(
 				context = context,
 				status = StatusMessages.SERVICE_STOPPED,
-				connectionStatus = "Vypnuto na základě instrukce serveru",
+				connectionStatus = "Stopped per server instruction",
 				ackPending = true,
 				source = origin
 			)
 			return
 		}
 
-		ConsoleLogger.log("PowerController[$origin]: applying TURN_OFF, persisting OFF state and stopping service.")
+		ConsoleLogger.info("PowerController[$origin]: Applying TURN_OFF, persisting OFF state and stopping service.")
 
 		SharedPreferencesHelper.setPowerState(
 			context,
@@ -39,40 +39,44 @@ object PowerController {
 			reason = origin
 		)
 
-		ConsoleLogger.log("PowerController[$origin]: stopping LocationService and cancelling periodic handshake.")
+		ConsoleLogger.debug("PowerController[$origin]: stopping LocationService and cancelling periodic handshake.")
 		stopLocationService(context)
 		HandshakeManager.cancelPeriodicHandshake(context)
+		NotificationHelper.showServerTurnOffNotification(
+			context,
+			"Service was stopped remotely. Waiting for server confirmation."
+		)
 
 		broadcastSnapshot(
 			context = context,
 			status = StatusMessages.SERVICE_STOPPED,
-			connectionStatus = "Vypnuto na základě instrukce serveru",
+			connectionStatus = "Stopped per server instruction",
 			ackPending = true,
 			source = origin
 		)
 
 		if (!alreadyPending) {
-			ConsoleLogger.log("PowerController[$origin]: scheduling TURN_OFF acknowledgement handshake.")
+			ConsoleLogger.debug("PowerController[$origin]: scheduling TURN_OFF acknowledgement handshake.")
 			scheduleAckHandshake(context, origin)
 		} else {
-			ConsoleLogger.log("PowerController[$origin]: acknowledgement already pending, handshake not rescheduled.")
+			ConsoleLogger.debug("PowerController[$origin]: acknowledgement already pending, handshake not rescheduled.")
 		}
 	}
 
 	fun requestTurnOn(context: Context, origin: String): Boolean {
 		if (SharedPreferencesHelper.isTurnOffAckPending(context)) {
-			ConsoleLogger.log("PowerController[$origin]: start blocked – TURN_OFF acknowledgement still pending.")
+			ConsoleLogger.warn("PowerController[$origin]: start blocked – TURN_OFF acknowledgement still pending.")
 			broadcastSnapshot(
 				context = context,
 				status = StatusMessages.SERVICE_STOPPED,
-				connectionStatus = "Čekání na potvrzení TURN_OFF",
+				connectionStatus = "Waiting for TURN_OFF confirmation",
 				ackPending = true,
 				source = SharedPreferencesHelper.getPowerTransitionReason(context) ?: origin
 			)
 			return false
 		}
 
-		ConsoleLogger.log("PowerController[$origin]: transitioning power state to ON and restarting LocationService.")
+		ConsoleLogger.info("PowerController[$origin]: transitioning power state to ON and restarting LocationService.")
 		SharedPreferencesHelper.setPowerState(
 			context,
 			PowerState.ON,
@@ -88,7 +92,7 @@ object PowerController {
 
 	fun markTurnOffAcknowledged(context: Context, origin: String) {
 		if (!SharedPreferencesHelper.isTurnOffAckPending(context)) {
-			ConsoleLogger.log("PowerController[$origin]: no pending TURN_OFF acknowledgement to clear.")
+			ConsoleLogger.debug("PowerController[$origin]: no pending TURN_OFF acknowledgement to clear.")
 			return
 		}
 
@@ -99,21 +103,22 @@ object PowerController {
 			pendingAck = false,
 			reason = origin
 		)
-		ConsoleLogger.log("PowerController[$origin]: TURN_OFF acknowledgement confirmed; resuming periodic handshake.")
+		ConsoleLogger.info("PowerController[$origin]: TURN_OFF acknowledgement confirmed; resuming periodic handshake.")
 
 		broadcastSnapshot(
 			context = context,
 			status = StatusMessages.SERVICE_STOPPED,
-			connectionStatus = "Server potvrdil vypnutí",
+			connectionStatus = "Server confirmed shutdown",
 			ackPending = false,
 			source = origin
 		)
 
 		HandshakeManager.schedulePeriodicHandshake(context)
+		NotificationHelper.cancelServerTurnOffNotification(context)
 	}
 
 	private fun scheduleAckHandshake(context: Context, origin: String) {
-		ConsoleLogger.log("PowerController[$origin]: launching immediate handshake + enqueue for TURN_OFF acknowledgement.")
+		ConsoleLogger.debug("PowerController[$origin]: launching immediate handshake + enqueue for TURN_OFF acknowledgement.")
 		HandshakeManager.launchHandshake(context, reason = "${origin}_turn_off_ack")
 		HandshakeManager.enqueueHandshakeWork(context)
 	}
@@ -130,6 +135,7 @@ object PowerController {
 		} else {
 			context.startService(intent)
 		}
+		NotificationHelper.cancelServerTurnOffNotification(context)
 	}
 
 	private fun broadcastSnapshot(
@@ -139,7 +145,7 @@ object PowerController {
 		ackPending: Boolean,
 		source: String?
 	) {
-		ConsoleLogger.log(
+		ConsoleLogger.debug(
 			"PowerController[$source]: broadcasting state -> status=$status, connection=$connectionStatus, ackPending=$ackPending"
 		)
 		val state = ServiceState(

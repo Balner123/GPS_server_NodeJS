@@ -8,7 +8,7 @@
     android:background="#F5F5F5"
     tools:context=".MainActivity">
 
-    <!-- Banner serverového zásahu -->
+    <!-- Banner shown when server issues instructions -->
     <TextView
         android:id="@+id/serverInstructionBanner"
         android:layout_width="0dp"
@@ -16,7 +16,7 @@
         android:layout_marginBottom="12dp"
         android:background="#FFF3CD"
         android:padding="12dp"
-        android:text="Službu vypnul server. Čeká se na potvrzení."
+        android:text="Server stopped the service. Awaiting confirmation."
         android:textColor="#856404"
         android:textStyle="bold"
         android:visibility="gone"
@@ -24,7 +24,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Horní část s tlačítkem a základním stavem -->
+    <!-- Top section with toggle button and current state -->
     <androidx.cardview.widget.CardView
         android:id="@+id/statusCard"
         android:layout_width="0dp"
@@ -42,7 +42,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="16dp"
-            android:text="Služba je zastavena"
+            android:text="Service is stopped"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textStyle="bold" />
     </androidx.cardview.widget.CardView>
@@ -69,7 +69,7 @@
         android:background="#E0E0E0"
         app:layout_constraintTop_toBottomOf="@id/toggleButton" />
 
-    <!-- Detailní informace -->
+    <!-- Detailed telemetry info -->
     <androidx.cardview.widget.CardView
         android:id="@+id/infoCard"
         android:layout_width="match_parent"
@@ -94,7 +94,7 @@
                     android:id="@+id/label_connection"
                     android:layout_width="120dp"
                     android:layout_height="wrap_content"
-                    android:text="Stav synchronizace:"
+                    android:text="Sync status:"
                     android:textStyle="bold" />
 
                 <TextView
@@ -114,7 +114,7 @@
                     android:id="@+id/label_countdown"
                     android:layout_width="120dp"
                     android:layout_height="wrap_content"
-                    android:text="Další odeslání:"
+                    android:text="Next upload:"
                     android:textStyle="bold" />
 
                 <TextView
@@ -134,7 +134,7 @@
                     android:id="@+id/label_last_info"
                     android:layout_width="120dp"
                     android:layout_height="wrap_content"
-                    android:text="Stav služby:"
+                    android:text="Service status:"
                     android:textStyle="bold" />
 
                 <LinearLayout
@@ -146,7 +146,7 @@
                         android:id="@+id/lastLocationTextView"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Poslední získaná poloha: -"
+                        android:text="Last recorded location: -"
                         android:textSize="14sp" />
 
                     <TextView
@@ -154,7 +154,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Pozic v mezipaměti: 0"
+                        android:text="Cached positions: 0"
                         android:textSize="14sp" />
 
                     <TextView
@@ -170,7 +170,7 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- Konzole -->
+    <!-- Console -->
     <androidx.cardview.widget.CardView
         android:id="@+id/consoleCard"
         android:layout_width="match_parent"
@@ -191,7 +191,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:padding="16dp"
-                android:text="Konzole"
+                android:text="Console"
                 android:textStyle="bold" />
 
             <ScrollView
@@ -206,7 +206,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:fontFamily="monospace"
-                    android:text="Konzole připravena..."
+                    android:text="Console ready..."
                     android:textColor="#FFFFFF"
                     android:textSize="12sp" />
             </ScrollView>

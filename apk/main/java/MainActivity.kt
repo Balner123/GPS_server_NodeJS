@@ -1,4 +1,4 @@
-package com.example.gpsreporterapp // Zde bude tvůj package name
+package com.example.gpsreporterapp // Application package name
 
 import android.Manifest
 import android.content.BroadcastReceiver
@@ -58,7 +58,7 @@ class MainActivity : AppCompatActivity() {
 
     private val logoutReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val message = intent?.getStringExtra(LocationService.EXTRA_LOGOUT_MESSAGE) ?: "Došlo k chybě přihlášení."
+            val message = intent?.getStringExtra(LocationService.EXTRA_LOGOUT_MESSAGE) ?: "A login error occurred."
             showLogoutDialog(message)
         }
     }
@@ -75,39 +75,16 @@ class MainActivity : AppCompatActivity() {
 
                         lastLocationTextView.text = serviceState.statusMessage
                         lastConnectionStatusTextView.text = serviceState.connectionStatus
-                        cachedCountTextView.text = "Pozic v mezipaměti: ${serviceState.cachedCount}"
+                        cachedCountTextView.text = "Cached positions: ${serviceState.cachedCount}"
                         val powerStatus = serviceState.powerStatus
                         powerStatusTextView.text = "Power: ${powerStatus}"
                         toggleButton.isEnabled = !serviceState.ackPending
-                        serverInstructionBanner.visibility = if (serviceState.ackPending) View.VISIBLE else View.GONE
-                        serverInstructionBanner.text = if (serviceState.ackPending) {
-                            val originHint = serviceState.powerInstructionSource?.takeIf { it.isNotBlank() }
-                            if (originHint != null) {
-                                "Službu vypnul server. Čeká se na potvrzení. (" + originHint + ")"
-                            } else {
-                                "Službu vypnul server. Čeká se na potvrzení."
-                            }
-                        } else {
-                            ""
-                        }
-                        if (serviceState.ackPending && !lastAckPending) {
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Službu vypnul server, čeká se na potvrzení.",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
-                        if (!serviceState.ackPending && lastAckPending) {
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Server potvrdil vypnutí. Můžete službu znovu spustit.",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
+                        serverInstructionBanner.visibility = View.GONE
+                        serverInstructionBanner.text = ""
                         lastAckPending = serviceState.ackPending
                         if (!powerStatus.equals(lastPowerStatus, ignoreCase = true)) {
                             if (powerStatus.equals("OFF", ignoreCase = true) && serviceState.connectionStatus.contains("instrukce", true)) {
-                                Toast.makeText(this@MainActivity, "Službu vypnul server.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(this@MainActivity, "Service was stopped by the server.", Toast.LENGTH_LONG).show()
                             }
                             lastPowerStatus = powerStatus
                         }
@@ -129,17 +106,49 @@ class MainActivity : AppCompatActivity() {
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
+            // Check if all requested permissions were granted
+            val allGranted = permissions.entries.all { it.value }
+            if (allGranted) {
+                // If all permissions were granted, proceed with the next check (which might be background location)
                 checkAndRequestPermissions()
             } else {
-                Toast.makeText(this, "Povolení k poloze je nutné pro funkčnost aplikace.", Toast.LENGTH_LONG).show()
+                // Not all permissions were granted. Check if any were permanently denied.
+                val permanentlyDenied = permissions.entries.any { !it.value && !shouldShowRequestPermissionRationale(it.key) }
+                if (permanentlyDenied) {
+                    // If a permission is permanently denied, show a dialog to guide the user to settings.
+                    showSettingsDialog()
+                } else {
+                    // If permissions were denied but not permanently, show a toast.
+                    Toast.makeText(this, "Permissions are required for the app to function.", Toast.LENGTH_LONG).show()
+                }
             }
         }
+
+    /**
+     * Shows a dialog that informs the user that permissions are required and provides a button
+     * to open the app's settings page.
+     */
+    private fun showSettingsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Permissions Required")
+            .setMessage("This app needs certain permissions to function properly. Please grant them in the app settings.")
+            .setPositiveButton("Go to Settings") { _, _ ->
+                // Create an intent to open the application details settings page.
+                val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                val uri = android.net.Uri.fromParts("package", packageName, null)
+                intent.data = uri
+                startActivity(intent)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        ConsoleLogger.initialize(this)
 
         val sharedPrefs = getEncryptedSharedPreferences()
         if (!sharedPrefs.getBoolean("isAuthenticated", false)) {
@@ -148,10 +157,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Propojení UI prvků
+        // Bind UI elements
         statusTextView = findViewById(R.id.statusTextView)
         toggleButton = findViewById(R.id.toggleButton)
         serverInstructionBanner = findViewById(R.id.serverInstructionBanner)
+        serverInstructionBanner.visibility = View.GONE
+        serverInstructionBanner.text = ""
         lastConnectionStatusTextView = findViewById(R.id.lastConnectionStatusTextView)
         countdownTextView = findViewById(R.id.countdownTextView)
         lastLocationTextView = findViewById(R.id.lastLocationTextView)
@@ -165,7 +176,7 @@ class MainActivity : AppCompatActivity() {
         powerStatusTextView.text = "Power: ${lastPowerStatus}"
         toggleButton.isEnabled = !lastAckPending
 
-        updateUiState(false) // Nastaví výchozí stav (služba není spuštěna)
+        updateUiState(false) // Initialize default state (service not running)
 
         toggleButton.setOnClickListener {
             animateButton()
@@ -178,22 +189,17 @@ class MainActivity : AppCompatActivity() {
 
         toggleButton.setOnLongClickListener {
             AlertDialog.Builder(this)
-                .setTitle("Odhlásit se?")
-                .setMessage("Opravdu se chcete odhlásit?")
-                .setPositiveButton("Ano") { _, _ -> performLogout() }
-                .setNegativeButton("Ne", null)
+                .setTitle("Log out?")
+                .setMessage("Are you sure you want to log out?")
+                .setPositiveButton("Yes") { _, _ -> performLogout() }
+                .setNegativeButton("No", null)
                 .show()
             true
         }
 
         val consoleCard = findViewById<CardView>(R.id.consoleCard)
         consoleCard.setOnLongClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("Vymazat konzoli?")
-                .setMessage("Opravdu chcete vymazat obsah konzole?")
-                .setPositiveButton("Ano") { _, _ -> ConsoleLogger.clear() }
-                .setNegativeButton("Ne", null)
-                .show()
+            showConsoleOptionsDialog()
             true
         }
 
@@ -206,7 +212,7 @@ class MainActivity : AppCompatActivity() {
     private fun showLogoutDialog(message: String) {
         if (!isFinishing) {
             AlertDialog.Builder(this)
-                .setTitle("Odhlášení")
+                .setTitle("Logout")
                 .setMessage(message)
                 .setPositiveButton("OK") { _, _ -> performLogout() }
                 .setCancelable(false)
@@ -236,7 +242,7 @@ class MainActivity : AppCompatActivity() {
                 .remove("session_cookie")
                 .putBoolean("isAuthenticated", false)
                 .apply()
-            Toast.makeText(this@MainActivity, "Odhlášení úspěšné.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, "Logged out successfully.", Toast.LENGTH_SHORT).show()
             startActivity(Intent(this@MainActivity, LoginActivity::class.java))
             finish()
         }
@@ -245,7 +251,7 @@ class MainActivity : AppCompatActivity() {
     private suspend fun sendLogoutRequest(baseUrl: String, sessionCookie: String) {
         withContext(Dispatchers.IO) {
             try {
-                ConsoleLogger.log("Odesílám požadavek na odhlášení...")
+                ConsoleLogger.info("Sending logout request...")
                 val url = URL("$baseUrl/api/apk/logout")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
@@ -265,12 +271,12 @@ class MainActivity : AppCompatActivity() {
                 val stream = if (code < 400) connection.inputStream else connection.errorStream
                 val body = stream?.let { BufferedReader(InputStreamReader(it, Charsets.UTF_8)).use { reader -> reader.readText() } } ?: ""
                 if (code >= 400) {
-                    ConsoleLogger.log("Odhlášení selhalo ($code): $body")
+                    ConsoleLogger.error("Logout failed ($code): $body")
                 } else {
-                    ConsoleLogger.log("Odhlášení proběhlo úspěšně ($code)")
+                    ConsoleLogger.info("Logout succeeded ($code)")
                 }
             } catch (e: Exception) {
-                ConsoleLogger.log("Chyba při odhlášení: ${e.message}")
+                ConsoleLogger.error("Logout error: ${e.message}")
             }
         }
     }
@@ -299,7 +305,7 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
-        // Požádáme službu o stav pouze pokud má zůstat zapnutá
+        // Request service status only if it should remain running
         if (SharedPreferencesHelper.getPowerState(this) == PowerState.ON) {
             val intent = Intent(this, LocationService::class.java).apply {
                 action = LocationService.ACTION_REQUEST_STATUS_UPDATE
@@ -321,28 +327,20 @@ class MainActivity : AppCompatActivity() {
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(this)
         toggleButton.isEnabled = !ackPending
         serverInstructionBanner.visibility = if (ackPending) View.VISIBLE else View.GONE
+        serverInstructionBanner.visibility = View.GONE
+        serverInstructionBanner.text = ""
         if (ackPending) {
-            val originHint = SharedPreferencesHelper.getPowerTransitionReason(this)?.takeIf { it.isNotBlank() }
-            serverInstructionBanner.text = if (originHint != null) {
-                "Službu vypnul server. Čeká se na potvrzení. (" + originHint + ")"
-            } else {
-                "Službu vypnul server. Čeká se na potvrzení."
-            }
-        } else {
-            serverInstructionBanner.text = ""
-        }
-        if (ackPending) {
-            statusTextView.text = "Službu vypnul server"
+            statusTextView.text = "Service paused by server"
             toggleButton.text = "OFF"
             toggleButton.setBackgroundResource(R.drawable.button_bg_off)
             return
         }
         if (isServiceRunning) {
-            statusTextView.text = "Služba je aktivní"
+            statusTextView.text = "Service is active"
             toggleButton.text = "ON"
             toggleButton.setBackgroundResource(R.drawable.button_bg_on)
         } else {
-            statusTextView.text = "Služba je zastavena"
+            statusTextView.text = "Service is stopped"
             toggleButton.text = "OFF"
             toggleButton.setBackgroundResource(R.drawable.button_bg_off)
         }
@@ -352,37 +350,66 @@ class MainActivity : AppCompatActivity() {
         countdownTimer?.cancel()
         val millisInFuture = nextUpdateTimeMillis - System.currentTimeMillis()
         if (millisInFuture <= 0) {
-            countdownTextView.text = "Probíhá odeslání..."
+            countdownTextView.text = "Uploading..."
             return
         }
 
         countdownTimer = object : CountDownTimer(millisInFuture, 1000) {
             override fun onTick(millisUntilFinished: Long) {
-                countdownTextView.text = "za ${millisUntilFinished / 1000}s"
+                countdownTextView.text = "in ${millisUntilFinished / 1000}s"
             }
             override fun onFinish() {
-                countdownTextView.text = "Probíhá odeslání..."
+                countdownTextView.text = "Uploading..."
             }
         }.start()
     }
 
     private fun checkAndRequestPermissions() {
+        val requiredPermissions = mutableListOf<String>()
+
+        // 1. Fine Location (and Coarse)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-            return
+            requiredPermissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            requiredPermissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
-                return
+
+        // 2. Notifications (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requiredPermissions.add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
+
+        // Request all needed permissions at once
+        if (requiredPermissions.isNotEmpty()) {
+            requestPermissionLauncher.launch(requiredPermissions.toTypedArray())
+            return // Wait for user response
+        }
+
+        // 3. Background Location (Android 10+) - must be requested separately
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // Explain why background location is needed
+                AlertDialog.Builder(this)
+                    .setTitle("Background Location Access")
+                    .setMessage("This app requires background location access to track your position even when the app is closed. Please select 'Allow all the time' in the next screen.")
+                    .setPositiveButton("Grant") { _, _ ->
+                        // The launcher will now handle the result of this single permission request
+                        requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+                return // Wait for user response
+            }
+        }
+
+        // All permissions are granted, start the service
         startLocationService()
     }
 
     private fun startLocationService() {
         if (!PowerController.requestTurnOn(this, origin = "manual_button")) {
-            Toast.makeText(this, "Nelze spustit – čeká se na potvrzení TURN_OFF.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Cannot start – waiting for TURN_OFF confirmation.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -398,10 +425,10 @@ class MainActivity : AppCompatActivity() {
                 locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
         val errorMessages = mutableListOf<String>()
-        if (!isLocationEnabled) errorMessages.add("• Služby pro určování polohy jsou vypnuté.")
+        if (!isLocationEnabled) errorMessages.add("• Location services are disabled.")
 
         if (errorMessages.isNotEmpty()) {
-            showErrorDialog("Požadované služby nejsou aktivní", errorMessages.joinToString(""))
+            showErrorDialog("Required services are inactive", errorMessages.joinToString(""))
         } else {
             checkAndRequestPermissions()
         }
@@ -411,7 +438,29 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(title)
             .setMessage(message)
-            .setPositiveButton("Rozumím", null)
+            .setPositiveButton("Understood", null)
+            .show()
+    }
+
+    private fun showConsoleOptionsDialog() {
+        val allLevels = ConsoleLogger.LogLevel.values()
+        val levelNames = allLevels.map { it.name }.toTypedArray()
+        val checkedItems = allLevels.map { ConsoleLogger.getDisplayedLogLevels().contains(it) }.toBooleanArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Console Log Level")
+            .setMultiChoiceItems(levelNames, checkedItems) { _, which, isChecked ->
+                checkedItems[which] = isChecked
+            }
+            .setPositiveButton("OK") { _, _ ->
+                val selectedLevels = allLevels.filterIndexed { index, _ -> checkedItems[index] }.toSet()
+                ConsoleLogger.setDisplayedLogLevels(this, selectedLevels)
+            }
+            .setNeutralButton("Clear") { _, _ ->
+                ConsoleLogger.clear()
+                Toast.makeText(this, "Console cleared", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 

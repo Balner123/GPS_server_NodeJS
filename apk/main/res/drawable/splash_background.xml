@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Barva pozadí -->
+    <!-- Background color -->
     <item android:drawable="?android:colorBackground" />
 
-    <!-- Ikona uprostřed -->
+    <!-- Center icon -->
     <item
         android:drawable="@drawable/ic_gps_pin"
         android:gravity="center"

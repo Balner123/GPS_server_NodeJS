@@ -731,18 +731,6 @@ function createDeviceElement(device) {
     const buttonGroup = document.createElement('div');
     buttonGroup.className = 'd-flex align-items-center';
 
-    if (device.has_unread_alerts) {
-        const clearAlertsButton = document.createElement('button');
-        clearAlertsButton.className = 'btn btn-warning btn-sm ms-2';
-        clearAlertsButton.innerHTML = '<i class="fas fa-bell-slash"></i>';
-        clearAlertsButton.title = `Clear all alerts for ${displayName}`;
-        clearAlertsButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            handleClearDeviceAlerts(device.device);
-        });
-        buttonGroup.appendChild(clearAlertsButton);
-    }
-
     const renameButton = document.createElement('button');
     renameButton.className = 'btn btn-primary btn-sm ms-2';
     renameButton.innerHTML = '<i class="fas fa-pencil-alt"></i>';
@@ -814,14 +802,25 @@ async function selectDevice(deviceId, options = {}) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/settings/${deviceId}`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const settings = await response.json();
-        
+        let settings = null;
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/devices/settings/${deviceId}`);
+            if (response.ok) {
+                settings = await response.json();
+            } else {
+                // Non-fatal: some devices may not belong to the current session user (root or shared views).
+                console.warn('Settings request failed', response.status);
+                displayAlert(`Warning: Could not load settings for ${deviceId}. Some features may be unavailable.`, 'warning');
+            }
+        } catch (err) {
+            console.error('Error fetching device settings', err);
+            displayAlert(`Warning: Error fetching settings for ${deviceId}.`, 'warning');
+        }
+
         let deviceType = 'N/A';
         if (infoCard) {
-            document.getElementById('info-registration-date').textContent = formatTimestamp(settings.created_at);
-            deviceType = settings.device_type || 'N/A';
+            document.getElementById('info-registration-date').textContent = formatTimestamp(settings ? settings.created_at : null);
+            deviceType = settings && settings.device_type ? settings.device_type : 'N/A';
             document.getElementById('info-device-type').textContent = deviceType;
 
             const satellitesSetting = document.getElementById('satellites-setting');
@@ -831,47 +830,104 @@ async function selectDevice(deviceId, options = {}) {
                 satellitesSetting.style.display = 'none';
             }
         }
-        
+
         originalSettings = {
-            interval_gps: settings.interval_gps || 0,
-            interval_send: settings.interval_send || 1,
-            satellites: settings.satellites || 7
+            interval_gps: settings ? settings.interval_gps || 0 : 0,
+            interval_send: settings ? settings.interval_send || 1 : 1,
+            satellites: settings ? settings.satellites || 7 : 7
         };
 
-        const dhms = secondsToDhms(settings.interval_gps || 0);
+        const dhms = secondsToDhms(settings ? settings.interval_gps || 0 : 0);
         document.getElementById('interval-gps-days').value = dhms.d;
         document.getElementById('interval-gps-hours').value = dhms.h;
         document.getElementById('interval-gps-minutes').value = dhms.m;
         document.getElementById('interval-gps-seconds').value = dhms.s;
-        document.getElementById('interval-send').value = settings.interval_send || 1;
-        document.getElementById('satellites').value = settings.satellites || 7;
+        document.getElementById('interval-send').value = settings ? settings.interval_send || 1 : 1;
+        document.getElementById('satellites').value = settings ? settings.satellites || 7 : 7;
 
         const modeSelect = document.getElementById('mode-select');
         const batchSettings = document.getElementById('batch-settings');
         
-        modeSelect.value = settings.mode || 'simple';
+        modeSelect.value = settings ? (settings.mode || 'simple') : 'simple';
 
         if (modeSelect.value === 'batch') {
             batchSettings.style.display = 'block';
         } else {
             batchSettings.style.display = 'none';
         }
-        currentDeviceGeofence = settings.geofence || null;
+        currentDeviceGeofence = settings && settings.geofence ? settings.geofence : null;
         geofenceDraftPending = false;
         loadGeofenceIntoDrawnItems(currentDeviceGeofence, { fitBounds: true });
         updateGeofenceControls();
 
         const powerCard = document.getElementById('power-control-card');
         if (powerCard) {
-            powerCard.style.display = deviceType === 'HW' ? 'block' : 'block'; //vyrušeni podminky pro testovaci ucely
+            powerCard.style.display = 'block';
         }
 
         updatePowerSummary({
-            power_instruction: settings.power_instruction,
-            power_status: settings.power_status
+            power_instruction: settings ? settings.power_instruction : 'NONE',
+            power_status: settings ? settings.power_status : 'N/A'
         });
+
+        // Regardless of whether settings were loaded, check for unread alerts and show modal if necessary
+        try {
+            console.log(`[DEBUG] selectDevice: Attempting to fetch unread alerts for device ${deviceId}`);
+            const alertResponse = await fetch(`${API_BASE_URL}/api/devices/alerts/unread/${deviceId}`);
+            if (alertResponse.ok) {
+                const alerts = await alertResponse.json();
+                console.log(`[DEBUG] selectDevice: Fetched ${alerts.length} unread alerts for device ${deviceId}`);
+                if (Array.isArray(alerts) && alerts.length > 0) {
+                    const modalBody = document.getElementById('alertDetailModalBody');
+                    console.log(`[DEBUG] selectDevice: modalBody element found? ${!!modalBody}`);
+                    if (modalBody) {
+                        modalBody.innerHTML = alerts.map(alert => `
+                        <div class="alert-item mb-3">
+                            <p class="mb-1"><strong>Message:</strong> ${alert.message}</p>
+                            <small class="text-muted">
+                                <strong>Date:</strong> ${new Date(alert.created_at).toLocaleString()} |
+                                <strong>Type:</strong> ${alert.type}
+                            </small>
+                        </div>
+                        `).join('<hr class="my-2">');
+
+                        const modalEl = document.getElementById('alertDetailModal');
+                        console.log(`[DEBUG] selectDevice: modalEl element found? ${!!modalEl}`);
+                        console.log(`[DEBUG] selectDevice: bootstrap.Modal available? ${typeof bootstrap !== 'undefined' && bootstrap.Modal}`);
+                        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                            const alertModal = new bootstrap.Modal(modalEl);
+                            const markAsReadBtn = document.getElementById('markAlertsAsReadBtn');
+                            console.log(`[DEBUG] selectDevice: markAsReadBtn element found? ${!!markAsReadBtn}`);
+                            if (markAsReadBtn) {
+                                markAsReadBtn.onclick = () => {
+                                    handleClearDeviceAlerts(deviceId);
+                                    alertModal.hide();
+                                };
+                            } else {
+                                console.warn('markAsReadBtn not found in DOM');
+                            }
+                            alertModal.show();
+                            console.log(`[DEBUG] selectDevice: Alert modal shown for device ${deviceId}`);
+                        } else {
+                            console.warn('Alert modal element or Bootstrap Modal not available');
+                        }
+                    } else {
+                        console.warn('alertDetailModalBody element not found');
+                    }
+                } else {
+                    console.log(`[DEBUG] selectDevice: No unread alerts to display for device ${deviceId}`);
+                }
+            } else {
+                console.warn('Could not fetch unread alerts', alertResponse.status);
+            }
+        } catch (err) {
+            console.error('Error fetching unread alerts', err);
+        }
+
     } catch (error) {
-        displayAlert(`Error loading settings for ${deviceId}.`, 'danger');
+        // General fallback — display a warning but continue
+        console.error('Unexpected error in selectDevice:', error);
+        displayAlert(`Error loading device info for ${deviceId}.`, 'danger');
     }
     
     await loadDeviceData(true);
@@ -1261,7 +1317,7 @@ async function handleDeleteDevice(deviceId) {
 
 async function handleClearDeviceAlerts(deviceId) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/alerts/read-all/${deviceId}`, { method: 'POST' });
+        const response = await fetch(`${API_BASE_URL}/api/devices/alerts/read-all/${deviceId}`, { method: 'POST' });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.error || 'Failed to clear alerts.');
         displayAlert(result.message, 'success');

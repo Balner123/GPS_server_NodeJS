@@ -43,7 +43,7 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        // Inicializace UI prvků
+        // Initialize UI components
         usernameEditText = findViewById(R.id.usernameEditText)
         passwordEditText = findViewById(R.id.passwordEditText)
         serverUrlEditText = findViewById(R.id.serverUrlEditText)
@@ -53,12 +53,12 @@ class LoginActivity : AppCompatActivity() {
         serverUrlInputLayout = findViewById(R.id.serverUrlInputLayout)
         serverUrlLabel = findViewById(R.id.serverUrlLabel)
 
-        // Načtení uložené URL serveru
+        // Load the persisted server URL
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
         val savedUrl = sharedPrefs.getString("server_url", BuildConfig.API_BASE_URL)
         serverUrlEditText.setText(savedUrl)
 
-        // Zobrazení/skrytí pole pro URL serveru po dlouhém stisku
+        // Toggle server URL field visibility via long press on the title
         appNameTextView.setOnLongClickListener {
             val isVisible = serverUrlInputLayout.visibility == View.VISIBLE
             serverUrlInputLayout.visibility = if (isVisible) View.GONE else View.VISIBLE
@@ -66,7 +66,7 @@ class LoginActivity : AppCompatActivity() {
             true
         }
 
-        // Zajistíme, že máme unikátní ID instalace
+        // Ensure we have a unique installation ID
         getInstallationId()
 
         loginButton.setOnClickListener {
@@ -103,7 +103,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     /**
-     * Hlavní funkce pro zpracování přihlášení.
+     * Main function for handling the login flow.
      */
     private fun performLogin() {
         val username = usernameEditText.text.toString()
@@ -112,7 +112,12 @@ class LoginActivity : AppCompatActivity() {
         val apiBaseUrl = getApiBaseUrl()
 
         if (username.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Prosím, zadejte uživatelské jméno a heslo.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Please enter username and password.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (!NetworkUtils.isOnline(this)) {
+            Toast.makeText(this, "Connect to the internet to sign in.", Toast.LENGTH_LONG).show()
             return
         }
 
@@ -128,17 +133,17 @@ class LoginActivity : AppCompatActivity() {
                 connection.connectTimeout = 15000
                 connection.readTimeout = 15000
 
-                // Sestavení JSON s přihlašovacími údaji a ID instalace
+                // Build JSON payload containing credentials and installation ID
                 val jsonInputString = JSONObject().apply {
                     put("identifier", username)
                     put("password", password)
                     put("installationId", installationId)
                 }.toString()
 
-                // Odeslání dat
+                // Send request body
                 OutputStreamWriter(connection.outputStream, "UTF-8").use { it.write(jsonInputString) }
 
-                // Zpracování odpovědi
+                // Process API response
                 val responseCode = connection.responseCode
                 val responseBody = if (responseCode < 400) connection.inputStream else connection.errorStream
                 val responseString = BufferedReader(InputStreamReader(responseBody, "UTF-8")).readText()
@@ -146,15 +151,15 @@ class LoginActivity : AppCompatActivity() {
                 if (responseCode == HttpURLConnection.HTTP_OK) {
                     val jsonResponse = JSONObject(responseString)
                     if (jsonResponse.optBoolean("success", false)) {
-                        // Uložíme session cookie
+                        // Persist session cookie
                         val cookie = connection.headerFields["Set-Cookie"]?.firstOrNull()
                         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
                         sharedPrefs.edit().putString("session_cookie", cookie).apply()
 
-                        // Zkontrolujeme, zda je zařízení již registrováno
+                        // Check if the device is already registered
                         val isDeviceRegistered = jsonResponse.optBoolean("device_is_registered", false)
                         if (isDeviceRegistered) {
-                            // Pokud ano, uložíme potřebná data a jdeme na hlavní obrazovku
+                            // When it is, store intervals and continue to the main screen
                             val gpsInterval = jsonResponse.optInt("gps_interval", 60) // Default to 60 seconds
                             val intervalSend = jsonResponse.optInt("interval_send", 1) // Default to 1 location before sending
                             sharedPrefs.edit()
@@ -169,29 +174,29 @@ class LoginActivity : AppCompatActivity() {
                                     HandshakeManager.performHandshake(applicationContext, reason = "post_login")
                                 }
                             } catch (e: Exception) {
-                                Log.w("LoginActivity", "Handshake po přihlášení selhal: ${e.message}")
+                                Log.w("LoginActivity", "Handshake after login failed: ${e.message}")
                             }
                             Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
                             runOnUiThread {
-                                Toast.makeText(this, "Přihlášení úspěšné!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "Login successful!", Toast.LENGTH_SHORT).show()
                                 navigateToMain()
                             }
                         } else {
-                            // Pokud ne, spustíme proces registrace
+                            // Otherwise start the registration process
                             registerDevice(installationId)
                         }
                     } else {
-                        val error = jsonResponse.optString("error", "Neznámá chyba přihlášení.")
+                        val error = jsonResponse.optString("error", "Unknown login error.")
                         showError(error)
                     }
                 } else {
-                    val error = try { JSONObject(responseString).optString("error", "Chyba serveru") } catch (e: Exception) { responseString }
-                    showError("Chyba serveru ($responseCode): $error")
+                    val error = try { JSONObject(responseString).optString("error", "Server error") } catch (e: Exception) { responseString }
+                    showError("Server error ($responseCode): $error")
                 }
 
             } catch (e: Exception) {
-                Log.e("LoginActivity", "Chyba při síťové komunikaci: ", e)
-                showError("Chyba sítě: ${e.message}")
+                Log.e("LoginActivity", "Network communication error: ", e)
+                showError("Network error: ${e.message}")
             } finally {
                 setLoadingState(false)
             }
@@ -199,9 +204,15 @@ class LoginActivity : AppCompatActivity() {
     }
 
     /**
-     * Zaregistruje tuto instanci aplikace na serveru.
+     * Register this application instance on the server.
      */
     private fun registerDevice(installationId: String) {
+        if (!NetworkUtils.isOnline(this)) {
+            Toast.makeText(this, "Registration requires an internet connection.", Toast.LENGTH_LONG).show()
+            setLoadingState(false)
+            return
+        }
+
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
         val sessionCookie = sharedPrefs.getString("session_cookie", null)
@@ -248,12 +259,12 @@ class LoginActivity : AppCompatActivity() {
                                 HandshakeManager.performHandshake(applicationContext, reason = "post_register")
                             }
                         } catch (e: Exception) {
-                            Log.w("LoginActivity", "Handshake po registraci selhal: ${e.message}")
+                            Log.w("LoginActivity", "Handshake after registration failed: ${e.message}")
                         }
                         val infoMessage = if (alreadyRegistered) {
-                            "Zařízení již bylo registrováno, pokračujeme."
+                            "Device was already registered; continuing."
                         } else {
-                            "Zařízení úspěšně registrováno."
+                            "Device registered successfully."
                         }
                         Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
                         runOnUiThread {
@@ -261,17 +272,17 @@ class LoginActivity : AppCompatActivity() {
                             navigateToMain()
                         }
                     } else {
-                        val error = jsonResponse.optString("error", "Neznámá chyba registrace.")
+                        val error = jsonResponse.optString("error", "Unknown registration error.")
                         showError(error)
                     }
                 } else {
-                     val error = try { JSONObject(responseString).optString("error", "Chyba serveru") } catch (e: Exception) { responseString }
-                    showError("Chyba registrace ($responseCode): $error")
+                    val error = try { JSONObject(responseString).optString("error", "Server error") } catch (e: Exception) { responseString }
+                    showError("Registration error ($responseCode): $error")
                 }
 
             } catch (e: Exception) {
-                Log.e("LoginActivity", "Chyba při registraci zařízení: ", e)
-                showError("Chyba sítě při registraci: ${e.message}")
+                Log.e("LoginActivity", "Device registration error: ", e)
+                showError("Network error during registration: ${e.message}")
             } finally {
                 setLoadingState(false)
             }
@@ -281,7 +292,7 @@ class LoginActivity : AppCompatActivity() {
     private fun navigateToMain() {
         val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
-        finish() // Ukončí LoginActivity, aby se na ni nedalo vrátit tlačítkem zpět
+        finish() // Finish LoginActivity so the back button cannot return here
     }
 
     private fun setLoadingState(isLoading: Boolean) {

@@ -416,6 +416,13 @@ const handleDeviceInput = async (req, res) => {
             log.info('Device returned to geofence', { deviceId: device.device_id });
             device.geofence_alert_active = false;
             await device.save(); // Save the new alert state
+            // Create an alert record for returning to geofence
+            await db.Alert.create({
+                device_id: device.id,
+                user_id: device.user_id,
+                type: 'geofence_return',
+                message: `Device '${device.name || device.device_id}' has returned to the defined geofence area.`
+            });
             if (user && user.email) {
                 await sendGeofenceReturnEmail(user.email, device, lastLocation);
             }
@@ -1166,13 +1173,17 @@ const getUnreadAlerts = async (req, res) => {
     const devices = await db.Device.findAll({ where: { user_id: userId }, attributes: ['id'] });
     const deviceIds = devices.map(d => d.id);
 
-    const alerts = await db.Alert.findAll({
-      where: {
-        device_id: deviceIds,
-        is_read: false
-      },
-      order: [['created_at', 'DESC']]
-    });
+    const { Op } = db.Sequelize;
+    let alerts = [];
+    if (deviceIds && deviceIds.length > 0) {
+      alerts = await db.Alert.findAll({
+        where: {
+          device_id: { [Op.in]: deviceIds },
+          is_read: false
+        },
+        order: [['created_at', 'DESC']]
+      });
+    }
 
     log.info('Unread alerts fetched', { count: alerts.length });
     res.json(alerts);
@@ -1197,12 +1208,13 @@ const markAlertsAsRead = async (req, res) => {
     const devices = await db.Device.findAll({ where: { user_id: userId }, attributes: ['id'] });
     const userDeviceIds = devices.map(d => d.id);
 
+    const { Op } = db.Sequelize;
     await db.Alert.update(
       { is_read: true },
       {
         where: {
-          id: alertIds,
-          device_id: userDeviceIds
+          id: { [Op.in]: alertIds },
+          device_id: { [Op.in]: userDeviceIds }
         }
       }
     );
@@ -1240,9 +1252,13 @@ const markDeviceAlertsAsRead = async (req, res) => {
       }
     });
 
-    for (const alert of unreadAlerts) {
-      alert.is_read = true;
-      await alert.save({ timestamps: false });
+    // Bulk update to mark unread alerts as read for the device (single query)
+    if (unreadAlerts && unreadAlerts.length > 0) {
+      const alertIdsToUpdate = unreadAlerts.map(a => a.id);
+      await db.Alert.update(
+        { is_read: true },
+        { where: { id: alertIdsToUpdate } }
+      );
     }
 
     log.info('Alerts for device marked as read', { deviceId });
@@ -1251,6 +1267,40 @@ const markDeviceAlertsAsRead = async (req, res) => {
   } catch (err) {
     const log = getRequestLogger(req, { controller: 'device', action: 'markDeviceAlertsAsRead' });
     log.error('Error marking device alerts as read', err);
+    res.status(500).json({ success: false, error: 'An internal server error occurred.' });
+  }
+};
+
+const getUnreadAlertsForDevice = async (req, res) => {
+  try {
+    const log = getRequestLogger(req, { controller: 'device', action: 'getUnreadAlertsForDevice' });
+    const { deviceId } = req.params;
+    const userId = req.session.user.id;
+
+    const device = await db.Device.findOne({
+      where: { device_id: deviceId, user_id: userId },
+      attributes: ['id']
+    });
+
+    if (!device) {
+      log.warn('Attempt to get alerts for missing or unauthorized device', { deviceId });
+      return res.status(404).json({ success: false, error: 'Device not found.' });
+    }
+
+    const alerts = await db.Alert.findAll({
+      where: {
+        device_id: device.id,
+        is_read: false
+      },
+      order: [['created_at', 'DESC']]
+    });
+
+    log.info('Unread alerts for device fetched', { deviceId, count: alerts.length });
+    res.json(alerts);
+
+  } catch (err) {
+    const log = getRequestLogger(req, { controller: 'device', action: 'getUnreadAlertsForDevice' });
+    log.error('Error fetching unread alerts for device', err);
     res.status(500).json({ success: false, error: 'An internal server error occurred.' });
   }
 };
@@ -1347,6 +1397,7 @@ module.exports = {
   registerDeviceFromHardware,
   registerDeviceUnified,
   handleDeviceHandshake,
+  getUnreadAlertsForDevice,
   exportDeviceDataAsGpx,
   updatePowerInstruction
 };

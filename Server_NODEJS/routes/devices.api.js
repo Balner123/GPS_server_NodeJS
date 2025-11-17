@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const deviceController = require('../controllers/deviceController');
 const { validateSettings, validateDeviceInputPayload } = require('../middleware/validators');
-const { isAuthenticated, isUser, authenticateDevice } = require('../middleware/authorization');
+const { isAuthenticated, isUser, authenticateDevice, isNotRootApi } = require('../middleware/authorization');
 
 /**
  * @swagger
@@ -385,7 +385,7 @@ router.get('/export/gpx/:deviceId', isAuthenticated, isUser, deviceController.ex
  *       '500':
  *         description: Server error.
  */
-router.get('/settings/:deviceId', isAuthenticated, isUser, deviceController.getDeviceSettings);
+router.get('/settings/:deviceId', isAuthenticated, isNotRootApi, deviceController.getDeviceSettings);
 
 /**
  * @swagger
@@ -413,7 +413,7 @@ router.get('/settings/:deviceId', isAuthenticated, isUser, deviceController.getD
  *       '500':
  *         description: Server error.
  */
-router.post('/settings', isAuthenticated, isUser, validateSettings, deviceController.updateDeviceSettings);
+router.post('/settings', isAuthenticated, isNotRootApi, validateSettings, deviceController.updateDeviceSettings);
 
 /**
  * @swagger
@@ -453,7 +453,7 @@ router.post('/settings', isAuthenticated, isUser, validateSettings, deviceContro
  *       '500':
  *         description: Server error.
  */
-router.post('/power-instruction', isAuthenticated, isUser, deviceController.updatePowerInstruction);
+router.post('/power-instruction', isAuthenticated, isNotRootApi, deviceController.updatePowerInstruction);
 
 /**
  * @swagger
@@ -493,7 +493,7 @@ router.post('/power-instruction', isAuthenticated, isUser, deviceController.upda
  *       '500':
  *         description: Server error.
  */
-router.post('/name', isAuthenticated, isUser, deviceController.updateDeviceName);
+router.post('/name', isAuthenticated, isNotRootApi, deviceController.updateDeviceName);
 
 /**
  * @swagger
@@ -520,7 +520,7 @@ router.post('/name', isAuthenticated, isUser, deviceController.updateDeviceName)
  *       '500':
  *         description: Server error.
  */
-router.post('/delete/:deviceId', isAuthenticated, isUser, deviceController.deleteDevice);
+router.post('/delete/:deviceId', isAuthenticated, isNotRootApi, deviceController.deleteDevice);
 
 /**
  * @swagger
@@ -558,7 +558,7 @@ router.post('/delete/:deviceId', isAuthenticated, isUser, deviceController.delet
  *       '500':
  *         description: Server error.
  */
-router.post('/geofence', isAuthenticated, isUser, deviceController.updateGeofence);
+router.post('/geofence', isAuthenticated, isNotRootApi, deviceController.updateGeofence);
 
 /**
  * @swagger
@@ -576,7 +576,8 @@ router.post('/geofence', isAuthenticated, isUser, deviceController.updateGeofenc
  *       '500':
  *         description: Server error.
  */
-router.get('/alerts', isAuthenticated, isUser, deviceController.getUnreadAlerts);
+router.get('/alerts', isAuthenticated, deviceController.getUnreadAlerts);
+router.get('/alerts/unread/:deviceId', isAuthenticated, deviceController.getUnreadAlertsForDevice);
 
 /**
  * @swagger
@@ -608,7 +609,7 @@ router.get('/alerts', isAuthenticated, isUser, deviceController.getUnreadAlerts)
  *       '500':
  *         description: Server error.
  */
-router.post('/alerts/read', isAuthenticated, isUser, deviceController.markAlertsAsRead);
+router.post('/alerts/read', isAuthenticated, isNotRootApi, deviceController.markAlertsAsRead);
 
 /**
  * @swagger
@@ -635,6 +636,6 @@ router.post('/alerts/read', isAuthenticated, isUser, deviceController.markAlerts
  *       '500':
  *         description: Server error.
  */
-router.post('/alerts/read-all/:deviceId', isAuthenticated, isUser, deviceController.markDeviceAlertsAsRead);
+router.post('/alerts/read-all/:deviceId', isAuthenticated, isNotRootApi, deviceController.markDeviceAlertsAsRead);
 
 module.exports = router;

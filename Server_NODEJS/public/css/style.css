@@ -83,6 +83,44 @@
     }
 }
 
+.list-group-item-action:hover {
+    filter: brightness(1.1); /* Increase brightness on hover for more saturation */
+}
+
+/* Specific hover for colored list items */
+.list-group-item-action.bg-danger:hover {
+    background-color: var(--bs-danger-hover, #961826) !important; /* More saturated red */
+}
+
+.list-group-item-action.bg-info:hover {
+    background-color: var(--bs-info-hover, #31d2f2) !important; /* More saturated info blue */
+}
+
+.list-group-item-action.bg-warning:hover {
+    background-color: var(--bs-warning-hover, #ffc107) !important; /* More saturated yellow */
+}
+
+.list-group-item-action.bg-success:hover {
+    background-color: var(--bs-success-hover, #198754) !important; /* More saturated green */
+}
+
+
+[data-theme='dark'] .list-group-item-action.bg-danger:hover {
+    background-color: var(--bs-danger-hover-dark, #812b33) !important;
+}
+
+[data-theme='dark'] .list-group-item-action.bg-info:hover {
+    background-color: var(--bs-info-hover-dark, #214c69) !important;
+}
+
+[data-theme='dark'] .list-group-item-action.bg-warning:hover {
+    background-color: var(--bs-warning-hover-dark, #ffc107) !important;
+}
+
+[data-theme='dark'] .list-group-item-action.bg-success:hover {
+    background-color: var(--bs-success-hover-dark, #198754) !important;
+}
+
 /* General styles */
 body {
     zoom: 1.0;

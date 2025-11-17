@@ -3,16 +3,17 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.gpsreporterapp">
 
-    <!-- Povolení pro přístup k internetu -->
+    <!-- Internet access -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Povolení pro přesnou polohu (GPS) -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" /> <!-- Povolení pro přibližnou polohu (WiFi, sítě) -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> <!-- Povolení pro běh služby na pozadí (pro novější Android) -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> <!-- Nové specifické povolení pro službu polohy od Android 14+ -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" /> <!-- Povolení pro přístup k poloze na pozadí (pro Android 10+) -->
+    <!-- Precise location (GPS) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" /> <!-- Approximate location (WiFi, networks) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> <!-- Background service permission for newer Android versions -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> <!-- Android 14+ foreground location service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" /> <!-- Background location permission for Android 10+ -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"

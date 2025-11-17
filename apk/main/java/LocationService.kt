@@ -10,6 +10,10 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.location.Location
 import android.location.LocationManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
@@ -37,12 +41,14 @@ class LocationService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private lateinit var locationManager: LocationManager
+    private lateinit var connectivityManager: ConnectivityManager
 
     private var gpsIntervalSeconds: Int = 60 // Default to 60 seconds
     private var syncIntervalCount: Int = 1 // Default to 1 location before sending
-    private var locationsCachedCount: Int = 0
 
     private var sendIntervalMillis: Long = 0
+    private var isNetworkAvailable: Boolean = true
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     private var currentServiceState: ServiceState = ServiceState()
     private val gson = Gson()
@@ -56,17 +62,21 @@ class LocationService : Service() {
                 val isLocationEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
                         locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
                 if (!isLocationEnabled) {
-                    ConsoleLogger.log("Poskytovatelé polohy byli deaktivováni. Služba se zastavuje.")
+                    ConsoleLogger.warn("Location providers disabled. Stopping service.")
                     SharedPreferencesHelper.setPowerState(
                         applicationContext,
                         PowerState.OFF,
                         pendingAck = false,
                         reason = "gps_disabled"
                     )
+                    NotificationHelper.showGpsDisabledNotification(
+                        applicationContext,
+                        "GPS is turned off. Enable location and restart tracking."
+                    )
                     HandshakeManager.launchHandshake(applicationContext, reason = "gps_disabled")
                     updateAndBroadcastState(
                         status = StatusMessages.SERVICE_STOPPED_GPS_OFF,
-                        connectionStatus = "Kritická chyba",
+                        connectionStatus = "Critical error",
                         isRunning = false,
                         powerStatus = PowerState.OFF
                     )
@@ -78,7 +88,7 @@ class LocationService : Service() {
 
     private val stopServiceReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            ConsoleLogger.log("LocationService: stop request received via broadcast, shutting down.")
+            ConsoleLogger.info("LocationService: Stop request received via broadcast, shutting down.")
             stopForegroundSafely()
             stopSelf()
         }
@@ -86,9 +96,15 @@ class LocationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        ConsoleLogger.log("Služba LocationService se vytváří.")
+        ConsoleLogger.info("LocationService: Creating.")
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        isNetworkAvailable = connectivityManager.activeNetworkInfo?.isConnectedOrConnecting == true
+        if (!isNetworkAvailable) {
+            handleNetworkStatusChange(false, force = true)
+        }
+        registerNetworkCallback()
         val providerFilter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(locationProviderReceiver, providerFilter, Context.RECEIVER_NOT_EXPORTED)
@@ -106,7 +122,7 @@ class LocationService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
-                    ConsoleLogger.log("Nová poloha: lat=${location.latitude}, lon=${location.longitude}")
+                    ConsoleLogger.debug("New location: lat=${location.latitude}, lon=${location.longitude}")
                     val nextUpdate = System.currentTimeMillis() + sendIntervalMillis
                     updateAndBroadcastState(
                         status = StatusMessages.NEW_LOCATION_OBTAINED,
@@ -125,15 +141,15 @@ class LocationService : Service() {
                 putExtra(EXTRA_SERVICE_STATE, gson.toJson(currentServiceState))
             }
             LocalBroadcastManager.getInstance(this).sendBroadcast(broadcastIntent)
-            return START_NOT_STICKY // Jen posíláme stav, nechceme restartovat službu
+            return START_NOT_STICKY // Only send status snapshot; do not restart service
         }
 
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(this)
         if (ackPending) {
-            ConsoleLogger.log("LocationService: start požadován, ale čekáme na potvrzení TURN_OFF. Start odmítnut.")
+            ConsoleLogger.warn("LocationService: Start denied (TURN_OFF confirmation pending).")
             updateAndBroadcastState(
                 status = StatusMessages.SERVICE_STOPPED,
-                connectionStatus = "Čekání na potvrzení TURN_OFF",
+                connectionStatus = "Waiting for TURN_OFF confirmation",
                 isRunning = false,
                 powerStatus = PowerState.OFF,
                 ackPending = true,
@@ -145,12 +161,16 @@ class LocationService : Service() {
 
         val persistedPower = SharedPreferencesHelper.getPowerState(this)
         if (persistedPower == PowerState.OFF) {
-            ConsoleLogger.log("LocationService: start požadován, ale power state = OFF. Start ignoruji.")
+            ConsoleLogger.warn("LocationService: Start ignored (power state is OFF).")
             stopSelf()
             return START_NOT_STICKY
         }
 
-        ConsoleLogger.log("Služba LocationService spuštěna.")
+        ConsoleLogger.info("LocationService: Started.")
+        NotificationHelper.cancelGpsDisabledNotification(this)
+        if (isNetworkAvailable) {
+            NotificationHelper.cancelNetworkUnavailableNotification(this)
+        }
         SharedPreferencesHelper.setPowerState(
             applicationContext,
             PowerState.ON,
@@ -163,9 +183,9 @@ class LocationService : Service() {
         gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
         syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
         sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
-        ConsoleLogger.log("Nastaven interval GPS: ${gpsIntervalSeconds}s, Odeslání po: ${syncIntervalCount} pozicích.")
+        ConsoleLogger.info("LocationService: GPS interval=${gpsIntervalSeconds}s, Sync interval=${syncIntervalCount} points.")
         HandshakeManager.launchHandshake(applicationContext, reason = "service_start")
-    HandshakeManager.schedulePeriodicHandshake(applicationContext)
+        HandshakeManager.schedulePeriodicHandshake(applicationContext)
 
         startForegroundService()
         startLocationUpdates()
@@ -176,20 +196,20 @@ class LocationService : Service() {
     private fun startLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
 
-        // Okamžité zjištění polohy při startu
+        // Immediately try to fetch a location when the service starts
         try {
             fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                 .addOnSuccessListener { location: Location? ->
                     location?.let {
-                        ConsoleLogger.log("Získána okamžitá poloha při startu.")
+                        ConsoleLogger.debug("LocationService: Immediate location acquired at startup.")
                         sendLocationAndProcessResponse(it)
                     }
                 }
                 .addOnFailureListener { e ->
-                    ConsoleLogger.log("Nepodařilo se získat okamžitou polohu: ${e.message}")
+                    ConsoleLogger.warn("LocationService: Failed to acquire immediate location: ${e.message}")
                 }
         } catch (e: SecurityException) {
-            ConsoleLogger.log("Chyba oprávnění při žádosti o okamžitou polohu: ${e.message}")
+            ConsoleLogger.error("LocationService: Permission error on immediate location: ${e.message}")
         }
 
         val locationRequest = LocationRequest.Builder(
@@ -199,7 +219,7 @@ class LocationService : Service() {
 
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
-            ConsoleLogger.log("Sledování polohy spuštěno.")
+            ConsoleLogger.info("LocationService: Location tracking started.")
             updateAndBroadcastState(
                 status = StatusMessages.TRACKING_ACTIVE,
                 connectionStatus = StatusMessages.WAITING_FOR_GPS,
@@ -208,10 +228,10 @@ class LocationService : Service() {
                 powerStatus = PowerState.ON
             )
         } catch (e: SecurityException) {
-            ConsoleLogger.log("Chyba oprávnění při startu sledování polohy.")
+            ConsoleLogger.error("LocationService: Permission error on starting location tracking.")
             updateAndBroadcastState(
                 status = StatusMessages.SERVICE_STOPPED_PERMISSIONS,
-                connectionStatus = "Chyba oprávnění",
+                connectionStatus = "Permission error",
                 isRunning = false
             )
             stopSelf() // Stop the service if permissions are missing
@@ -219,7 +239,7 @@ class LocationService : Service() {
     }
 
     private fun enqueueSyncWorker() {
-        ConsoleLogger.log("Plánování úlohy SyncWorker.")
+        ConsoleLogger.debug("LocationService: Scheduling SyncWorker job.")
         val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
         val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints).build()
         WorkManager.getInstance(applicationContext).enqueueUniqueWork(
@@ -228,7 +248,8 @@ class LocationService : Service() {
             syncWorkRequest
         )
 
-        updateAndBroadcastState(connectionStatus = StatusMessages.SYNC_IN_PROGRESS, isRunning = true)
+        val connectionLabel = if (isNetworkAvailable) StatusMessages.SYNC_IN_PROGRESS else StatusMessages.NETWORK_UNAVAILABLE
+        updateAndBroadcastState(connectionStatus = connectionLabel, isRunning = true)
 
         CoroutineScope(Dispatchers.Main).launch {
             WorkManager.getInstance(applicationContext).getWorkInfoByIdLiveData(syncWorkRequest.id)
@@ -236,19 +257,19 @@ class LocationService : Service() {
                     if (workInfo != null) {
                         when (workInfo.state) {
                             WorkInfo.State.SUCCEEDED -> {
-                                ConsoleLogger.log("SyncWorker dokončen: Úspěch.")
+                                ConsoleLogger.debug("LocationService: SyncWorker finished with success.")
                                 updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE, connectionStatus = StatusMessages.SYNC_SUCCESS, isRunning = true)
                             }
                             WorkInfo.State.FAILED -> {
-                                ConsoleLogger.log("SyncWorker selhal.")
+                                ConsoleLogger.warn("LocationService: SyncWorker failed.")
                                 updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE, connectionStatus = StatusMessages.SYNC_FAILED, isRunning = true)
                             }
                             WorkInfo.State.CANCELLED -> {
-                                ConsoleLogger.log("SyncWorker zrušen.")
+                                ConsoleLogger.warn("LocationService: SyncWorker cancelled.")
                                 updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE, connectionStatus = StatusMessages.SYNC_CANCELLED, isRunning = true)
                             }
                             else -> {
-                                // Stavy ENQUEUED, RUNNING, BLOCKED - necháváme "Probíhá odesílání..."
+                                // For ENQUEUED/RUNNING/BLOCKED keep the "Uploading..." label
                             }
                         }
                     }
@@ -263,7 +284,7 @@ class LocationService : Service() {
         val powerState = SharedPreferencesHelper.getPowerState(applicationContext)
 
         if (deviceId == null) {
-            ConsoleLogger.log(StatusMessages.DEVICE_ID_ERROR)
+            ConsoleLogger.error(StatusMessages.DEVICE_ID_ERROR)
             updateAndBroadcastState()
             return
         }
@@ -284,25 +305,27 @@ class LocationService : Service() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 dao.insertLocation(cachedLocation)
-                locationsCachedCount++
-                ConsoleLogger.log("Poloha uložena do mezipaměti (cache=${locationsCachedCount})")
+                val cachedCount = dao.getCachedCount()
+                ConsoleLogger.debug("Location cached (cache=$cachedCount)")
 
-                // Zde se rozhoduje, zda se má spustit synchronizace
-                if (locationsCachedCount >= syncIntervalCount) {
+                if (cachedCount >= syncIntervalCount) {
                     enqueueSyncWorker()
-                    locationsCachedCount = 0 // Reset counter
                 }
 
                 val nextUpdate = System.currentTimeMillis() + sendIntervalMillis
                 updateAndBroadcastState(
                     status = StatusMessages.LOCATION_CACHED,
-                    cachedCount = locationsCachedCount,
+                    cachedCount = cachedCount,
                     powerStatus = powerState,
                     nextUpdate = nextUpdate
                 )
 
+                if (!isNetworkAvailable) {
+                    NotificationHelper.showNetworkUnavailableNotification(applicationContext, cachedCount)
+                }
+
             } catch (e: Exception) {
-                ConsoleLogger.log("Chyba při ukládání polohy do DB: ${e.message}")
+                ConsoleLogger.error("Failed to store location in DB: ${e.message}")
                 updateAndBroadcastState(status = StatusMessages.DB_SAVE_ERROR)
             }
         }
@@ -318,8 +341,8 @@ class LocationService : Service() {
         )
 
         val notification: Notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("GPS Reportér Aktivní")
-            .setContentText("Služba pro sledování polohy běží na pozadí.")
+            .setContentTitle("GPS Reporter Active")
+            .setContentText("Location tracking is running in the background.")
             .setSmallIcon(R.drawable.ic_gps_pin)
             .setContentIntent(pendingIntent)
             .build()
@@ -375,12 +398,68 @@ class LocationService : Service() {
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 
+    private fun registerNetworkCallback() {
+        if (networkCallback != null) return
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                handleNetworkStatusChange(true)
+            }
+
+            override fun onLost(network: Network) {
+                handleNetworkStatusChange(false)
+            }
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                connectivityManager.registerDefaultNetworkCallback(networkCallback!!)
+            } else {
+                val request = NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
+                connectivityManager.registerNetworkCallback(request, networkCallback!!)
+            }
+        } catch (ex: Exception) {
+            ConsoleLogger.error("LocationService: Network callback registration failed: ${ex.message}")
+            networkCallback = null
+        }
+    }
+
+    private fun unregisterNetworkCallback() {
+        networkCallback?.let {
+            try {
+                connectivityManager.unregisterNetworkCallback(it)
+            } catch (_: Exception) {
+            }
+        }
+        networkCallback = null
+    }
+
+    private fun handleNetworkStatusChange(available: Boolean, force: Boolean = false) {
+        if (!force && isNetworkAvailable == available) return
+        isNetworkAvailable = available
+        if (available) {
+            ConsoleLogger.info("LocationService: Network available, triggering sync.")
+            NotificationHelper.cancelNetworkUnavailableNotification(this)
+            updateAndBroadcastState(connectionStatus = StatusMessages.TRACKING_ACTIVE)
+            enqueueSyncWorker()
+        } else {
+            ConsoleLogger.warn("LocationService: Network unavailable, caching locations.")
+            CoroutineScope(Dispatchers.IO).launch {
+                val cached = AppDatabase.getDatabase(applicationContext).locationDao().getCachedCount()
+                NotificationHelper.showNetworkUnavailableNotification(applicationContext, cached)
+                updateAndBroadcastState(connectionStatus = StatusMessages.NETWORK_UNAVAILABLE, cachedCount = cached)
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        ConsoleLogger.log("Služba LocationService se zastavuje.")
+        ConsoleLogger.info("LocationService: Stopping.")
         fusedLocationClient.removeLocationUpdates(locationCallback)
         unregisterReceiver(locationProviderReceiver)
         LocalBroadcastManager.getInstance(this).unregisterReceiver(stopServiceReceiver)
+        unregisterNetworkCallback()
+        NotificationHelper.cancelNetworkUnavailableNotification(this)
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(applicationContext)
         val transitionReason = if (ackPending) {
             SharedPreferencesHelper.getPowerTransitionReason(applicationContext) ?: "service_destroy"
@@ -400,14 +479,14 @@ class LocationService : Service() {
         // Send final state update to ensure UI is correct
         updateAndBroadcastState(
             status = StatusMessages.SERVICE_STOPPED,
-            connectionStatus = "Neaktivní",
+            connectionStatus = "Inactive",
             nextUpdate = 0,
             isRunning = false,
             powerStatus = PowerState.OFF,
             ackPending = ackPending,
             instructionSource = transitionReason
         )
-        ConsoleLogger.log("Služba LocationService zničena.")
+        ConsoleLogger.info("LocationService: Destroyed.")
     }
 
     private fun stopForegroundSafely() {

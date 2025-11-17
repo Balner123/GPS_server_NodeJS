@@ -64,6 +64,10 @@ router.post('/delete-device/:deviceId', isAuthenticated, isRoot, administrationC
 
 router.post('/verify-user/:userId', isAuthenticated, isRoot, administrationController.verifyUser);
 
+
+router.delete('/alerts/:alertId', isAuthenticated, administrationController.deleteAlert);
+
+// Admin-only POST endpoint left for HTML forms that cannot send DELETE
 router.post('/delete-alert/:alertId', isAuthenticated, isRoot, administrationController.deleteAlert);
 
 module.exports = router;

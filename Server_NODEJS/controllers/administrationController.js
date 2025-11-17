@@ -189,17 +189,46 @@ const verifyUser = async (req, res) => {
 
 const deleteAlert = async (req, res) => {
     const alertId = req.params.alertId;
+    const log = getRequestLogger(req, { controller: 'administration', action: 'deleteAlert', alertId });
+
     try {
-        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteAlert', alertId });
-        await db.Alert.destroy({ where: { id: alertId } });
+        const alert = await db.Alert.findOne({ where: { id: alertId } });
+
+        if (!alert) {
+            log.warn('Alert to be deleted not found');
+            if (req.accepts('json')) {
+                return res.status(404).json({ success: false, error: 'Alert not found.' });
+            }
+            req.flash('error', 'Alert not found.');
+            return res.redirect(req.headers.referer || '/administration');
+        }
+
+        // Root can delete any alert. Regular users can only delete their own.
+        if (!req.session.user.isRoot && alert.user_id !== req.session.user.id) {
+            log.warn('Permission denied to delete alert', { userId: req.session.user.id });
+            if (req.accepts('json')) {
+                return res.status(403).json({ success: false, error: 'You do not have permission to delete this alert.' });
+            }
+            req.flash('error', 'You do not have permission to delete this alert.');
+            return res.redirect(req.headers.referer || '/');
+        }
+
+        await alert.destroy();
+        log.info('Alert deleted successfully');
+
+        if (req.accepts('json')) {
+            return res.status(200).json({ success: true, message: 'Alert deleted successfully.' });
+        }
         req.flash('success', 'Alert has been deleted successfully.');
-        log.info('Alert deleted from admin');
-        res.redirect('/administration');
+        res.redirect(req.headers.referer || '/administration');
+
     } catch (err) {
-        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteAlert', alertId });
-        log.error('Error deleting alert in admin', err);
+        log.error('Error deleting alert', err);
+        if (req.accepts('json')) {
+            return res.status(500).json({ success: false, error: 'An internal server error occurred.' });
+        }
         req.flash('error', 'An error occurred while deleting the alert.');
-        res.redirect('/administration');
+        res.redirect(req.headers.referer || '/administration');
     }
 };
 

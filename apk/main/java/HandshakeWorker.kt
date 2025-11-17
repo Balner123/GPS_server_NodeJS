@@ -11,7 +11,7 @@ class HandshakeWorker(appContext: Context, params: WorkerParameters) : Coroutine
             HandshakeManager.performHandshake(applicationContext, reason = reason)
             Result.success()
         } catch (ex: Exception) {
-            ConsoleLogger.log("HandshakeWorker selhal: ${ex.message}")
+            ConsoleLogger.error("HandshakeWorker failed: ${ex.message}")
             Result.retry()
         }
     }

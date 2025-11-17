@@ -40,7 +40,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
     override suspend fun doWork(): Result {
-        ConsoleLogger.log("SyncWorker spuštěn.")
+        ConsoleLogger.info("Sync: Worker started")
 
         val dao = AppDatabase.getDatabase(applicationContext).locationDao()
         val sharedPrefs = getEncryptedSharedPreferences()
@@ -50,11 +50,11 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         val clientType = sharedPrefs.getString("client_type", "APK") ?: "APK"
 
         if (sessionCookie.isNullOrBlank()) {
-            ConsoleLogger.log("SyncWorker: session cookie missing, fallback to device-auth payload.")
+            ConsoleLogger.warn("Sync: No session cookie, falling back to device_id")
         }
 
         if (SharedPreferencesHelper.isTurnOffAckPending(applicationContext)) {
-            ConsoleLogger.log("SyncWorker: čeká se na potvrzení TURN_OFF, synchronizace se neprovádí.")
+            ConsoleLogger.info("Sync: Upload paused, waiting for TURN_OFF confirmation")
             HandshakeManager.launchHandshake(applicationContext, reason = "sync_turn_off_ack")
             HandshakeManager.enqueueHandshakeWork(applicationContext)
             return Result.success()
@@ -66,11 +66,11 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         while (continueSync) {
             val cachedLocations = dao.getLocationsBatch(batchSize)
             if (cachedLocations.isEmpty()) {
-                ConsoleLogger.log("SyncWorker: žádné pozice k odeslání.")
+                ConsoleLogger.info("Sync: No positions to upload")
                 break
             }
 
-            ConsoleLogger.log("SyncWorker: nalezena dávka ${cachedLocations.size} pozic k odeslání.")
+            ConsoleLogger.debug("Sync: Sending batch of ${cachedLocations.size} positions")
 
             val payload = JSONArray()
             val idsToDelete = mutableListOf<Int>()
@@ -110,22 +110,25 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 val response = parseResponse(responseBody)
 
                 if (!response.success) {
-                    ConsoleLogger.log("SyncWorker: server vrátil success=false (${response.message ?: "bez detailu"}).")
+                    ConsoleLogger.warn("Sync: Server responded with success=false. Message: ${response.message}")
                     return Result.retry()
                 }
 
                 continueSync = handleServerResponse(sharedPrefs, response)
                 dao.deleteLocationsByIds(idsToDelete)
-                ConsoleLogger.log("SyncWorker: dávka ${idsToDelete.size} pozic odeslána a odstraněna z cache.")
+                ConsoleLogger.debug("Sync: Batch of ${idsToDelete.size} positions sent successfully")
+
+                ConsoleLogger.debug("Sync: Triggering handshake after batch completion")
+                HandshakeManager.launchHandshake(applicationContext, reason = "sync_batch_complete")
             } catch (ex: RecoverableSyncException) {
-                ConsoleLogger.log("SyncWorker: obnovitelná chyba (${ex.message}). Úloha bude zopakována.")
+                ConsoleLogger.warn("Sync: Recoverable error: ${ex.message}")
                 return Result.retry()
             } catch (ex: UnauthorizedException) {
-                ConsoleLogger.log("SyncWorker: neautorizovaný přístup (${ex.message}).")
+                ConsoleLogger.error("Sync: Unauthorized access: ${ex.message}")
                 handleUnauthorized()
                 return Result.failure()
             } catch (ex: Exception) {
-                ConsoleLogger.log("SyncWorker: neočekávaná chyba: ${ex.message}")
+                ConsoleLogger.error("Sync: Unexpected error: ${ex.message}")
                 return Result.retry()
             }
         }
@@ -157,6 +160,8 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 BufferedReader(InputStreamReader(it, Charsets.UTF_8)).use { reader -> reader.readText() }
             } ?: ""
 
+            ConsoleLogger.debug("Sync: Response code=$responseCode, body=${responseBody.take(160)}")
+
             when {
                 responseCode == HttpURLConnection.HTTP_UNAUTHORIZED || responseCode == HttpURLConnection.HTTP_FORBIDDEN ->
                     throw UnauthorizedException("HTTP $responseCode: $responseBody")
@@ -174,7 +179,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         return try {
             gson.fromJson(responseBody, ServerResponse::class.java)
         } catch (ex: JsonSyntaxException) {
-            throw RecoverableSyncException("Neplatná odpověď serveru (${ex.message})")
+            throw RecoverableSyncException("Invalid server response (${ex.message})")
         }
     }
 
@@ -189,7 +194,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             if (sharedPrefs.getInt("gps_interval_seconds", 60) != intervalGps) {
                 editor.putInt("gps_interval_seconds", intervalGps)
                 settingsChanged = true
-                ConsoleLogger.log("SyncWorker: aktualizován interval GPS na ${intervalGps}s.")
+                ConsoleLogger.info("Sync: GPS interval updated to ${intervalGps}s")
             }
         }
 
@@ -197,7 +202,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             if (sharedPrefs.getInt("sync_interval_count", 1) != intervalSend) {
                 editor.putInt("sync_interval_count", intervalSend)
                 settingsChanged = true
-                ConsoleLogger.log("SyncWorker: aktualizován interval odesílání na ${intervalSend} pozic.")
+                ConsoleLogger.info("Sync: Send interval updated to ${intervalSend} positions")
             }
         }
 
@@ -209,9 +214,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         }
 
         val instruction = response.power_instruction?.uppercase(Locale.US)
-        ConsoleLogger.log(
-            "SyncWorker: server responded with power_instruction=${instruction ?: "NONE"}, pendingAck=${SharedPreferencesHelper.isTurnOffAckPending(applicationContext)}"
-        )
+        ConsoleLogger.debug("Sync: Received instruction='${instruction ?: "NONE"}', pendingAck=${SharedPreferencesHelper.isTurnOffAckPending(applicationContext)}")
         return when (instruction) {
             "TURN_OFF" -> {
                 PowerController.requestTurnOff(applicationContext, origin = "sync")
@@ -226,16 +229,16 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
     private fun restartLocationServiceIfActive() {
         if (SharedPreferencesHelper.getPowerState(applicationContext) == PowerState.OFF) {
-            ConsoleLogger.log("SyncWorker: konfigurace změněna, ale služba je vypnutá. Restart se neprovádí.")
+            ConsoleLogger.info("Sync: Service restart skipped (power is OFF)")
             return
         }
 
         if (SharedPreferencesHelper.isTurnOffAckPending(applicationContext)) {
-            ConsoleLogger.log("SyncWorker: restart služby blokován – čeká se na potvrzení TURN_OFF.")
+            ConsoleLogger.warn("Sync: Service restart blocked (waiting for TURN_OFF confirmation)")
             return
         }
 
-        ConsoleLogger.log("SyncWorker: restartuji LocationService pro aplikaci nové konfigurace.")
+        ConsoleLogger.info("Sync: Restarting LocationService to apply new configuration")
         val serviceIntent = Intent(applicationContext, LocationService::class.java)
         applicationContext.stopService(serviceIntent)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -257,7 +260,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         val logoutIntent = Intent(LocationService.ACTION_FORCE_LOGOUT).apply {
             putExtra(
                 LocationService.EXTRA_LOGOUT_MESSAGE,
-                "Session je neplatná. Přihlaste se prosím znovu."
+                "Session is invalid. Please sign in again."
             )
         }
         applicationContext.sendBroadcast(logoutIntent)

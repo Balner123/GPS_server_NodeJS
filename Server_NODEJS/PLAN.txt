@@ -1,0 +1,23 @@
+# Plán úprav pro správu a zobrazení alertů
+
+## 1. Úprava hlavní stránky (Overview)
+
+- [ ] **Omezit počet zobrazených alertů:** V `controllers/indexController.js` upravit dotaz pro načítání alertů tak, aby se načetly pouze 4 nejnovější.
+- [ ] **Omezit počet zobrazených zařízení:** V `controllers/indexController.js` upravit dotaz pro načítání zařízení tak, aby se načetla pouze 4 nejnovější.
+- [ ] **Ověření:** Zkontrolovat, že se na hlavní stránce (`index.ejs`) zobrazují maximálně 4 alerty a 4 zařízení.
+
+## 2. Změna logiky "čištění" alertů u zařízení
+
+- [ ] **Analýza stávající funkce:** Prozkoumat funkci `markDeviceAlertsAsRead` v `controllers/deviceController.js`. Cílem je potvrdit, zda maže alerty, nebo je pouze označuje jako přečtené (`is_read = true`).
+- [ ] **Úprava funkce:** Pokud funkce alerty maže, upravit ji tak, aby pouze měnila stav `is_read`. Tlačítko "Clear" u zařízení tak alerty nesmaže z databáze, ale pouze je "skryje" z aktivního přehledu u daného zařízení.
+
+## 3. Vytvoření nové stránky "Alert Log"
+
+- [ ] **Nová routa pro web:** Vytvořit novou routu (např. `/alerts`) v `routes/index.js` nebo v novém souboru `routes/alerts.web.js`, která bude renderovat stránku s logem alertů.
+- [ ] **Nový controller:** Vytvořit funkci v `controllers/indexController.js` (nebo v novém `alertsController.js`), která načte VŠECHNY alerty pro přihlášeného uživatele.
+- [ ] **Nový pohled (view):** Vytvořit soubor `views/alert-log.ejs` (nebo podobný název), který zobrazí alerty v přehledné tabulce.
+- [ ] **Přidat tlačítko pro smazání:** Do tabulky v `alert-log.ejs` přidat ke každému alertu tlačítko pro jeho trvalé smazání.
+- [ ] **Nová routa pro API:** Vytvořit API endpoint (např. `DELETE /api/alerts/:id`) pro smazání konkrétního alertu.
+- [ ] **Implementace smazání v controlleru:** Vytvořit funkci (např. `deleteAlert`), která na základě API požadavku smaže alert z databáze.
+- [ ] **Frontend logika pro mazání:** Přidat JavaScript na stránku `alert-log.ejs`, který po kliknutí na tlačítko "Smazat" zavolá API a po úspěšném smazání odstraní řádek z tabulky.
+- [ ] **Navigace:** Přidat odkaz na novou stránku "Alert Log" do navigační lišty (`views/partials/_navbar.ejs`).

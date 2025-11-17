@@ -82,6 +82,7 @@ webRoutes.use('/', require('./routes/auth.web'));
 webRoutes.use('/', require('./routes/devices.web'));
 webRoutes.use('/', require('./routes/settings.web'));
 webRoutes.use('/', require('./routes/administration.web'));
+webRoutes.use('/', require('./routes/alerts.web'));
 app.use('/', webRoutes);
 
 app.use('/auth', require('./routes/auth.oauth.js')); // OAuth routes

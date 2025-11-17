@@ -1,0 +1,118 @@
+<%- include('partials/_head', { title: 'Alert Log' }) %>
+
+<body>
+    <%- include('partials/_preloader') %>
+
+    <div class="page-wrapper d-flex flex-column min-vh-100">
+        <%- include('partials/_navbar', { currentPage: currentPage }) %>
+        <main class="main-content flex-fill">
+            <div class="content-wrapper">
+                <div class="container-fluid">
+                    <!-- Alert Table -->
+                    <div class="row justify-content-center">
+                        <div class="col-12">
+                            <div class="card fade-in-on-load mx-auto mt-4" style="animation-delay: 0.2s; max-width:75%;">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="card-title mb-0">All Recorded Alerts</h5>
+                                    <% if (alerts && alerts.length > 0) { %>
+                                        <button class="btn btn-sm btn-warning" id="mark-all-alerts-read-btn">Mark All Read</button>
+                                    <% } %>
+                                </div>
+                                <div class="card-body">
+
+                                    <% if (error && error.length > 0) { %>
+                                        <% error.forEach(function(msg){ %>
+                                            <div class="alert alert-danger" role="alert"><%= msg %></div>
+                                        <% }) %>
+                                    <% } %>
+                                    <% if (success && success.length > 0) { %>
+                                        <% success.forEach(function(msg){ %>
+                                            <div class="alert alert-success" role="alert"><%= msg %></div>
+                                        <% }) %>
+                                    <% } %>
+
+                                        <div class="list-group mb-3">
+                                            <% if (alerts && alerts.length > 0) { %>
+                                                                            <% alerts.forEach(alert => { %>
+                                                                                <% 
+                                                                                    let alertBgClass = '';
+                                                                                    let alertIconClass = '';
+                                                                                    let alertIconColor = '';
+                                                                                    let textColorClass = '';
+
+                                                                                    if (alert.is_read) {
+                                                                                        alertBgClass = 'list-group-item-secondary';
+                                                                                        alertIconClass = 'fa-check-circle';
+                                                                                        alertIconColor = 'text-white';
+                                                                                        textColorClass = 'text-white';
+                                                                                    } else {
+                                                                                        if (alert.type === 'geofence') {
+                                                                                            alertBgClass = 'bg-danger'; // More saturated
+                                                                                            alertIconClass = 'fa-exclamation-triangle';
+                                                                                            alertIconColor = 'text-white';
+                                                                                            textColorClass = 'text-white';
+                                                                                        } else if (alert.type === 'geofence_return') {
+                                                                                            alertBgClass = 'bg-info'; // More saturated
+                                                                                            alertIconClass = 'fa-info-circle';
+                                                                                            alertIconColor = 'text-white';
+                                                                                            textColorClass = 'text-white';
+                                                                                        } else {
+                                                                                            // Default for other unread types
+                                                                                            alertBgClass = 'bg-warning'; // More saturated
+                                                                                            alertIconClass = 'fa-info-circle';
+                                                                                            alertIconColor = 'text-white';
+                                                                                            textColorClass = 'text-white';
+                                                                                        }
+                                                                                    }
+                                                                                %>
+                                                                                <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-start mb-2 rounded <%= alertBgClass %>" id="alert-row-<%= alert.id %>">
+                                                                                    <div class="d-flex align-items-center me-auto">
+                                                                                        <i class="fas <%= alertIconClass %> <%= alertIconColor %> me-3 fa-lg"></i>
+                                                                                        <div>
+                                                                                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                                                                                <h6 class="mb-1 <%= textColorClass %>">Alert from <%= alert.Device ? alert.Device.name : 'N/A' %></h6>
+                                                                                                <small class="<%= textColorClass %> ms-3"><%= new Date(alert.created_at).toLocaleString() %></small>
+                                                                                            </div>
+                                                                                            <p class="mb-1 <%= textColorClass %>"><%= alert.message %></p>
+                                                                                            <small>
+                                                                                                <span class="badge bg-secondary text-light me-2"><%= alert.type %></span>
+                                                                                                <% if (alert.is_read) { %>
+                                                                                                    <span class="badge bg-success">Read</span>
+                                                                                                <% } else { %>
+                                                                                                    <span class="badge bg-warning">Unread</span>
+                                                                                                <% } %>
+                                                                                            </small>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <button class="btn btn-sm btn-danger btn-delete-alert ms-3" data-alert-id="<%= alert.id %>">
+                                                                                        <i class="bi bi-trash"></i> Delete
+                                                                                    </button>
+                                                                                </div>
+                                                                            <% }) %>
+                                                                        <% } else { %>
+                                                                            <div class="list-group-item">No alerts found.</div>
+                                            <% } %>
+                                    </div>                                
+                                </div> <!-- end card-body-->
+                            </div> <!-- end card-->
+                        </div> <!-- end col -->
+                    </div>
+                    <!-- End Alert Table -->
+
+                </div>
+            </div>
+        </main>
+
+        <%- include('partials/_footer') %>
+    </div>
+
+    <%- include('partials/_confirmationModal') %>
+
+    <!-- Scripts -->
+    <script src="/js/theme-switcher.js"></script>
+    <script src="/js/common.js"></script>
+    
+    <script src="/js/alert-log.js"></script>
+
+</body>
+</html>

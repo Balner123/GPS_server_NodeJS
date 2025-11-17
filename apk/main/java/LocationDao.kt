@@ -17,4 +17,7 @@ interface LocationDao {
 
     @Query("DELETE FROM location_cache WHERE id IN (:locationIds)")
     suspend fun deleteLocationsByIds(locationIds: List<Int>)
+
+    @Query("SELECT COUNT(*) FROM location_cache")
+    suspend fun getCachedCount(): Int
 }
