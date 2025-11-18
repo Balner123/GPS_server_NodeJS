@@ -15,6 +15,9 @@ Primárně se používá sjednocený endpoint:
   - `client_type=APK` – vyžaduje aktivní session (APK login). Stačí poslat `device_id` (`installationId`) a volitelný název.
 - **Legacy**: `POST /api/hw/register-device`, `POST /api/apk/register-device` – delegují na unified logiku a slouží pro starší klienty.
 
+Poznámka k chování unified registrace:
+- Endpoint `POST /api/devices/register` vrací `201` při úspěšném vytvoření, `200` pokud je zařízení již registrováno u stejného uživatele a `409` když zařízení patří jinému uživateli.
+
 3.  **Manuálně v UI** (aktuálně není implementováno)
   - V uživatelském rozhraní `/devices` je prostor pro doplnění formuláře, který by umožnil manuální zadání `deviceId` a jeho registraci k účtu.
 
@@ -25,17 +28,19 @@ Primárně se používá sjednocený endpoint:
 - **Výstup**: `{ "registered": true|false, "config": { ... }, "power_instruction": "NONE" | "TURN_OFF" }`
 - **Legacy**: `POST /api/hw/handshake` – pouze překlopí volání na unified endpoint.
 
+Poznámka: Handshake endpoint také aktualizuje `device.device_type`, `device.power_status` a `device.last_seen`, pokud jsou tyto hodnoty zaslány v payloadu.
+
 ## 6.2. Zpracování a ukládání dat
 
 - **Endpoint**: `POST /api/devices/input`
 - **Proces**:
-  1.  Zařízení (HW nebo APK) odesílá data o poloze na tento endpoint. Může jít o jeden bod nebo pole bodů (dávkové odeslání).
+  1.  Zařízení (HW nebo APK) odesílá data o poloze na tento endpoint. Může jít o jeden bod nebo pole bodů (dávkové odeslání). Endpoint používá middleware `authenticateDevice` pro ověření `device`/`device_id` a přidá `req.device`/`req.user`.
   2.  Server nejprve ověří, zda je `deviceId` registrováno v databázi.
   3.  Pokud ano, všechny platné body (s `latitude` a `longitude`) se uloží do tabulky `locations`.
   4.  U zařízení se aktualizuje časová značka `last_seen`.
   5.  Po uložení se provede kontrola na Geofence (viz níže).
   6.  Pokud zařízení v payloadu oznámí novou hodnotu `power_status` (např. `OFF` po instrukci `TURN_OFF`), server uloží změnu a nulování instrukce provede atomicky.
-  7.  Odpověď je jednoduché `{ "success": true }`, případné další metadata si zařízení vyžádá až dalším handshake.
+  7.  Odpověď je jednoduché `{ "success": true }` (HTTP 200) při úspěchu; v případě chyb (chybějící `device`/`device_id`, nevalidní body apod.) server vrací JSON s chybovou zprávou a odpovídajícím HTTP stavem (400/404/500).
 
 ## 6.3. Zobrazení dat
 
@@ -70,6 +75,10 @@ Uživatel může na stránce `/devices` měnit nastavení pro každé zařízen�
   - `POST /api/alerts/read`: Označí konkrétní poplachy jako přečtené.
   - `POST /api/alerts/read-all/:deviceId`: Označí všechny poplachy u zařízení jako přečtené.
 
+Další alert endpointy dostupné v kódu:
+- `GET /api/alerts/unread/:deviceId` — vrací nepřečtené poplachy pro konkrétní zařízení (pouze vlastník zařízení).
+- `GET /api/alerts` — vrací všechny nepřečtené poplachy aktuálního uživatele.
+
 ## 6.8. Export dat do GPX
 
 - **Endpoint**: `GET /api/devices/export/gpx/:deviceId`
@@ -78,6 +87,8 @@ Uživatel může na stránce `/devices` měnit nastavení pro každé zařízen�
   2. Po kliknutí na tlačítko server shromáždí veškerou historii polohy pro dané zařízení, seřadí ji podle času a vygeneruje soubor ve formátu GPX 1.1.
   3. Tento soubor je následně odeslán do prohlížeče a automaticky se stáhne.
   4. Soubor obsahuje všechny zaznamenané body trasy (`<trkpt>`) včetně zeměpisné šířky, délky, nadmořské výšky (`<ele>`), času (`<time>`) a rychlosti (`<speed>`).
+
+Poznámka: Pokud pro dané zařízení nejsou žádná data, endpoint vrátí HTTP 404 s jednoduchým textovým tělem (server nastaví `Content-Type: text/plain`).
 
 ### Poznámky k identifikátoru zařízení
 

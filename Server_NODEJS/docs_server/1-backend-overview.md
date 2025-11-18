@@ -1,3 +1,51 @@
+# 1. Přehled backendu
+
+Tento dokument stručně popisuje architekturu, klíčové komponenty a provozní poznámky serverové části aplikace.
+
+## Architektura
+
+Backend je implementován v Node.js s využitím frameworku Express a následuje logiku MVC (Model–View–Controller). Datová vrstva je realizována přes Sequelize a MySQL. Prezentační část používá EJS pro generování server-side HTML; většina interakce probíhá však přes REST API vrstvu.
+
+Hlavní adresáře projektu:
+
+- `config/` — konfigurace (Passport, rate-limits apod.)
+- `controllers/` — aplikační logika (zpracování požadavků)
+- `models/` — Sequelize modely a migrace
+- `routes/` — registrace rout a jejich autorizace
+- `middleware/` — autorizace, validace, rate limiting
+- `utils/` — pomocné utility (logger, sanitizace)
+- `views/`, `public/` — šablony a statické soubory
+
+## Technologický stack (stručně)
+
+- Node.js, Express
+- MySQL + Sequelize
+- EJS (server-side views)
+- Passport / express-session (autentizace)
+- Swagger (`swagger-ui-express`) pro API dokumentaci
+
+Plný seznam závislostí je v `package.json`; doporučenou cestou ke kontrole API spec je `/api-docs` (Swagger).
+
+## Spuštění a konfigurace
+
+Preferovaný způsob provozu je kontejnerizace (Docker, `docker-compose.yml`).
+
+- Start (devel/prod): `docker-compose up --build -d`
+- Hlavní vstup: `server.js` — inicializuje middleware, routy a službu.
+- Konfigurace pomocí env proměnných (př. `PORT`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `SESSION_SECRET`).
+
+Poznámka: při vývoji aplikace může být použito `sequelize.sync({ alter: true })`; v produkci doporučujeme migrace.
+
+## Logování a observabilita
+
+Logger je implementován v `utils/logger.js`. Důležité body:
+
+- Logy se ukládají do souboru `log.txt` (append), formát je časová značka + úroveň + JSON metadata.
+- Citlivá pole (`password`, `token`, `authorization`) jsou automaticky redigována.
+- GET požadavky jsou logovány stručně; ostatní metody mají detailní záznamy (payloady a odpovědi).
+
+---
+Plné technické detaily a referenční diagramy jsou v `db_diagrams/` a v jednotlivých kapitolách v této složce `docs_server/`.
 # 1. Přehled Backendu
 
 Tento dokument poskytuje celkový přehled architektury, použitých technologií a základní konfigurace serverové části aplikace.
@@ -54,6 +102,22 @@ Aplikace je navržena pro spuštění pomocí **Docker**. Konfigurace se nacház
 - **Start serveru**: `docker-compose up --build -d`
 - **Vstupní bod**: Soubor `server.js` inicializuje Express aplikaci, nastavuje veškerý middleware (session, Passport, rate limiting) a registruje všechny routy ze složky `/routes`.
 - **Konfigurace**: Aplikace je konfigurována pomocí proměnných prostředí (environment variables), které jsou definovány v `docker-compose.yml` a načítány přes `dotenv`. Mezi klíčové proměnné patří `PORT`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `SESSION_SECRET` atd.
+
+Další provozní proměnné a runtime chování (viz `server.js`):
+
+- `RATE_LIMIT_MAX` — celkový limit požadavků pro web (default: `300` pokud není definováno).
+- `RATE_LIMIT_MAX_API` — limit pro API endpointy (default: `100` pokud není definováno).
+- `NODE_ENV` — pokud má hodnotu `using_ssl`, cookie `secure` flag pro session cookie se nastaví na `true` (tj. cookie bude zasílána pouze přes HTTPS). Pozor, kód používá právě tento string aby zapnul secure cookie: `process.env.NODE_ENV === 'using_ssl'`.
+- `PORT` — port, na kterém server naslouchá (fallback 5000).
+
+Poznámka o rate-limiting: Server používá dvě úrovně rate-limiteru — obecný limiter (aplikovaný dříve v middleware řetězci) a přísnější limiter aplikovaný na všechny `/api` routy. To znamená, že API rozhraní má oddělené limity a běžné webové stránky mohou mít jiné limity.
+
+Další runtime poznámky:
+
+- Statické soubory jsou servírovány z adresáře `public` (`express.static`).
+- Swagger UI (automatically generated from JSDoc in `routes/*.js`) je dostupný na `/api-docs`.
+- Session cookie: `sameSite: 'lax'`, `httpOnly: true`, `maxAge: 6 hours`.
+- Skripty dostupné v `package.json`: `start` (production) a `dev` (development, uses `nodemon`).
 
 Další poznámky:
 - **Swagger UI** je dostupné na `/api-docs` (viz `swaggerDef.js`).

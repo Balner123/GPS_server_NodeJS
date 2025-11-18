@@ -17,11 +17,9 @@ import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.work.*
 import com.google.android.gms.location.*
 import android.app.PendingIntent
-import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,11 +28,9 @@ import java.util.concurrent.TimeUnit
 class LocationService : Service() {
 
     companion object {
-        const val ACTION_BROADCAST_STATUS = "com.example.gpsreporterapp.BROADCAST_STATUS"
-        const val ACTION_REQUEST_STATUS_UPDATE = "com.example.gpsreporterapp.REQUEST_STATUS_UPDATE"
-        const val ACTION_STOP_SERVICE = "com.example.gpsreporterapp.STOP_SERVICE"
+        // Actions are deprecated in favor of StateFlow and direct calls.
+        // ACTION_FORCE_LOGOUT is still used by SyncWorker.
         const val ACTION_FORCE_LOGOUT = "com.example.gpsreporterapp.FORCE_LOGOUT"
-        const val EXTRA_SERVICE_STATE = "extra_service_state"
         const val EXTRA_LOGOUT_MESSAGE = "extra_logout_message"
     }
 
@@ -51,7 +47,6 @@ class LocationService : Service() {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     private var currentServiceState: ServiceState = ServiceState()
-    private val gson = Gson()
 
     private val NOTIFICATION_CHANNEL_ID = "LocationServiceChannel"
     private val NOTIFICATION_ID = 12345
@@ -86,13 +81,7 @@ class LocationService : Service() {
         }
     }
 
-    private val stopServiceReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            ConsoleLogger.info("LocationService: Stop request received via broadcast, shutting down.")
-            stopForegroundSafely()
-            stopSelf()
-        }
-    }
+    // stopServiceReceiver is no longer needed. Service is stopped via stopService() intent.
 
     override fun onCreate() {
         super.onCreate()
@@ -111,11 +100,6 @@ class LocationService : Service() {
         } else {
             registerReceiver(locationProviderReceiver, providerFilter)
         }
-
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            stopServiceReceiver,
-            IntentFilter(ACTION_STOP_SERVICE)
-        )
 
         currentServiceState.powerStatus = SharedPreferencesHelper.getPowerState(this).toString()
 
@@ -136,13 +120,7 @@ class LocationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_REQUEST_STATUS_UPDATE) {
-            val broadcastIntent = Intent(ACTION_BROADCAST_STATUS).apply {
-                putExtra(EXTRA_SERVICE_STATE, gson.toJson(currentServiceState))
-            }
-            LocalBroadcastManager.getInstance(this).sendBroadcast(broadcastIntent)
-            return START_NOT_STICKY // Only send status snapshot; do not restart service
-        }
+        // ACTION_REQUEST_STATUS_UPDATE is obsolete and replaced by StateFlow repository.
 
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(this)
         if (ackPending) {
@@ -250,31 +228,6 @@ class LocationService : Service() {
 
         val connectionLabel = if (isNetworkAvailable) StatusMessages.SYNC_IN_PROGRESS else StatusMessages.NETWORK_UNAVAILABLE
         updateAndBroadcastState(connectionStatus = connectionLabel, isRunning = true)
-
-        CoroutineScope(Dispatchers.Main).launch {
-            WorkManager.getInstance(applicationContext).getWorkInfoByIdLiveData(syncWorkRequest.id)
-                .observeForever { workInfo ->
-                    if (workInfo != null) {
-                        when (workInfo.state) {
-                            WorkInfo.State.SUCCEEDED -> {
-                                ConsoleLogger.debug("LocationService: SyncWorker finished with success.")
-                                updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE, connectionStatus = StatusMessages.SYNC_SUCCESS, isRunning = true)
-                            }
-                            WorkInfo.State.FAILED -> {
-                                ConsoleLogger.warn("LocationService: SyncWorker failed.")
-                                updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE, connectionStatus = StatusMessages.SYNC_FAILED, isRunning = true)
-                            }
-                            WorkInfo.State.CANCELLED -> {
-                                ConsoleLogger.warn("LocationService: SyncWorker cancelled.")
-                                updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE, connectionStatus = StatusMessages.SYNC_CANCELLED, isRunning = true)
-                            }
-                            else -> {
-                                // For ENQUEUED/RUNNING/BLOCKED keep the "Uploading..." label
-                            }
-                        }
-                    }
-                }
-        }
     }
 
     private fun sendLocationAndProcessResponse(location: Location) {
@@ -391,11 +344,8 @@ class LocationService : Service() {
         currentServiceState.powerInstructionSource = resolvedSource
 
 
-        // Broadcast the updated state
-        val intent = Intent(ACTION_BROADCAST_STATUS).apply {
-            putExtra(EXTRA_SERVICE_STATE, gson.toJson(currentServiceState))
-        }
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+        // Update the state in the central repository
+        ServiceStateRepository.updateState(currentServiceState.copy())
     }
 
     private fun registerNetworkCallback() {
@@ -457,7 +407,6 @@ class LocationService : Service() {
         ConsoleLogger.info("LocationService: Stopping.")
         fusedLocationClient.removeLocationUpdates(locationCallback)
         unregisterReceiver(locationProviderReceiver)
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(stopServiceReceiver)
         unregisterNetworkCallback()
         NotificationHelper.cancelNetworkUnavailableNotification(this)
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(applicationContext)

@@ -10,6 +10,8 @@ Aplikace využívá `express-session` pro správu uživatelských sessions. Po �
 - **Secret**: Klíč pro podepisování session cookie je načítán z proměnné prostředí `SESSION_SECRET`.
 - **Cookie**: Session cookie má nastaven `httpOnly: true` pro ochranu proti XSS útokům a `maxAge` na 6 hodin.
 
+**Poznámka o secure cookie**: V kódu se nastavení `cookie.secure` řídí přes `process.env.NODE_ENV === 'using_ssl'` (viz `server.js`). Pokud chcete, aby session cookie měly flag `secure` (přenášeny pouze přes HTTPS), spusťte aplikaci s `NODE_ENV=using_ssl` nebo jiným mechanismem, který nastaví tuto proměnnou. Také se ujistěte, že callback URL pro OAuth jsou přes HTTPS (`GOOGLE_CALLBACK_URL`, `GITHUB_CALLBACK_URL`).
+
 ## 4.2. Lokální autentizace (Jméno a Heslo)
 
 Logika je obsažena v `controllers/authController.js`.
@@ -54,7 +56,8 @@ Systém využívá knihovnu `Passport.js` a její strategie pro Google (`passpor
 4.  **Zpracování profilu** (logika v `config/passport.js`):
     a. **Nalezení uživatele**: Systém se pokusí najít uživatele podle `provider` a `provider_id`.
     b. **Propojení účtů**: Pokud uživatel nenalezen, systém se pokusí najít existující lokální účet podle e-mailu vráceného od poskytovatele. Pokud je nalezen, účty se propojí (do záznamu se doplní `provider` a `provider_id`).
-    c. **Vytvoření nového uživatele**: Pokud uživatel stále neexistuje, vytvoří se nový záznam v databázi. Pro Google je vyžadován ověřený e-mail.
+    c. **Vytvoření nového uživatele**: Pokud uživatel stále neexistuje, vytvoří se nový záznam v databázi. Pro Google je vyžadován ověřený e‑mail.
+    d. **Linkování existujících účtů**: Pokud poskytovatel vrátí e‑mail, který již existuje v databázi, `passport` se pokusí propojit tento externí účet s existujícím lokálním účtem (doplní `provider` a `provider_id`). To umožňuje přihlášení stejným e‑mailem přes různé poskytovatele.
 5.  Uživatel je přihlášen a přesměrován na hlavní stránku.
 
 ## 4.4. Autorizace (Uživatelské role)
@@ -66,6 +69,14 @@ Autorizace je řízena pomocí specializovaného middlewaru v `middleware/author
 - **`isUser`**: Povolí přístup pouze přihlášeným uživatelům, kteří **nejsou** `root`. Používá se pro hlavní stránku s mapou (`/`), aby se zajistilo, že `root` bude vždy přesměrován do své administrace.
 
 - **`isRoot`**: Nejpřísnější ochrana. Povolí přístup pouze uživateli s `username: 'root'`. Používá se pro ochranu administrátorského rozhraní (`/administration`).
+
+Další middleware používané v kódu (API vs web chování):
+
+- **`isApiAuthenticated`**: Variant autentikace určená pro API routy — pokud není session platná, vrátí JSON s HTTP 401 (místo přesměrování). Používá se např. v `routes/apk.js`.
+- **`isNotRootApi`**: Používá se u uživatelských API endpointů, aby zablokoval přístup `root` uživateli (server vrátí HTTP 403/401 podle kontextu).
+- **`authenticateDevice`**: Middleware pro HW/APK vstupy (např. `POST /api/devices/input`) — ověřuje, že zaslané `device`/`device_id` existuje v DB, připojí `req.device` a `req.user` a nastaví `req.clientType`. Při chybě vrací vhodný JSON (400/404/500).
+
+Poznámka: Rozdíl v chování mezi webovými a API routami je záměrný — webové routy renderují stránky a používají přesměrování s flash zprávami; API routy vrací JSON se strukturovanými chybami.
 
 ## 4.5. OAuth účty bez lokálního hesla (výzva k nastavení hesla)
 

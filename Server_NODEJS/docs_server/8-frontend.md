@@ -52,3 +52,19 @@ Tato složka obsahuje všechny statické soubory, které jsou přímo přístupn
 
 ### `scripts.js`
 - **Poznámka**: Tento soubor se zdá být **zastaralý**. Používá knihovnu Google Maps, zatímco zbytek aplikace přešel na Leaflet. Není načítán na žádné z hlavních stránek.
+
+## Provozní poznámky (runtime)
+
+- Statické soubory jsou servírovány z adresáře `public` pomocí `express.static` v `server.js`.
+- Hlavní polling interval pro aktualizaci polohy na `index` stránce je přibližně 5 sekund (klient volá `GET /api/devices/coordinates`). Buďte opatrní při zvyšování frekvence — backend má rate-limiter nakonfigurovaný ve `server.js`.
+- Hlavní API endpointy používané frontendem:
+  - `GET /api/devices/coordinates` — aktuální pozice všech zařízení uživatele
+  - `GET /api/devices/data?id=<deviceId>` — historie polohy (agregovaná)
+  - `GET /api/devices/raw-data?id=<deviceId>` — surová data
+  - `POST /api/devices/settings` — aktualizace intervalů a režimu
+  - `POST /api/devices/geofence` — uložení nebo odstranění geofence
+  - `POST /api/devices/name` — změna jména zařízení
+  - `POST /api/devices/delete/:deviceId` — smazání zařízení (UI používá POST formu)
+  - `GET /api/alerts` — nepřečtené poplachy uživatele
+
+Poznámka: Pokud měníte frontend logiku, aktualizujte i JSDoc komentáře v `routes/*.js`, protože Swagger generuje API reference z těchto komentářů.

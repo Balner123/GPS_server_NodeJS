@@ -93,24 +93,31 @@ docker-compose down
     SESSION_SECRET=...
     GOOGLE_CLIENT_ID=...
     GOOGLE_CLIENT_SECRET=...
+    GOOGLE_CALLBACK_URL=http://your-host/auth/google/callback
     GITHUB_CLIENT_ID=...
     GITHUB_CLIENT_SECRET=...
+    GITHUB_CALLBACK_URL=http://your-host/auth/github/callback
     EMAIL_USER=...
     EMAIL_PASS=...
     DB_HOST=localhost
     DB_USER=root
     DB_PASSWORD=...
     DB_NAME=gps_tracking
+    RATE_LIMIT_MAX=300
+    RATE_LIMIT_MAX_API=100
+    # Pokud chcete, aby session cookie měly flag `secure` (posílány pouze přes HTTPS),
+    # spusťte aplikaci s `NODE_ENV=using_ssl` nebo jiným mechanizmem, který nastaví
+    # `process.env.NODE_ENV === 'using_ssl'`.
+    NODE_ENV=using_ssl
     ```
 
 4.  **Inicializujte databázi a vytvořte root účet:**
     ```bash
-    # vytvořte databázi/tabulky (jednorázově)
-    mysql -u <user> -p < db/init-db.sql
-
-    # poté vytvořte root účet podle .env proměnné ROOT_PASS
-    npm run seed-root
+    # vytvořte databázi a tabulky (jednorázově) pomocí dodaného SQL skriptu
+    mysql -u <user> -p < init-db.sql
     ```
+
+    Poznámka: Tento repozitář v současnosti neobsahuje specializovaný `npm run seed-root` skript. Pokud potřebujete vytvořit root účet, vložte záznam do tabulky `users` ručně nebo upravte `init-db.sql` podle potřeby. `init-db.sql` již obsahuje ukázkový vložený záznam uživatele `root`.
 
 5.  **Spusťte server:**
     -   Pro produkční běh:

@@ -23,19 +23,10 @@ import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.google.gson.Gson
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
-import com.google.gson.JsonSyntaxException
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -51,7 +42,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var consoleScrollView: ScrollView
 
     private var countdownTimer: CountDownTimer? = null
-    private val gson = Gson()
     private var isServiceRunning = false
     private var lastPowerStatus: String = ""
     private var lastAckPending: Boolean = false
@@ -63,46 +53,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val statusReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            intent?.takeIf { it.action == LocationService.ACTION_BROADCAST_STATUS }?.let {
-                val serviceStateJson = it.getStringExtra(LocationService.EXTRA_SERVICE_STATE)
-                if (serviceStateJson != null) {
-                    try {
-                        val serviceState = gson.fromJson(serviceStateJson, ServiceState::class.java)
-                        isServiceRunning = serviceState.isRunning
-                        updateUiState(isServiceRunning)
-
-                        lastLocationTextView.text = serviceState.statusMessage
-                        lastConnectionStatusTextView.text = serviceState.connectionStatus
-                        cachedCountTextView.text = "Cached positions: ${serviceState.cachedCount}"
-                        val powerStatus = serviceState.powerStatus
-                        powerStatusTextView.text = "Power: ${powerStatus}"
-                        toggleButton.isEnabled = !serviceState.ackPending
-                        serverInstructionBanner.visibility = View.GONE
-                        serverInstructionBanner.text = ""
-                        lastAckPending = serviceState.ackPending
-                        if (!powerStatus.equals(lastPowerStatus, ignoreCase = true)) {
-                            if (powerStatus.equals("OFF", ignoreCase = true) && serviceState.connectionStatus.contains("instrukce", true)) {
-                                Toast.makeText(this@MainActivity, "Service was stopped by the server.", Toast.LENGTH_LONG).show()
-                            }
-                            lastPowerStatus = powerStatus
-                        }
-
-                        if (serviceState.nextUpdateTimestamp > 0) {
-                            startCountdown(serviceState.nextUpdateTimestamp)
-                        } else {
-                            countdownTimer?.cancel()
-                            countdownTextView.text = "-"
-                        }
-
-                    } catch (e: JsonSyntaxException) {
-                        // Ignore parsing errors
-                    }
-                }
-            }
-        }
-    }
+    // statusReceiver is now replaced by the StateFlow collector in observeServiceState()
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -207,6 +158,47 @@ class MainActivity : AppCompatActivity() {
             consoleTextView.text = logs.joinToString("")
             consoleScrollView.post { consoleScrollView.fullScroll(View.FOCUS_DOWN) }
         }
+
+        observeServiceState()
+    }
+
+    private fun observeServiceState() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                ServiceStateRepository.serviceState.collect { serviceState ->
+                    isServiceRunning = serviceState.isRunning
+                    updateUiState(isServiceRunning)
+
+                    lastLocationTextView.text = serviceState.statusMessage
+                    lastConnectionStatusTextView.text = serviceState.connectionStatus
+                    cachedCountTextView.text = "Cached positions: ${serviceState.cachedCount}"
+                    powerStatusTextView.text = "Power: ${serviceState.powerStatus}"
+                    toggleButton.isEnabled = !serviceState.ackPending
+                    
+                    if(serviceState.ackPending) {
+                        serverInstructionBanner.visibility = View.VISIBLE
+                        serverInstructionBanner.text = "Service paused by: ${serviceState.powerInstructionSource}"
+                    } else {
+                        serverInstructionBanner.visibility = View.GONE
+                        serverInstructionBanner.text = ""
+                    }
+
+                    if (!serviceState.powerStatus.equals(lastPowerStatus, ignoreCase = true)) {
+                        if (serviceState.powerStatus.equals("OFF", ignoreCase = true) && serviceState.powerInstructionSource?.contains("server", true) == true) {
+                            Toast.makeText(this@MainActivity, "Service was stopped by the server.", Toast.LENGTH_LONG).show()
+                        }
+                        lastPowerStatus = serviceState.powerStatus
+                    }
+
+                    if (serviceState.nextUpdateTimestamp > 0) {
+                        startCountdown(serviceState.nextUpdateTimestamp)
+                    } else {
+                        countdownTimer?.cancel()
+                        countdownTextView.text = "-"
+                    }
+                }
+            }
+        }
     }
 
     private fun showLogoutDialog(message: String) {
@@ -249,36 +241,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun sendLogoutRequest(baseUrl: String, sessionCookie: String) {
-        withContext(Dispatchers.IO) {
-            try {
-                ConsoleLogger.info("Sending logout request...")
-                val url = URL("$baseUrl/api/apk/logout")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                connection.setRequestProperty("Cookie", sessionCookie.split(";")[0])
-                connection.doOutput = true
-                connection.connectTimeout = 15000
-                connection.readTimeout = 15000
-
-                connection.outputStream.use { output ->
-                    OutputStreamWriter(output, Charsets.UTF_8).use { writer ->
-                        writer.write("{}")
-                    }
-                }
-
-                val code = connection.responseCode
-                val stream = if (code < 400) connection.inputStream else connection.errorStream
-                val body = stream?.let { BufferedReader(InputStreamReader(it, Charsets.UTF_8)).use { reader -> reader.readText() } } ?: ""
-                if (code >= 400) {
-                    ConsoleLogger.error("Logout failed ($code): $body")
-                } else {
-                    ConsoleLogger.info("Logout succeeded ($code)")
-                }
-            } catch (e: Exception) {
-                ConsoleLogger.error("Logout error: ${e.message}")
-            }
-        }
+        // The ApiClient's logout function handles its own exceptions and logging.
+        ApiClient.logout(baseUrl, sessionCookie)
     }
 
     private fun getEncryptedSharedPreferences(): SharedPreferences {
@@ -294,9 +258,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        val statusFilter = IntentFilter(LocationService.ACTION_BROADCAST_STATUS)
-        LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, statusFilter)
-
         val logoutFilter = IntentFilter(LocationService.ACTION_FORCE_LOGOUT)
         ContextCompat.registerReceiver(
             this,
@@ -305,20 +266,17 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
-        // Request service status only if it should remain running
+        // The StateFlow collector in observeServiceState will handle UI updates.
+        // We can poke the service to ensure it's running if its power state is ON,
+        // which will in turn update the repository with the latest state.
         if (SharedPreferencesHelper.getPowerState(this) == PowerState.ON) {
-            val intent = Intent(this, LocationService::class.java).apply {
-                action = LocationService.ACTION_REQUEST_STATUS_UPDATE
-            }
+            val intent = Intent(this, LocationService::class.java)
             startService(intent)
-        } else {
-            updateUiState(false)
         }
     }
 
     override fun onPause() {
         super.onPause()
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(statusReceiver)
         unregisterReceiver(logoutReceiver)
         countdownTimer?.cancel()
     }

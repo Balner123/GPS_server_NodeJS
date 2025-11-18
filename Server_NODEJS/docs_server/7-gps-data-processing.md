@@ -32,13 +32,11 @@ graph TD
 
 Logika je implementována ve funkci `clusterLocations(locations, distanceThreshold)`.
 
-- **Prahová hodnota**: Aktuálně je nastavena `DISTANCE_THRESHOLD_METERS = 25` metrů (viz `controllers/deviceController.js`).
 
-- **Postup algoritmu**:
   1.  Funkce iteruje polem seřazených bodů.
   2.  Pro každý bod se pokusí vytvořit "shluk" (cluster) s následujícími body.
   3.  Vzdálenost mezi posledním bodem ve shluku a dalším bodem v pořadí se vypočítá pomocí **Haversinova vzorce** (funkce `getHaversineDistance`), který přesně počítá vzdálenost na sféře (Zemi).
-  4.  Pokud je vzdálenost **menší** než `40 metrů`, další bod je přidán do shluku a proces se opakuje.
+  4.  Pokud je vzdálenost **menší** než `25 metrů`, další bod je přidán do shluku a proces se opakuje.
   5.  Pokud je vzdálenost **větší**, shluk se uzavře.
   6.  **Vytvoření cluster objektu**: Pokud má shluk více než jeden bod, všechny původní body jsou nahrazeny jediným objektem, který má:
       - `type: 'cluster'`

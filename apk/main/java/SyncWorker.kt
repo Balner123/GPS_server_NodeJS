@@ -8,16 +8,8 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.BufferedWriter
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,8 +17,6 @@ import java.util.TimeZone
 
 class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
-
-    private val gson = Gson()
 
     private fun getEncryptedSharedPreferences(): SharedPreferences {
         val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
@@ -106,8 +96,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             }
 
             try {
-                val responseBody = postBatch(baseUrl, sessionCookie, payload)
-                val response = parseResponse(responseBody)
+                val response = ApiClient.sendBatch(baseUrl, sessionCookie, payload)
 
                 if (!response.success) {
                     ConsoleLogger.warn("Sync: Server responded with success=false. Message: ${response.message}")
@@ -120,15 +109,16 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
                 ConsoleLogger.debug("Sync: Triggering handshake after batch completion")
                 HandshakeManager.launchHandshake(applicationContext, reason = "sync_batch_complete")
-            } catch (ex: RecoverableSyncException) {
-                ConsoleLogger.warn("Sync: Recoverable error: ${ex.message}")
-                return Result.retry()
-            } catch (ex: UnauthorizedException) {
-                ConsoleLogger.error("Sync: Unauthorized access: ${ex.message}")
+
+            } catch (e: UnauthorizedException) {
+                ConsoleLogger.error("Sync: Unauthorized access: ${e.message}")
                 handleUnauthorized()
                 return Result.failure()
-            } catch (ex: Exception) {
-                ConsoleLogger.error("Sync: Unexpected error: ${ex.message}")
+            } catch (e: ServerException) {
+                ConsoleLogger.warn("Sync: Server error: ${e.message}")
+                return Result.retry()
+            } catch (e: ApiException) {
+                ConsoleLogger.error("Sync: Unexpected API error: ${e.message}")
                 return Result.retry()
             }
         }
@@ -136,52 +126,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         return Result.success()
     }
 
-    private fun postBatch(baseUrl: String, sessionCookie: String?, payload: JSONArray): String {
-        val url = URL("$baseUrl/api/devices/input")
-        val connection = (url.openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            sessionCookie
-                ?.takeIf { it.isNotBlank() }
-                ?.let { setRequestProperty("Cookie", it) }
-            doOutput = true
-            connectTimeout = 15000
-            readTimeout = 15000
-        }
-
-        try {
-            BufferedWriter(OutputStreamWriter(connection.outputStream, Charsets.UTF_8)).use { writer ->
-                writer.write(payload.toString())
-            }
-
-            val responseCode = connection.responseCode
-            val stream = if (responseCode < 400) connection.inputStream else connection.errorStream
-            val responseBody = stream?.let {
-                BufferedReader(InputStreamReader(it, Charsets.UTF_8)).use { reader -> reader.readText() }
-            } ?: ""
-
-            ConsoleLogger.debug("Sync: Response code=$responseCode, body=${responseBody.take(160)}")
-
-            when {
-                responseCode == HttpURLConnection.HTTP_UNAUTHORIZED || responseCode == HttpURLConnection.HTTP_FORBIDDEN ->
-                    throw UnauthorizedException("HTTP $responseCode: $responseBody")
-                responseCode >= 500 -> throw RecoverableSyncException("HTTP $responseCode: $responseBody")
-                responseCode >= 400 -> throw Exception("HTTP $responseCode: $responseBody")
-            }
-
-            return responseBody
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun parseResponse(responseBody: String): ServerResponse {
-        return try {
-            gson.fromJson(responseBody, ServerResponse::class.java)
-        } catch (ex: JsonSyntaxException) {
-            throw RecoverableSyncException("Invalid server response (${ex.message})")
-        }
-    }
+    // postBatch and parseResponse are now handled by ApiClient
 
     private fun handleServerResponse(
         sharedPrefs: SharedPreferences,
@@ -271,8 +216,4 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         formatter.timeZone = TimeZone.getTimeZone("UTC")
         return formatter.format(Date(timestamp))
     }
-
-    private class RecoverableSyncException(message: String) : Exception(message)
-
-    private class UnauthorizedException(message: String) : Exception(message)
 }

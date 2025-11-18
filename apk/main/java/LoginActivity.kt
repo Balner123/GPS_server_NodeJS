@@ -14,16 +14,12 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.textfield.TextInputLayout
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 import java.security.MessageDigest
 import java.util.*
-import java.util.concurrent.Executors
-import kotlinx.coroutines.runBlocking
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LoginActivity : AppCompatActivity() {
 
@@ -35,9 +31,6 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var appNameTextView: TextView
     private lateinit var serverUrlInputLayout: TextInputLayout
     private lateinit var serverUrlLabel: TextView
-
-
-    private val executorService = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,80 +116,49 @@ class LoginActivity : AppCompatActivity() {
 
         setLoadingState(true)
 
-        executorService.execute {
+        lifecycleScope.launch {
             try {
-                val url = URL("$apiBaseUrl/api/apk/login")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                connection.doOutput = true
-                connection.connectTimeout = 15000
-                connection.readTimeout = 15000
+                val payload = mapOf(
+                    "identifier" to username,
+                    "password" to password,
+                    "installationId" to installationId
+                )
+                val (response, cookie) = ApiClient.login(apiBaseUrl, payload)
 
-                // Build JSON payload containing credentials and installation ID
-                val jsonInputString = JSONObject().apply {
-                    put("identifier", username)
-                    put("password", password)
-                    put("installationId", installationId)
-                }.toString()
+                if (response.success) {
+                    val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this@LoginActivity)
+                    sharedPrefs.edit().putString("session_cookie", cookie).apply()
 
-                // Send request body
-                OutputStreamWriter(connection.outputStream, "UTF-8").use { it.write(jsonInputString) }
-
-                // Process API response
-                val responseCode = connection.responseCode
-                val responseBody = if (responseCode < 400) connection.inputStream else connection.errorStream
-                val responseString = BufferedReader(InputStreamReader(responseBody, "UTF-8")).readText()
-
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val jsonResponse = JSONObject(responseString)
-                    if (jsonResponse.optBoolean("success", false)) {
-                        // Persist session cookie
-                        val cookie = connection.headerFields["Set-Cookie"]?.firstOrNull()
-                        val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
-                        sharedPrefs.edit().putString("session_cookie", cookie).apply()
-
-                        // Check if the device is already registered
-                        val isDeviceRegistered = jsonResponse.optBoolean("device_is_registered", false)
-                        if (isDeviceRegistered) {
-                            // When it is, store intervals and continue to the main screen
-                            val gpsInterval = jsonResponse.optInt("gps_interval", 60) // Default to 60 seconds
-                            val intervalSend = jsonResponse.optInt("interval_send", 1) // Default to 1 location before sending
-                            sharedPrefs.edit()
-                                .putString("device_id", installationId)
-                                .putString("client_type", "APK")
-                                .putBoolean("isAuthenticated", true)
-                                .putInt("gps_interval_seconds", gpsInterval)
-                                .putInt("sync_interval_count", intervalSend)
-                                .apply()
-                            try {
-                                runBlocking {
-                                    HandshakeManager.performHandshake(applicationContext, reason = "post_login")
-                                }
-                            } catch (e: Exception) {
-                                Log.w("LoginActivity", "Handshake after login failed: ${e.message}")
-                            }
-                            Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
-                            runOnUiThread {
-                                Toast.makeText(this, "Login successful!", Toast.LENGTH_SHORT).show()
-                                navigateToMain()
-                            }
-                        } else {
-                            // Otherwise start the registration process
+                    if (response.device_is_registered == true) {
+                        val gpsInterval = response.gps_interval ?: 60
+                        val intervalSend = response.interval_send ?: 1
+                        sharedPrefs.edit()
+                            .putString("device_id", installationId)
+                            .putString("client_type", "APK")
+                            .putBoolean("isAuthenticated", true)
+                            .putInt("gps_interval_seconds", gpsInterval)
+                            .putInt("sync_interval_count", intervalSend)
+                            .apply()
+                        try {
+                            HandshakeManager.performHandshake(applicationContext, reason = "post_login")
+                        } catch (e: Exception) {
+                            Log.w("LoginActivity", "Handshake after login failed: ${e.message}")
+                        }
+                        Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
+                        Toast.makeText(this@LoginActivity, "Login successful!", Toast.LENGTH_SHORT).show()
+                        navigateToMain()
+                    } else {
+                        // Registrace bude zpracována v samostatné suspend funkci
+                        withContext(Dispatchers.Main) {
                             registerDevice(installationId)
                         }
-                    } else {
-                        val error = jsonResponse.optString("error", "Unknown login error.")
-                        showError(error)
                     }
                 } else {
-                    val error = try { JSONObject(responseString).optString("error", "Server error") } catch (e: Exception) { responseString }
-                    showError("Server error ($responseCode): $error")
+                    showError(response.message ?: "Unknown login error.")
                 }
-
-            } catch (e: Exception) {
-                Log.e("LoginActivity", "Network communication error: ", e)
-                showError("Network error: ${e.message}")
+            } catch (e: ApiException) {
+                Log.e("LoginActivity", "Login error: ", e)
+                showError(e.message ?: "An unknown API error occurred.")
             } finally {
                 setLoadingState(false)
             }
@@ -206,9 +168,10 @@ class LoginActivity : AppCompatActivity() {
     /**
      * Register this application instance on the server.
      */
-    private fun registerDevice(installationId: String) {
+    // This is now a suspend function called from within the login coroutine
+    private suspend fun registerDevice(installationId: String) {
         if (!NetworkUtils.isOnline(this)) {
-            Toast.makeText(this, "Registration requires an internet connection.", Toast.LENGTH_LONG).show()
+            showError("Registration requires an internet connection.")
             setLoadingState(false)
             return
         }
@@ -218,74 +181,56 @@ class LoginActivity : AppCompatActivity() {
         val sessionCookie = sharedPrefs.getString("session_cookie", null)
         val apiBaseUrl = getApiBaseUrl()
 
-        executorService.execute {
-            try {
-                val url = URL("$apiBaseUrl/api/devices/register")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                sessionCookie?.let { connection.setRequestProperty("Cookie", it.split(";")[0]) }
-                connection.doOutput = true
-                connection.connectTimeout = 15000
-                connection.readTimeout = 15000
+        if (sessionCookie == null) {
+            showError("Cannot register device without a session.")
+            setLoadingState(false)
+            return
+        }
+        
+        try {
+            val payload = mapOf(
+                "client_type" to "APK",
+                "device_id" to installationId,
+                "name" to deviceName
+            )
+            val (response, _) = ApiClient.registerDevice(apiBaseUrl, sessionCookie, payload)
 
-                val jsonInputString = JSONObject().apply {
-                    put("client_type", "APK")
-                    put("device_id", installationId)
-                    put("name", deviceName)
-                }.toString()
+            if (response.success) {
+                val alreadyRegistered = response.already_registered == true
+                val gpsInterval = response.interval_gps ?: 60
+                val intervalSend = response.interval_send ?: 1
+                
+                sharedPrefs.edit()
+                    .putString("device_id", installationId)
+                    .putString("client_type", "APK")
+                    .putBoolean("isAuthenticated", true)
+                    .putInt("gps_interval_seconds", gpsInterval)
+                    .putInt("sync_interval_count", intervalSend)
+                    .apply()
 
-                OutputStreamWriter(connection.outputStream, "UTF-8").use { it.write(jsonInputString) }
-
-                val responseCode = connection.responseCode
-                val responseBody = if (responseCode < 400) connection.inputStream else connection.errorStream
-                val responseString = BufferedReader(InputStreamReader(responseBody, "UTF-8")).readText()
-
-                if (responseCode == HttpURLConnection.HTTP_CREATED || responseCode == HttpURLConnection.HTTP_OK) {
-                    val jsonResponse = JSONObject(responseString)
-                    if (jsonResponse.optBoolean("success", false)) {
-                        val alreadyRegistered = jsonResponse.optBoolean("already_registered", false)
-                        val gpsInterval = jsonResponse.optInt("interval_gps", jsonResponse.optInt("gps_interval", 60))
-                        val intervalSend = jsonResponse.optInt("interval_send", 1)
-                        sharedPrefs.edit()
-                            .putString("device_id", installationId)
-                            .putString("client_type", "APK")
-                            .putBoolean("isAuthenticated", true)
-                            .putInt("gps_interval_seconds", gpsInterval)
-                            .putInt("sync_interval_count", intervalSend)
-                            .apply()
-                        try {
-                            runBlocking {
-                                HandshakeManager.performHandshake(applicationContext, reason = "post_register")
-                            }
-                        } catch (e: Exception) {
-                            Log.w("LoginActivity", "Handshake after registration failed: ${e.message}")
-                        }
-                        val infoMessage = if (alreadyRegistered) {
-                            "Device was already registered; continuing."
-                        } else {
-                            "Device registered successfully."
-                        }
-                        Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
-                        runOnUiThread {
-                            Toast.makeText(this, infoMessage, Toast.LENGTH_SHORT).show()
-                            navigateToMain()
-                        }
-                    } else {
-                        val error = jsonResponse.optString("error", "Unknown registration error.")
-                        showError(error)
-                    }
-                } else {
-                    val error = try { JSONObject(responseString).optString("error", "Server error") } catch (e: Exception) { responseString }
-                    showError("Registration error ($responseCode): $error")
+                try {
+                    HandshakeManager.performHandshake(applicationContext, reason = "post_register")
+                } catch (e: Exception) {
+                    Log.w("LoginActivity", "Handshake after registration failed: ${e.message}")
                 }
+                
+                val infoMessage = if (alreadyRegistered) {
+                    "Device was already registered; continuing."
+                } else {
+                    "Device registered successfully."
+                }
+                Log.i("LoginActivity", "Server intervals updated: GPS Interval = ${gpsInterval}s, Sync Every = ${intervalSend} locations.")
+                Toast.makeText(this, infoMessage, Toast.LENGTH_SHORT).show()
+                navigateToMain()
 
-            } catch (e: Exception) {
-                Log.e("LoginActivity", "Device registration error: ", e)
-                showError("Network error during registration: ${e.message}")
-            } finally {
-                setLoadingState(false)
+            } else {
+                showError(response.message ?: "Unknown registration error.")
             }
+        } catch (e: ApiException) {
+            Log.e("LoginActivity", "Device registration error: ", e)
+            showError(e.message ?: "Network error during registration.")
+        } finally {
+            // setLoadingState(false) is handled by the calling performLogin function
         }
     }
 
@@ -308,6 +253,6 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        executorService.shutdown()
+        // No need to shutdown executorService, lifecycleScope is handled automatically
     }
 }

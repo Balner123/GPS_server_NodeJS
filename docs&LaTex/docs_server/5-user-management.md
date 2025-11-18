@@ -64,3 +64,15 @@ Tento dokument popisuje, jak mohou přihlášení uživatelé spravovat svůj vl
   2. Uživatel zadá kód na stránce potvrzení. Při shodě kódu a platné expiraci dojde ke smazání.
   3. Před smazáním uživatele jsou ručně smazána jeho zařízení a kaskádově i související data (lokace, poplachy).
   4. Session uživatele je zrušena, cookie smazána, přesměrování na `/login`.
+
+## 5.7. Doplňující poznámky
+
+- **Web vs API:** Webové (HTML) routy typicky používají redirecty a `connect-flash` pro chybové/úspěšné hlášky, zatímco API routy pod `/api` vrací JSON s odpovídajícími HTTP statusy.
+- **Opětovné odeslání verifikačního kódu:** Endpoint pro opětovné odeslání je `POST /api/auth/resend-verification-code`. Webová varianta redirectuje uživatele na `/verify-email` s flash hláškou.
+- **APK klient:** Pro APK klienta existují speciální endpointy:
+  - `POST /api/apk/login` (vrací `{ success, device_is_registered }`)
+  - `POST /api/apk/logout`
+  - `POST /api/apk/register-device` (chráněno middlewarem `isApiAuthenticated`)
+- **Nastavení prvního hesla:** Endpoint `POST /api/auth/set-initial-password` slouží pro nastavení prvního (lokálního) hesla u účtů vytvořených přes OAuth. UI varianta používá `POST /api/settings/set-password`.
+- **Logout:** Logout (web i API) zničí session a smaže cookie `connect.sid`.
+

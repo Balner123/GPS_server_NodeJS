@@ -11,15 +11,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -27,7 +21,6 @@ object HandshakeManager {
 
     private const val HANDSHAKE_WORK_NAME = "apk_handshake_refresh"
     private const val HANDSHAKE_PERIODIC_WORK_NAME = "apk_handshake_refresh_periodic"
-    private val gson = Gson()
     private val handshakeConstraints = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
@@ -86,7 +79,7 @@ object HandshakeManager {
         WorkManager.getInstance(context).cancelUniqueWork(HANDSHAKE_PERIODIC_WORK_NAME)
     }
 
-    private fun executeHandshake(context: Context, reason: String) {
+    private suspend fun executeHandshake(context: Context, reason: String) {
         val prefs = SharedPreferencesHelper.getEncryptedSharedPreferences(context)
         val deviceId = prefs.getString("device_id", null) ?: return
         val sessionCookie = prefs.getString("session_cookie", null)
@@ -94,10 +87,11 @@ object HandshakeManager {
         val powerState = SharedPreferencesHelper.getPowerState(context)
         val appVersion = BuildConfig.VERSION_NAME
         val platform = "Android ${Build.VERSION.SDK_INT}"
+        val clientType = prefs.getString("client_type", "APK") ?: "APK"
 
         val requestPayload = mapOf(
             "device_id" to deviceId,
-            "client_type" to (prefs.getString("client_type", "APK") ?: "APK"),
+            "client_type" to clientType,
             "power_status" to powerState.toString(),
             "app_version" to appVersion,
             "platform" to platform,
@@ -108,38 +102,14 @@ object HandshakeManager {
             "Handshake: Request: device=$deviceId power=$powerState reason=$reason"
         )
 
-        val url = URL("$baseUrl/api/devices/handshake")
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "POST"
-        connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-        connection.setRequestProperty("Accept", "application/json")
-        sessionCookie
-            ?.split(";")
-            ?.firstOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { connection.setRequestProperty("Cookie", it) }
-        connection.connectTimeout = 15000
-        connection.readTimeout = 15000
-        connection.doOutput = true
-
-        OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
-            writer.write(gson.toJson(requestPayload))
+        try {
+            val response = ApiClient.performHandshake(baseUrl, sessionCookie, requestPayload)
+            handleHandshakeResponse(context, response)
+        } catch (e: ApiException) {
+            // Handled by the caller (performHandshake) for general errors
+            // Specific handling for UnauthorizedException could be added here if needed
+            throw e // Re-throw to be caught by the runCatching in performHandshake
         }
-
-        val responseCode = connection.responseCode
-        val stream = if (responseCode < 400) connection.inputStream else connection.errorStream
-        val responseBody = BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
-
-        ConsoleLogger.debug(
-            "Handshake: Response: code=$responseCode body=${responseBody.take(160)}"
-        )
-
-        if (responseCode != HttpURLConnection.HTTP_OK) {
-            return
-        }
-
-        val response = gson.fromJson(responseBody, HandshakeResponse::class.java)
-        handleHandshakeResponse(context, response)
     }
 
     private fun handleHandshakeResponse(context: Context, response: HandshakeResponse) {
