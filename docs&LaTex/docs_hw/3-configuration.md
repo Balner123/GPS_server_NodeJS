@@ -43,6 +43,3 @@ Serverem přijaté hodnoty mají přednost před lokálními výchozími nastave
 - `deviceID` se neukládá do Preferences — generuje se při startu z MAC adresy ESP32 (posledních 10 hex znaků bez dvojteček).
 - Výchozí SSID pro servisní režim: `lotrTrackerOTA_<DeviceID>`.
 - `deviceID` se vždy zasílá v komunikaci s backendem (handshake, data, registrace).
-
----
-Poslední aktualizace: 2025-11-18

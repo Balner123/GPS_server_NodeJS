@@ -1,8 +1,6 @@
 # Datový model a perzistence
 
-# Datový model a perzistence
-
-Tento dokument popisuje datovou strukturu lokální persistence a síťový formát používaný při dávkovém odesílání záznamů. Preferovaným zdrojem pro schémata jsou ER diagramy a ukázkové JSON payloady uložené v `docs_apk/image/`.
+Tento dokument popisuje datovou strukturu lokální persistence a síťový formát používaný při dávkovém odesílání záznamů.
 
 ## Lokální persistnce (Room)
 
@@ -60,8 +58,4 @@ Popis polí:
 - `timestamp` — ISO 8601 čas v UTC (před odesláním převést z epoch ms).
 
 Poznámky:
-- Interně se `timestamp` ukládá jako epoch milliseconds; při serializaci na JSON konvertujte do ISO 8601 (UTC).
-- Minimalizujte zbytečná pole v payloadu — preferujte rozšíření přes `meta` polím, pokud je potřeba doplnit debuginfo.
-
----
-Poslední aktualizace: 2025-11-18
+- Interně se `timestamp` ukládá jako epoch milliseconds; při serializaci na JSON konvertuje do ISO 8601 (UTC).

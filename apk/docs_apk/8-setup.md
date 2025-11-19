@@ -18,8 +18,4 @@ Tento dokument popisuje základní požadavky a postup pro sestavení a spuště
 
 ## Konfigurace serveru
 
-- Výchozí `API_BASE_URL` je definován v `build.gradle.kts`.
-- Pro testování lze adresu přepsat v UI (přihlašovací obrazovka); hodnota se uloží do `EncryptedSharedPreferences` pod klíčem `server_url`.
-
----
-Poslední aktualizace: 2025-11-18
+- Výchozí `API_BASE_URL` je definován v {login screen}; hodnota se uloží do `EncryptedSharedPreferences` pod klíčem `server_url`.

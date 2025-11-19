@@ -45,7 +45,7 @@ Backend přes handshake nebo konfigurace může také přepisovat provozní klí
 
 ## Doporučený servisní postup
 
-1. Vstup do OTA režimu pomocí servisního tlačítka.
+1. Vstup do OTA režimu pomocí servisního tlačítka (stisk do doby než signální LED začne blikat)
 2. Připojení k AP `lotrTrackerOTA_<DeviceID>` a otevření `http://192.168.4.1`.
 3. Aktualizace nastavení (APN, server) a ověření pomocí `Test GPRS`.
 4. Registrace zařízení přes `Registration` (pouze pokud je potřebné) a kontrola odpovědi backendu.

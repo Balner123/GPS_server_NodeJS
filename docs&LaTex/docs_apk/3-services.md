@@ -1,7 +1,7 @@
 
 # Služby a synchronizace
 
-Tento dokument popisuje servisní komponenty aplikace, jejich odpovědnosti a očekávané chování při standardních i chybových stavech. Popisy jsou stručné a koncentrované; detailní sekvenční diagramy a datové toky umístěte do `docs_apk/image/`.
+Tento dokument popisuje servisní komponenty aplikace, jejich odpovědnosti a očekávané chování při standardních i chybových stavech. Popisy jsou stručné a koncentrované.
 
 ## LocationService
 
@@ -40,11 +40,3 @@ Tento dokument popisuje servisní komponenty aplikace, jejich odpovědnosti a o�
      - Po dokončení dávky spustí `HandshakeManager`, aby se server dozvěděl o aktuálním stavu.
   4. **Při chybě autorizace (HTTP 401/403)**: Vyšle broadcast `FORCE_LOGOUT`, který způsobí odhlášení uživatele a vyčištění session.
   5. **Při ostatních serverových nebo síťových chybách**: Vrátí `Result.retry()`, aby `WorkManager` naplánoval opakování.
-
-## Poznámky k vizualizacím a ladění
-
-- Doporučeno: sekvenční diagramy (registrace, handshake, dávkové odesílání), časové grafy pro spotřebu a chování intervalů.
-- Logovací a monitorovací body: `ConsoleLogger` a broadcasty (`BROADCAST_STATUS`, `REQUEST_STATUS_UPDATE`, `FORCE_LOGOUT`) by měly být zdokumentovány v diagramech a přehledech stavů.
-
----
-Poslední aktualizace: 2025-11-18

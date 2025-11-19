@@ -14,7 +14,7 @@ Když vozidlo nebo zařízení delší dobu stojí na jednom místě (např. na 
 
 ```mermaid
 graph TD
-    A[Frontend žádá o historii] -- GET /api/devices/data --> B(Controller: getDeviceData);
+    A[Frontend žádá o historii] -- GET /api/devices data --> B(Controller: getDeviceData);
     B --> C{DB: Načti všechny lokace pro zařízení (seřazené dle času)};
     C --> D[Controller: clusterLocations(data)];
     D --> E{Výpočet vzdálenosti mezi body (Haversine)};

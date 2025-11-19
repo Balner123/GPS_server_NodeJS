@@ -30,16 +30,8 @@ Architektura je rozdělena do čtyř hlavních logických vrstev, které zajiš�
 
 -Sekvenční diagramy znázorňující registraci, handshake a dávkové odesílání jsou doporučeny v `docs_apk/image/` (viz návrhy ke každé sekci).
 
--## Tok dat (stručně)
+## Tok dat (stručně)
 1) Snímek polohy získá `LocationService` a uloží jej do lokální tabulky `location_cache`.
 2) Po dosažení definovaného prahu nebo podle plánovače spouští `SyncWorker` dávkové odeslání na server.
 3) Server ověří příchozí dávku, vrátí případné instrukce (např. aktualizaci intervalů nebo `TURN_OFF`).
-4) V případě instrukce `TURN_OFF` aplikace provede potvrzení změny (handshake), aktualizuje `power_status` a upraví chování služby.
-
--## Principy dokumentace (poznámka pro autory)
-- texty v `docs_apk` mají být formální, věcné a krátké; rozsáhlé implementační příklady se přesouvají do samostatných ukázkových souborů;
-- preferovat vizualizace datových toků a stavových přechodů místo dlouhých slovních popisů;
-- proměnné a konstanty se uvádějí ve formátu kódu (např. `TURN_OFF`, `power_status`).
-
----
-Poslední aktualizace: 2025-11-18
+4) V případě instrukce `TURN_OFF` aplikace provede potvrzení změny (handshake), aktualizuje `power_status` a vypne službu.

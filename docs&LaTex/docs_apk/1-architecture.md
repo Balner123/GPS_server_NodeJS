@@ -1,6 +1,6 @@
 # Architektura a komponenty
 
-Tento dokument popisuje architekturu a hlavní komponenty mobilní aplikace (Android). Text je formální a věcný; implementační detaily přesahující stručné vysvětlení jsou umístěny do samostatných souborů nebo do ukázkových zdrojů v repozitáři.
+Tento dokument popisuje architekturu a hlavní komponenty mobilní aplikace. Text je formální a věcný; implementační detaily přesahující stručné vysvětlení jsou umístěny do samostatných souborů nebo do ukázkových zdrojů v repozitáři.
 
 ## Přehled komponent
 
@@ -41,8 +41,6 @@ Základní tok dat a instrukcí je následující:
         c. Jakákoli další snaha o spuštění služby je blokována, dokud `pending_turn_off_ack` je `true`.
 4.  **Potvrzení (Acknowledgement)**: `HandshakeManager` v rámci periodického handshake informuje server o svém stavu (`power_status = 'OFF'`). Když server odpoví bez `power_instruction = 'TURN_OFF'`, `HandshakeManager` zavolá `PowerController.markTurnOffAcknowledged()`, který resetuje `pending_turn_off_ack` na `false`. Tím je cyklus uzavřen a službu lze opět spustit.
 
-Pro detailní sekvenční schémata registrace, handshake a dávkového odeslání viz `docs_apk/image/`.
-
 ## Konvence a doporučení pro implementaci
 
 - Veškeré konstanty a názvy proměnných uvádějte ve formátu kódu (např. `TURN_OFF`, `installationId`).
@@ -59,6 +57,3 @@ Pro detailní sekvenční schémata registrace, handshake a dávkového odeslán
 - LocalBroadcastManager
 - Coroutines
 - Material
-
----
-Poslední aktualizace: 2025-11-18

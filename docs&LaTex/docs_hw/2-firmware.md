@@ -43,7 +43,7 @@ Firmware je rozdělen do modulů: `main.ino`, `power_management`, `gps_control`,
 
 - Transakční odesílání: data z cache se odstraňují pouze po potvrzení serveru.
 - Pokud server požaduje `TURN_OFF`, zařízení provede řízené ukončení po odeslání potvrzení.
-- Všechny síťové přenosy by měly používat HTTPS a validaci certifikátů.
+- Všechny síťové přenosy používají HTTPS a validaci certifikátů.
 
 ## Shrnutí API volání
 
@@ -51,6 +51,5 @@ Firmware je rozdělen do modulů: `main.ino`, `power_management`, `gps_control`,
 - `POST /api/devices/input` – dávkové odesílání dat.
 - `POST /api/devices/register` – registrace zařízení (OTA).
 
----
-Poslední aktualizace: 2025-11-18
+## Extra
 - `gps_get_fix()` běží s podporou přerušení: ISR z tlačítka může vyžádat předčasné ukončení (`gps_request_abort()`), aby bylo možné bezpečně vypnout při ručním zásahu.

@@ -1,6 +1,6 @@
 # API a síťová komunikace
 
-Základní URL je dáno `BuildConfig.API_BASE_URL` (výchozí z build.gradle) a lze je přepsat v aplikaci uložením `server_url` v EncryptedSharedPreferences (nastavitelně v `LoginActivity`).
+Základní URL je dáno `BuildConfig.API_BASE_URL` (výchozí z build.gradle) a lze je přepsat v aplikaci uložením `server_url` v EncryptedSharedPreferences (nastavitelně v `LoginActivity`{login screen}).
 
 ## Přihlášení
 - Endpoint: `POST {BASE_URL}/api/apk/login`
@@ -63,6 +63,3 @@ Základní URL je dáno `BuildConfig.API_BASE_URL` (výchozí z build.gradle) a 
 - **Chyba autorizace (HTTP 401/403)**: Klient iniciuje bezpečné odhlášení (`FORCE_LOGOUT`).
 - **Změna konfigurace**: Aplikuje nové hodnoty a v případě potřeby restartuje `LocationService`.
 - **Instrukce `power_instruction`**: Zpracuje se identicky jako v případě `handshake` endpointu (viz výše), tj. řízení přebírá `PowerController`.
-
----
-Poslední aktualizace: 2025-11-18

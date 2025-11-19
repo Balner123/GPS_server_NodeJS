@@ -24,9 +24,6 @@ DevDependencies:
 
 - `nodemon` — automatic server restart during development
 
-Scripts (from `package.json`):
+Installation (from `package.json`):
 
-- `npm run start` — `node server.js` (production/runtime)
-- `npm run dev` — `nodemon server.js` (development)
-
-Tip: Always consult `package.json` for the authoritative, up-to-date dependency list and versions.
+- `npm install`

@@ -36,7 +36,7 @@ Další typ záznamu v dávce může obsahovat pouze stav napájení:
 
 Ten se přidává tehdy, když je potřeba potvrdit serverem požadovaný shutdown.
 
--## Dávkování
+## Dávkování
 
  - `send_cached_data()` ve stávající implementaci firmware čte dávky o maximální velikosti 15 záznamů (viz `MAIN/FINAL/file_system.cpp`, konstanta `MAX_BATCH_SIZE`). Serverem posílané nastavení `interval_send` je ukládáno do Preferences pod klíčem `batch_size`, ale aktuální kód používá interní limit 15 jako efektivní horní mez dávky. Poznámka: backend v současné konfiguraci akceptuje maximálně 15 záznamů v jedné dávce — pokusy o odeslání většího počtu mohou vést k chybě HTTP 500 ze serveru.
 - Po úspěšném uploadu se z cache odebírá pouze odeslaná část, zbytek zůstává.
@@ -137,5 +137,3 @@ Endpoint `/api/devices/register` přijímá registrační payload obsahující `
 - Kritické chyby (`404`, `409`): přepnout `registered=false` a čekat na servisní zásah.
 - Síťové chyby a 5xx: zachovat data a opakovat během dalšího cyklu.
 
----
-Poslední aktualizace: 2025-11-18

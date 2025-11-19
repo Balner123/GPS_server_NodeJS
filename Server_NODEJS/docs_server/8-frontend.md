@@ -67,4 +67,3 @@ Tato složka obsahuje všechny statické soubory, které jsou přímo přístupn
   - `POST /api/devices/delete/:deviceId` — smazání zařízení (UI používá POST formu)
   - `GET /api/alerts` — nepřečtené poplachy uživatele
 
-Poznámka: Pokud měníte frontend logiku, aktualizujte i JSDoc komentáře v `routes/*.js`, protože Swagger generuje API reference z těchto komentářů.

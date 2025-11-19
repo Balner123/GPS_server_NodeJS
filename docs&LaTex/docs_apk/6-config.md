@@ -1,6 +1,6 @@
 # Konfigurace a nastavení
 
-Dokument shrnuje klíčová nastavení aplikace, požadovaná oprávnění a doporučené praktiky pro bezpečné uložení citlivých údajů.
+Dokument shrnuje klíčová nastavení aplikace a požadovaná oprávnění.
 
 ## Build a prostředí
 
@@ -45,6 +45,3 @@ Upozornění: na Android 10+ je potřeba explicitně žádat o oprávnění pro 
 - `com.example.gpsreporterapp.BROADCAST_STATUS` — stav služby.
 - `com.example.gpsreporterapp.REQUEST_STATUS_UPDATE` — požadavek na okamžité zaslání stavu.
 - `com.example.gpsreporterapp.FORCE_LOGOUT` — vynucené odhlášení klienta.
-
----
-Poslední aktualizace: 2025-11-18
