@@ -91,10 +91,13 @@ Obsahuje informace o registrovaných GPS zařízeních.
   - `name`: Uživatelsky definovaný název zařízení.
   - `status`: Stav zařízení (`active`, `inactive`).
   - `last_seen`: Poslední časová značka, kdy zařízení odeslalo data.
+  - `power_status`: Stav napájení hlášený zařízením (`ON`, `OFF`).
+  - `power_instruction`: Instrukce pro zařízení k vypnutí (`NONE`, `TURN_OFF`).
   - `interval_gps`, `interval_send`, `satellites`: Konfigurace intervalů a minimální počet satelitů pro fix (HW).
+  - `mode`: Režim odesílání dat (`simple`, `batch`).
   - `geofence`: JSON pro uložení ohrady (podporuje GeoJSON polygon i vlastní typ `circle`).
   - `geofence_alert_active`: Interní příznak, zda je aktivní „mimo geofence“ stav.
-  - `device_type`: Typ zařízení (`HW` nebo `APK`).
+  - `device_type`: Typ klienta/zařízení (`HW`, `APK`).
   - `created_at`: Datum registrace zařízení.
 
 ### Tabulka `locations`

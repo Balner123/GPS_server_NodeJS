@@ -33,8 +33,7 @@ Serverem přijaté hodnoty mají přednost před lokálními výchozími nastave
 
 - `sleepTime` — interval deep‑sleep v sekundách (výchozí 60).
 - `minSats` — minimální počet satelitů pro validní fix (výchozí 1).
-- `batch_size` — velikost dávky pro upload (spravováno serverem).
- - `batch_size` — velikost dávky pro upload (spravováno serverem). Poznámka: hodnota je ukládána do Preferences, ale aktuální firmware uplatňuje implementační omezení (viz `MAIN/FINAL/file_system.cpp`) a efektivní horní mez dávky je 15. Backend by měl být nakonfigurován tak, aby bezpečně přijímal až 15 záznamů; zaslání větší dávky může způsobit HTTP 500.
+- `batch_size` — velikost dávky pro upload (spravováno serverem). Poznámka: hodnota je ukládána do Preferences, ale aktuální firmware uplatňuje implementační omezení (viz `MAIN/FINAL/file_system.cpp`) a efektivní horní mez dávky je 15. Backend by měl být nakonfigurován tak, aby bezpečně přijímal až 15 záznamů; zaslání větší dávky může způsobit HTTP 500.
 - `registered` — boolean indikující registraci na backendu.
 - `mode` — provozní mód (textová hodnota, serverem řízeno).
 

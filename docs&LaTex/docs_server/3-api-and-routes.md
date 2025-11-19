@@ -132,6 +132,9 @@ Poznámka: Webová varianta opětovného odeslání kódu je dostupná na `POST 
 | :--- | :--- | :--- | :--- |
 | `POST` | `/delete-user/:userId` | `isRoot` | Smaže uživatele a všechna jeho data. |
 | `POST` | `/delete-device/:deviceId` | `isRoot` | Smaže konkrétní zařízení bez ohledu na vlastníka. `deviceId` je zde databázové ID (číselné), nikoliv HW ID. |
+| `POST` | `/verify-user/:userId` | `isRoot` | Ručně označí uživatele jako ověřeného (verify email). |
+| `DELETE`| `/alerts/:alertId` | `isAuthenticated` | Smaže konkrétní poplach (Admin může smazat libovolný, uživatel jen svůj). |
+| `POST` | `/delete-alert/:alertId` | `isRoot` | Alternativní POST endpoint pro mazání poplachů (pro HTML formuláře). |
 
 ### Specifické pro Hardware/APK
 

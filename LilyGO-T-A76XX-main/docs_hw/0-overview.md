@@ -6,8 +6,7 @@ Tato kapitola shrnuje účel hardwarové dokumentace, hlavní funkce zařízení
 
 - Periodická akvizice polohy z externího GPS modulu (např. NEO‑6M).
 - Přenos dat na server přes mobilní síť (LTE/GPRS) s použitím HTTPS.
-- Lokální persistnce do `LittleFS` s možností dávkového odesílání pro snížení spotřeby a zvýšení spolehlivosti.
- - Lokální persistnce do `LittleFS` s možností dávkového odesílání pro snížení spotřeby a zvýšení spolehlivosti (efektivní velikost dávky ve firmware: 15 záznamů). Poznámka: backend je přizpůsoben pro bezpečné zpracování až 15 záznamů na upload — odesílání větších dávek může způsobit HTTP 500.
+- Lokální persistnce do `LittleFS` s možností dávkového odesílání pro snížení spotřeby a zvýšení spolehlivosti (efektivní velikost dávky ve firmware: 15 záznamů). Poznámka: backend je přizpůsoben pro bezpečné zpracování až 15 záznamů na upload — odesílání větších dávek může způsobit HTTP 500.
 - Odolnost vůči krátkodobým výpadkům sítě (zachování a dozaslání dat po obnovení připojení).
 - Dva provozní režimy: tracker (běžný provoz) a servisní/OTA režim pro konfiguraci a aktualizace.
 

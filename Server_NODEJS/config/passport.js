@@ -79,7 +79,9 @@ passport.use(new GitHubStrategy({
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     const providerId = profile.id;
-    const email = (profile.emails && profile.emails[0] && profile.emails[0].value) || null;
+    const emailObj = (profile.emails && profile.emails[0]) || null;
+    const email = emailObj ? emailObj.value : null;
+    const isEmailVerifiedOnGithub = emailObj ? emailObj.verified : false;
 
     // 1) Find user by provider + provider_id
     let user = await db.User.findOne({ where: { provider: 'github', provider_id: providerId } });
@@ -88,27 +90,37 @@ passport.use(new GitHubStrategy({
     if (!user && email) {
       user = await db.User.findOne({ where: { email: email } });
       if (user) {
-        // Email matches, link the account
-        await user.update({ 
-            provider: 'github', 
-            provider_id: providerId, 
-            provider_data: JSON.stringify(profile) 
-        });
+        // If email is verified by GitHub, we can auto-link the account
+        if (isEmailVerifiedOnGithub) {
+            await user.update({ 
+                provider: 'github', 
+                provider_id: providerId, 
+                provider_data: JSON.stringify(profile),
+                is_verified: true // Also mark as verified if not already
+            });
+        }
       }
     }
 
     // 3) If still not found, create a new user
     if (!user) {
-      const username = profile.username || `github_${providerId}`;
-      user = await db.User.create({
-        username: username,
-        email: email,
-        password: '', // No local password
-        provider: 'github',
-        provider_id: providerId,
-        provider_data: JSON.stringify(profile),
-        is_verified: !!email // If we have an email, consider it verified for this purpose
-      });
+        // We require a verified email to create a new account
+        if (!isEmailVerifiedOnGithub || !email) {
+            return done(null, false, { message: 'A verified GitHub email address is required to sign up.' });
+        }
+
+        const username = profile.username || `github_${providerId}`;
+        const newUser = await db.User.create({
+            username: username,
+            email: email,
+            password: '', // No local password
+            provider: 'github',
+            provider_id: providerId,
+            provider_data: JSON.stringify(profile),
+            is_verified: true, // Mark as verified since we checked it
+        });
+        return done(null, newUser);
+    }
     }
 
     return done(null, user);
