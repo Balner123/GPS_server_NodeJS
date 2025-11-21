@@ -199,8 +199,20 @@ void work_cycle() {
   if (!gpsFixObtained && statusReportPending) {
     JsonDocument statusDoc;
     statusDoc["device"] = deviceID;
+    statusDoc["name"] = deviceName;
     statusDoc["latitude"] = gpsLat;
     statusDoc["longitude"] = gpsLon;
+    statusDoc["speed"] = gpsSpd;
+    statusDoc["altitude"] = gpsAlt;
+    statusDoc["accuracy"] = gpsHdop;
+    statusDoc["satellites"] = gpsSats;
+    if (gpsYear != 0) {
+      char timestamp[25];
+      sprintf(timestamp, "%04d-%02d-%02dT%02d:%02d:%02dZ", gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+      statusDoc["timestamp"] = timestamp;
+    } else {
+      statusDoc["timestamp"] = "2000-01-01T00:00:00Z";
+    }
     statusDoc["power_status"] = power_status_to_string(power_status_get());
     String statusJson;
     serializeJson(statusDoc, statusJson);
@@ -225,6 +237,16 @@ void work_cycle() {
         bool handshakeSuccess = modem_perform_handshake();
         if (!handshakeSuccess) {
           SerialMon.println(F("[MAIN] Handshake did not complete successfully."));
+        } else {
+          // Handshake includes power_status, so we can consider the report sent.
+          // This prevents a loop if the subsequent batch upload fails.
+          if (power_status_report_pending()) {
+            power_status_report_acknowledged();
+            // Also acknowledge instruction if we just reported matching status
+            if (power_instruction_get() == PowerInstruction::TurnOff && power_status_get() == PowerStatus::Off) {
+                 power_instruction_acknowledged();
+            }
+          }
         }
 
         if (!isRegistered) {
@@ -238,6 +260,20 @@ void work_cycle() {
         if (power_status_report_pending() && !statusAckQueued) {
           JsonDocument statusDoc;
           statusDoc["device"] = deviceID;
+          statusDoc["name"] = deviceName;
+          statusDoc["latitude"] = gpsLat;
+          statusDoc["longitude"] = gpsLon;
+          statusDoc["speed"] = gpsSpd;
+          statusDoc["altitude"] = gpsAlt;
+          statusDoc["accuracy"] = gpsHdop;
+          statusDoc["satellites"] = gpsSats;
+          if (gpsYear != 0) {
+            char timestamp[25];
+            sprintf(timestamp, "%04d-%02d-%02dT%02d:%02d:%02dZ", gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+            statusDoc["timestamp"] = timestamp;
+          } else {
+            statusDoc["timestamp"] = "2000-01-01T00:00:00Z";
+          }
           statusDoc["power_status"] = power_status_to_string(power_status_get());
           String statusJson;
           serializeJson(statusDoc, statusJson);

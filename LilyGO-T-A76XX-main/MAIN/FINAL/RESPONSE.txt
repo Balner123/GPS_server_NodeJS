@@ -1,0 +1,26 @@
+{"registered":true,"config":{"interval_gps":60,"interval_send":6,"satellites":1,"mode":"batch"},"power_instruction":"TURN_OFF"}
+[FS] Server set GPS interval to: 60
+[FS] Server set batch send threshold to: 6
+[FS] Server set minimum satellites to: 1
+[FS] Server set operation mode to: batch
+[POWER] Power instruction received: TURN_OFF.
+[FS] GPS data point appended to cache.
+[MAIN] Data available for upload. Attempting to send.
+[FS] Sending batch of 9 records...
+[MODEM] Performing HTTPS POST to: /api/devices/input
+[MODEM] Payload: [{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99352167,"longitude":17.95463333,"speed":0,"altitude":286.5,"accuracy":4.8,"satellites":4,"timestamp":"2025-11-21T16:50:53Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99310633,"longitude":17.95456183,"speed":0,"altitude":289.4,"accuracy":5.3,"satellites":4,"timestamp":"2000-00-00T16:52:41Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99313583,"longitude":17.954515,"speed":0,"altitude":288.8,"accuracy":8.6,"satellites":4,"timestamp":"2000-00-00T16:59:33Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.9927855,"longitude":17.95438,"speed":0,"altitude":286.2,"accuracy":7.1,"satellites":5,"timestamp":"2000-00-00T17:00:21Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99336867,"longitude":17.9549515,"speed":0,"altitude":287.5,"accuracy":6.2,"satellites":4,"timestamp":"2000-00-00T17:01:42Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99291933,"longitude":17.954399,"speed":0,"altitude":287.3,"accuracy":8.1,"satellites":5,"timestamp":"2000-00-00T17:03:04Z"},{"device":"6920A865BC","power_status":"OFF"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99320767,"longitude":17.95474833,"speed":0,"altitude":287.1,"accuracy":5.1,"satellites":4,"timestamp":"2000-00-00T17:24:23Z"},{"device":"6920A865BC","name":"NEO-6M_A7670E","latitude":49.99320767,"longitude":17.95474833,"speed":0,"altitude":287.1,"accuracy":5.1,"satellites":4,"timestamp":"2000-00-00T17:24:23Z","power_status":"OFF"}]
+[MODEM] Set URL: https://lotr-system.xyz/api/devices/input
+[MODEM] Set Content-Type header...
+[MODEM] Sending POST request...
+[MODEM] Response Status Code: 400
+[MODEM] Reading response body...
+[MODEM] End HTTPS session.
+[MODEM] Response Body:
+{"success":false,"error":"Invalid device payload.","details":[{"index":6,"field":"latitude","message":"Latitude must be a number between -90 and 90."},{"index":6,"field":"longitude","message":"Longitude must be a number between -180 and 180."}]}
+[FS] Failed to send batch data. Cache will be kept.
+[MODEM] Disconnecting GPRS... success
+[MODEM] Powering off modem...
+[MODEM] Modem powered off via TinyGSM.
+[FS] Preferences and LittleFS closed.
+[MAIN] Work cycle finished.
+[MAIN] Power instruction acknowledgement still pending. Staying awake for retry.

@@ -249,6 +249,16 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
         
         <hr>
         
+        <div id="tracking-section" class="section-container">
+          <div class="section-header">
+             <h2>Tracking Configuration</h2>
+          </div>
+          <p>Resets data harvesting settings (interval, satellites, batch size) to defaults.</p>
+          <button type="button" class="test-btn" style="background-color: #ffc107; color: #212529; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%;" onclick="confirmResetTracking()">Reset Tracking Defaults</button>
+        </div>
+
+        <hr>
+        
         <div id="cache-section" class="section-container">
           <div class="section-header">
              <h2>Data Cache Management</h2>
@@ -276,6 +286,16 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
                   return true;
                 };
           
+                function confirmResetTracking() {
+                  if (confirm("Reset GPS tracking settings (interval, satellites, etc.) to defaults?")) {
+                    var form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/resettracking';
+                    document.body.appendChild(form);
+                    form.submit();
+                  }
+                }
+
                 function confirmClearCache() {
                   if (confirm("Are you sure you want to delete all cached GPS data? This cannot be undone.")) {
                     // Create a form to submit the POST request

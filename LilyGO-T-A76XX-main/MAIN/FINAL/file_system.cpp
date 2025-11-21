@@ -451,3 +451,20 @@ void fs_clear_cache() {
     SerialMon.println(F("[FS] Cache file cleared manually."));
   }
 }
+
+void fs_reset_tracking_defaults() {
+  {
+    FsLockGuard lock;
+    if (!lock.isLocked()) {
+      SerialMon.println(F("[FS] Failed to acquire FS lock while resetting defaults."));
+      return;
+    }
+    preferences.remove("sleepTime");
+    preferences.remove("minSats");
+    preferences.remove(KEY_BATCH_THRESHOLD);
+    preferences.remove("mode");
+    SerialMon.println(F("[FS] Tracking settings keys removed."));
+  }
+  // Reload to apply defaults to global variables
+  fs_load_configuration();
+}

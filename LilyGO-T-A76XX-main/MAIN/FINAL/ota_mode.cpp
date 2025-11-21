@@ -197,6 +197,13 @@ void start_ota_mode() {
     otaServer.send(200, "text/html", page_content);
   });
 
+  // Handler for resetting tracking settings
+  otaServer.on("/resettracking", HTTP_POST, []() {
+    fs_reset_tracking_defaults();
+    otaServer.sendHeader("Location", "/settings", true);
+    otaServer.send(302, "text/plain", "");
+  });
+
   // Handler for clearing the cache
   otaServer.on("/clearcache", HTTP_POST, []() {
     fs_clear_cache();

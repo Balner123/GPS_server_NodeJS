@@ -50,3 +50,4 @@ bool fs_cache_exists();
 size_t fs_get_cache_size();
 size_t fs_get_cache_record_count(); // New function to count records
 void fs_clear_cache();
+void fs_reset_tracking_defaults();
