@@ -57,6 +57,12 @@ const unsigned long GPS_ACQUISITION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for
 #define CACHE_FILE              "/gps_cache.log"
 #define PREFERENCES_NAMESPACE   "gps-tracker"
 #define KEY_BATCH_SIZE          "batch_size"
+#define KEY_BATCH_THRESHOLD     "batch_threshold"
+
+// --- Batch Sending Configuration ---
+// Minimum number of cached records before attempting a modem session to send data.
+// A value of 1 means try to send every cycle.
+#define DEFAULT_BATCH_SEND_THRESHOLD 1
 
 // --- Device & Sleep Configuration ---
 #define DEFAULT_DEVICE_NAME     "NEO-6M_A7670E"

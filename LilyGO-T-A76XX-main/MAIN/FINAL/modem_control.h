@@ -24,7 +24,7 @@ extern int minSatellitesForFix;
 bool modem_initialize();
 
 // Function to connect to GPRS
-bool modem_connect_gprs(const String& apn_val, const String& user_val, const String& pass_val);
+bool modem_connect_gprs(const String& apn_val, const String& user_val, const String& pass_val, uint32_t timeout_ms = 240000L);
 
 // Function to send a POST request to the server
 String modem_send_post_request(const char* resource, const String& payload, int* statusCodeOut = nullptr);

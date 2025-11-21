@@ -41,15 +41,14 @@ void start_ota_mode() {
   // Load configuration from Preferences (needed for OTA SSID/Pass and GPRS settings)
   fs_load_configuration();
 
+  // FORCE OPEN NETWORK: Clear any stored OTA password to ensure access
   if (ota_password.length() > 0) {
-    SerialMon.println(F("[OTA] Clearing stored OTA password so hotspot stays open."));
     ota_password = "";
+    // Optionally clear it from preferences too, to keep things clean
     Preferences otaPrefs;
     if (otaPrefs.begin(PREFERENCES_NAMESPACE, false)) {
       otaPrefs.putString("ota_password", "");
       otaPrefs.end();
-    } else {
-      SerialMon.println(F("[OTA] Failed to open preferences namespace; password cleared in memory only."));
     }
   }
 
@@ -68,29 +67,35 @@ void start_ota_mode() {
   };
   finalizeOtaHotspot();
 
-  // 1. Initialize and connect modem first (for registration/testing GPRS)
-  SerialMon.println(F("Initializing modem for OTA mode..."));
-  gprsConnectedOTA = false;
+  // 1. Initialize Modem (synchronously) - Moved before WiFi AP to prevent brownouts on battery.
+  SerialMon.println(F("[OTA] Initializing modem synchronously..."));
   if (modem_initialize()) {
-    gprsConnectedOTA = modem_connect_gprs(apn, gprsUser, gprsPass);
-    lastGprsTestSuccess = gprsConnectedOTA;
-    if (gprsConnectedOTA) {
-      SerialMon.println(F("Modem ready and connected to GPRS."));
+    // Connect with a timeout
+    bool connected = modem_connect_gprs(apn, gprsUser, gprsPass, 15000);
+    gprsConnectedOTA = connected;
+    lastGprsTestSuccess = connected;
+    
+    if (connected) {
+      SerialMon.println(F("[OTA] Modem ready and connected. Performing handshake..."));
       handshakeAttemptedOTA = true;
-      SerialMon.println(F("Performing handshake in OTA mode..."));
-      handshakeSucceededOTA = modem_perform_handshake();
-      if (handshakeSucceededOTA) {
-        SerialMon.println(F("Handshake completed successfully."));
-        fs_load_configuration();
-        finalizeOtaHotspot();
+      bool handshakeOk = modem_perform_handshake();
+      handshakeSucceededOTA = handshakeOk;
+      
+      if (handshakeOk) {
+        SerialMon.println(F("[OTA] Handshake success. Reloading config."));
+        fs_load_configuration(); 
       } else {
-        SerialMon.println(F("Handshake failed in OTA mode."));
+        SerialMon.println(F("[OTA] Handshake failed."));
       }
     } else {
-      SerialMon.println(F("Modem initialized, but GPRS connection failed."));
+      SerialMon.println(F("[OTA] GPRS connection failed."));
     }
   } else {
-    SerialMon.println(F("Modem initialization failed; OTA GPRS features unavailable."));
+    SerialMon.println(F("[OTA] Modem init failed. Proceeding without modem."));
+    gprsConnectedOTA = false;
+    lastGprsTestSuccess = false;
+    handshakeAttemptedOTA = false;
+    handshakeSucceededOTA = false;
   }
 
   // 2. Start WiFi AP
@@ -185,7 +190,28 @@ void start_ota_mode() {
     page_content.replace("%ota_ssid%", ota_ssid);
     page_content.replace("%server_btn_disabled%", (gprsConnectedOTA && lastGprsTestSuccess) ? "" : "disabled");
     page_content.replace("%initial_gprs_flag%", (gprsConnectedOTA && lastGprsTestSuccess) ? "true" : "false");
+    
+    size_t cacheSize = fs_get_cache_size();
+    page_content.replace("%cache_size%", String(cacheSize));
+    
     otaServer.send(200, "text/html", page_content);
+  });
+
+  // Handler for clearing the cache
+  otaServer.on("/clearcache", HTTP_POST, []() {
+    fs_clear_cache();
+    otaServer.sendHeader("Location", "/settings", true);
+    otaServer.send(302, "text/plain", "");
+  });
+
+  // Handler for getting cache status (JSON)
+  otaServer.on("/cachestatus", HTTP_GET, []() {
+    size_t size = fs_get_cache_size();
+    JsonDocument doc;
+    doc["size"] = size;
+    String json;
+    serializeJson(doc, json);
+    otaServer.send(200, "application/json", json);
   });
 
   // Handler for saving settings
@@ -197,11 +223,20 @@ void start_ota_mode() {
       otaServer.send(400, "text/html", response);
     };
 
+    /* SSID is now fixed/read-only
     String requestedOtaSsid = otaServer.arg("ota_ssid");
     if (requestedOtaSsid.length() == 0 || requestedOtaSsid.length() > 31) {
       sendValidationError(F("OTA SSID must be 1-31 characters long."));
       return;
     }
+    */
+
+    // Capture current critical settings to detect changes
+    String old_apn = apn;
+    String old_gprsUser = gprsUser;
+    String old_gprsPass = gprsPass;
+    String old_server = server;
+    int old_port = port;
 
     Preferences preferences;
     preferences.begin(PREFERENCES_NAMESPACE, false);
@@ -214,6 +249,10 @@ void start_ota_mode() {
     String new_gprs_pass_confirm = otaServer.arg("gprsPassConfirm");
     if (new_gprs_pass == new_gprs_pass_confirm) {
         preferences.putString("gprsPass", new_gprs_pass);
+    } else {
+        preferences.end();
+        sendValidationError(F("GPRS passwords do not match."));
+        return;
     }
 
     // Server
@@ -223,30 +262,40 @@ void start_ota_mode() {
     // Device
     if (otaServer.hasArg("deviceName")) preferences.putString("deviceName", otaServer.arg("deviceName"));
 
-    // OTA
-    preferences.putString("ota_ssid", requestedOtaSsid);
-    preferences.putString("ota_password", "");
-
+    // OTA SSID is fixed, OTA Password is removed (Open Network)
+    
     preferences.end();
 
     // Reload config to apply immediately for things like OTA SSID
     fs_load_configuration();
 
-    modem_disconnect_gprs();
-    gprsConnectedOTA = false;
-    lastGprsTestSuccess = false;
-    handshakeAttemptedOTA = false;
-    handshakeSucceededOTA = false;
-    lastRegistrationMessage = "";
+    // Intelligent restart: Check if GPRS or Server settings changed
+    bool restartNeeded = false;
+    if (apn != old_apn || gprsUser != old_gprsUser || gprsPass != old_gprsPass || 
+        server != old_server || port != old_port) {
+      restartNeeded = true;
+      SerialMon.println(F("[OTA] Critical settings changed. Restarting network connection..."));
+    } else {
+      SerialMon.println(F("[OTA] No critical network settings changed. Skipping modem restart."));
+    }
 
-    if (modem_initialize()) {
-      gprsConnectedOTA = modem_connect_gprs(apn, gprsUser, gprsPass);
-      lastGprsTestSuccess = gprsConnectedOTA;
-      if (gprsConnectedOTA) {
-        handshakeAttemptedOTA = true;
-        handshakeSucceededOTA = modem_perform_handshake();
-        if (handshakeSucceededOTA) {
-          fs_load_configuration();
+    if (restartNeeded) {
+      modem_disconnect_gprs();
+      gprsConnectedOTA = false;
+      lastGprsTestSuccess = false;
+      handshakeAttemptedOTA = false;
+      handshakeSucceededOTA = false;
+      lastRegistrationMessage = "";
+
+      if (modem_initialize()) {
+        gprsConnectedOTA = modem_connect_gprs(apn, gprsUser, gprsPass, 30000);
+        lastGprsTestSuccess = gprsConnectedOTA;
+        if (gprsConnectedOTA) {
+          handshakeAttemptedOTA = true;
+          handshakeSucceededOTA = modem_perform_handshake();
+          if (handshakeSucceededOTA) {
+            fs_load_configuration();
+          }
         }
       }
     }
@@ -269,7 +318,7 @@ void start_ota_mode() {
     SerialMon.println("GPRS disconnected for test.");
     delay(1000);
 
-    bool success = modem_connect_gprs(test_apn, test_user, test_pass);
+    bool success = modem_connect_gprs(test_apn, test_user, test_pass, 45000);
     lastGprsTestSuccess = success;
 
     String message = success ? "GPRS test connection successful." : "GPRS test connection failed.";
@@ -279,7 +328,7 @@ void start_ota_mode() {
 
     // Reconnect with original settings (if it was connected before)
     SerialMon.println("Reconnecting to GPRS with saved settings...");
-    bool restored = modem_connect_gprs(apn, gprsUser, gprsPass);
+    bool restored = modem_connect_gprs(apn, gprsUser, gprsPass, 30000);
     gprsConnectedOTA = restored;
     if (restored) {
       SerialMon.println("Reconnected successfully.");
@@ -441,7 +490,10 @@ void start_ota_mode() {
   otaServer.begin();
   SerialMon.println(F("OTA Web Server started. Waiting for connections..."));
 
-  // 5. Loop indefinitely to handle OTA requests
+  // 5. Removed: Automatic Modem Connection (Parallel Task) - Modem is now initialized synchronously before WiFi AP.
+
+
+  // 6. Loop indefinitely to handle OTA requests
   uint32_t lastBlink = millis();
   while (true) {
     otaServer.handleClient();

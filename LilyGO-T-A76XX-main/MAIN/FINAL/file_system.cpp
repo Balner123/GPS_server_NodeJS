@@ -18,9 +18,11 @@ uint64_t sleepTimeSeconds = DEFAULT_SLEEP_SECONDS;
 bool isRegistered = true; // Assume registered until told otherwise by the server
 int minSatellitesForFix = SAT_THRESHOLD;
 String operationMode = "batch";
+int batchSizeThreshold = DEFAULT_BATCH_SEND_THRESHOLD; // Minimum records in cache to trigger sending
 
 Preferences preferences;
 
+const int MAX_BATCH_SIZE = 15; // Hard limit for the number of records sent in a single POST request
 namespace {
 SemaphoreHandle_t get_fs_mutex() {
   static portMUX_TYPE initMux = portMUX_INITIALIZER_UNLOCKED;
@@ -131,7 +133,7 @@ void fs_load_configuration() {
     ota_password = DEFAULT_OTA_PASSWORD;
   }
 
-  // Load sleep time and batch size
+  // Load sleep time, min satellites, and batch send threshold
   if (preferences.isKey("sleepTime")) {
     sleepTimeSeconds = preferences.getULong64("sleepTime");
   } else {
@@ -141,6 +143,11 @@ void fs_load_configuration() {
     minSatellitesForFix = preferences.getInt("minSats");
   } else {
     minSatellitesForFix = SAT_THRESHOLD;
+  }
+  if (preferences.isKey(KEY_BATCH_THRESHOLD)) {
+    batchSizeThreshold = preferences.getUChar(KEY_BATCH_THRESHOLD);
+  } else {
+    batchSizeThreshold = DEFAULT_BATCH_SEND_THRESHOLD;
   }
   if (preferences.isKey("registered")) {
     isRegistered = preferences.getBool("registered");
@@ -188,7 +195,7 @@ bool send_cached_data() {
     SerialMon.println(F("[FS] Failed to acquire FS lock while sending cached data."));
     return false;
   }
-  const int MAX_BATCH_SIZE = 15; // Limit batch size to avoid large payloads
+  
   bool allDataSent = true;
 
   while (true) {
@@ -365,12 +372,14 @@ void fs_apply_server_config(const JsonVariantConst& config) {
     if (sendInterval == 0) {
       sendInterval = 1;
     }
-    if (sendInterval > 50) {
-      sendInterval = 50;
+    // Ensure batch sending threshold is not greater than the hardcoded MAX_BATCH_SIZE
+    if (sendInterval > MAX_BATCH_SIZE) {
+      sendInterval = MAX_BATCH_SIZE;
     }
-    preferences.putUChar(KEY_BATCH_SIZE, sendInterval);
-    SerialMon.print(F("[FS] Server set send interval (batch size) to: "));
-    SerialMon.println(sendInterval);
+    batchSizeThreshold = sendInterval; // Update global variable
+    preferences.putUChar(KEY_BATCH_THRESHOLD, batchSizeThreshold); // Store in preferences
+    SerialMon.print(F("[FS] Server set batch send threshold to: "));
+    SerialMon.println(batchSizeThreshold);
   }
 
   if (!config["satellites"].isNull()) {
@@ -396,4 +405,49 @@ void fs_set_registered(bool registered) {
   }
   isRegistered = registered;
   preferences.putBool("registered", registered);
+}
+
+size_t fs_get_cache_size() {
+  FsLockGuard lock;
+  if (!lock.isLocked()) return 0;
+  if (!LittleFS.exists(CACHE_FILE)) return 0;
+  File file = LittleFS.open(CACHE_FILE, "r");
+  size_t size = file.size();
+  file.close();
+  return size;
+}
+
+size_t fs_get_cache_record_count() {
+  FsLockGuard lock;
+  if (!lock.isLocked()) {
+    SerialMon.println(F("[FS] Failed to acquire FS lock while counting cache records."));
+    return 0;
+  }
+  if (!LittleFS.exists(CACHE_FILE)) return 0;
+
+  File file = LittleFS.open(CACHE_FILE, "r");
+  if (!file) {
+    SerialMon.println(F("[FS] Failed to open cache file for counting records."));
+    return 0;
+  }
+
+  size_t count = 0;
+  while (file.available()) {
+    String line = file.readStringUntil('\n');
+    line.trim();
+    if (line.length() > 0) {
+      count++;
+    }
+  }
+  file.close();
+  return count;
+}
+
+void fs_clear_cache() {
+  FsLockGuard lock;
+  if (!lock.isLocked()) return;
+  if (LittleFS.exists(CACHE_FILE)) {
+    LittleFS.remove(CACHE_FILE);
+    SerialMon.println(F("[FS] Cache file cleared manually."));
+  }
 }

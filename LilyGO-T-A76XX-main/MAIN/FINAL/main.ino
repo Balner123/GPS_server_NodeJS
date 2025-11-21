@@ -194,20 +194,26 @@ void work_cycle() {
   }
 
   bool statusReportPending = power_status_report_pending();
+  size_t cachedRecordCount = fs_get_cache_record_count();
+
   if (!gpsFixObtained && statusReportPending) {
     JsonDocument statusDoc;
     statusDoc["device"] = deviceID;
+    statusDoc["latitude"] = gpsLat;
+    statusDoc["longitude"] = gpsLon;
     statusDoc["power_status"] = power_status_to_string(power_status_get());
     String statusJson;
     serializeJson(statusDoc, statusJson);
     append_to_cache(statusJson);
     statusAckQueued = true;
+    cachedRecordCount = fs_get_cache_record_count(); // Re-count after adding status
   }
 
   // 4. Perform handshake and optionally send data in a single modem session
+  // Only initiate modem session if batch threshold is met OR there's an urgent power status report to send
   if (shutdown_is_requested()) {
     SerialMon.println(F("[MAIN] Shutdown requested before modem session. Skipping network operations."));
-  } else {
+  } else if (cachedRecordCount >= batchSizeThreshold || statusReportPending || power_instruction_get() == PowerInstruction::TurnOff) {
     SerialMon.println(F("[MAIN] Starting modem session (handshake + optional upload)."));
     bool modemInitialized = false;
     bool gprsConnected = false;

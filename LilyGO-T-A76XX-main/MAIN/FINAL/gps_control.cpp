@@ -1,7 +1,8 @@
 #include "gps_control.h"
+#include "config.h"
 
 // Global GPS objects
-SoftwareSerial SerialGPS(GPS_RX_PIN, GPS_TX_PIN);
+HardwareSerial SerialGPS(1);
 TinyGPSPlus gps;
 
 // Global variables (declared extern in gps_control.h and other modules)
@@ -40,13 +41,13 @@ void gps_power_down() {
 }
 
 void gps_init_serial() {
-  SerialGPS.begin(GPS_BAUD_RATE);
-  SerialMon.println(F("[GPS] SoftwareSerial for GPS initialized."));
+  SerialGPS.begin(GPS_BAUD_RATE, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  SerialMon.printf("[GPS] HardwareSerial for GPS initialized on pins RX:%d, TX:%d at %d baud.\n", GPS_RX_PIN, GPS_TX_PIN, GPS_BAUD_RATE);
 }
 
 void gps_close_serial() {
   SerialGPS.end();
-  SerialMon.println(F("[GPS] SoftwareSerial for GPS closed."));
+  SerialMon.println(F("[GPS] HardwareSerial for GPS closed."));
 }
 
 void gps_display_and_store_info() {
@@ -104,6 +105,8 @@ bool gps_get_fix(unsigned long timeout) {
       break;
     }
     while (SerialGPS.available() > 0) {
+      if (gpsAbortRequested) break; // Immediate exit if requested inside the read loop
+
       if (gps.encode(SerialGPS.read())) {
         if (gps.location.isUpdated() && gps.location.isValid() &&
             gps.date.isValid() && gps.time.isValid() &&
@@ -129,7 +132,7 @@ bool gps_get_fix(unsigned long timeout) {
       SerialMon.print(F(", Time Valid: "));
       SerialMon.println(gps.time.isValid());
     }
-    delay(10);
+    delay(1); // Yield to other tasks but return quickly
   }
 
   if (!gpsFixObtained) {

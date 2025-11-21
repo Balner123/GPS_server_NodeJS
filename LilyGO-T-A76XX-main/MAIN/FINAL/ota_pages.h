@@ -242,34 +242,62 @@ const char settings_page_template[] PROGMEM = R"rawliteral(
         <hr>
         <h2>OTA Hotspot Configuration</h2>
         <div class="form-group">
-          <label for="ota_ssid">OTA WiFi SSID:</label>
-          <input type='text' id="ota_ssid" name='ota_ssid' value='%ota_ssid%'>
+          <label>OTA WiFi SSID:</label>
+          <p style="padding: 10px; background: #eee; border-radius: 4px; margin-top: 0;">%ota_ssid%</p>
         </div>
-        <p style="font-size:0.9em;color:#555;">Hotspot is running without a password. Connect only in a secure environment.</p>
-        <br>
-        <input type='submit' value='Save Settings'>
-      </form>
-      <div class="nav-menu">
-        <a href="/">Main Page</a> | 
-        <a href="/update">Firmware Update</a>
-      </div>
-    </div>
-    <script>
-      let lastGprsTestSuccess = %initial_gprs_flag%;
-      document.getElementById('test-server-btn').disabled = !lastGprsTestSuccess;
-
-      function validatePasswords() {
-        var gprsPass = document.getElementById('gprsPass').value;
-        var gprsPassConfirm = document.getElementById('gprsPassConfirm').value;
-
-        if (gprsPass !== gprsPassConfirm) {
-          alert('GPRS passwords do not match!');
-          return false;
-        }
-        return true;
-      }
-
-      function testGPRS() {
+        <p style="font-size:0.9em;color:#555;">Hotspot runs as an Open Network for easier service access.</p>
+        
+        <hr>
+        
+        <div id="cache-section" class="section-container">
+          <div class="section-header">
+             <h2>Data Cache Management</h2>
+          </div>
+          <p>Current Cache Size: <b><span id="cache-size-display">%cache_size%</span> bytes</b></p>
+          <p style="font-size:0.9em;color:#555;">Clear cache if you encounter "Invalid device payload" errors or stuck data.</p>
+                    <button type="button" class="test-btn" style="background-color: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%;" onclick="confirmClearCache()">Clear Cache</button>
+                  </div>
+          
+                  <br>
+                  <div id="saving-indicator" style="display:none; color: #0056b3; font-weight: bold; margin-bottom: 10px;">Saving settings... Please wait...</div>
+                  <input type='submit' id="save-btn" value='Save Settings'>
+                </form>
+                <div class="nav-menu">
+                  <a href="/">Main Page</a> |
+                  <a href="/update">Firmware Update</a>
+                </div>
+              </div>
+              <script>
+                // Replace the direct onsubmit with this handler wrapper
+                document.querySelector('form[action="/savesettings"]').onsubmit = function() {
+                  if (!validatePasswords()) return false;
+                  document.getElementById('save-btn').style.display = 'none';
+                  document.getElementById('saving-indicator').style.display = 'block';
+                  return true;
+                };
+          
+                function confirmClearCache() {
+                  if (confirm("Are you sure you want to delete all cached GPS data? This cannot be undone.")) {
+                    // Create a form to submit the POST request
+                    var form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/clearcache';
+                    document.body.appendChild(form);
+                    form.submit();
+                  }
+                }
+          
+                      function validatePasswords() {
+                        var gprsPass = document.getElementById('gprsPass').value;
+                        var gprsPassConfirm = document.getElementById('gprsPassConfirm').value;
+                
+                        if (gprsPass !== gprsPassConfirm) {
+                          alert('GPRS passwords do not match!');
+                          return false;
+                        }
+                        return true;
+                      }          
+                function testGPRS() {
         const btn = document.getElementById('test-gprs-btn');
         const loader = document.getElementById('gprs-loader');
         const section = document.getElementById('gprs-section');

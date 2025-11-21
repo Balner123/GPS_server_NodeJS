@@ -1,12 +1,11 @@
 #pragma once
 
 #include <Arduino.h>
-#include <TinyGPS++.h>
-#include <SoftwareSerial.h>
-#include "config.h"
+#include <TinyGPSPlus.h>
+#include <HardwareSerial.h> // Include HardwareSerial for ESP32
 
 // Global GPS objects
-extern SoftwareSerial SerialGPS;
+extern HardwareSerial SerialGPS;
 extern TinyGPSPlus gps;
 
 // Forward declarations for global variables used by GPS functions

@@ -92,59 +92,81 @@ bool modem_initialize() {
   digitalWrite(BOARD_POWERON_PIN, HIGH);
 #endif
 
-#ifdef MODEM_RESET_PIN
-  SerialMon.println(F("[MODEM] Resetting modem..."));
-  pinMode(MODEM_RESET_PIN, OUTPUT);
-  digitalWrite(MODEM_RESET_PIN, !MODEM_RESET_LEVEL);
-  delay(100);
-  digitalWrite(MODEM_RESET_PIN, MODEM_RESET_LEVEL);
-  delay(2600);
-  digitalWrite(MODEM_RESET_PIN, !MODEM_RESET_LEVEL);
-  delay(500);
-#endif
+  // Helper lambda to toggle PWRKEY
+  auto togglePwrKey = []() {
+    SerialMon.println(F("[MODEM] Toggling PWRKEY..."));
+    pinMode(BOARD_PWRKEY_PIN, OUTPUT);
+    digitalWrite(BOARD_PWRKEY_PIN, LOW);
+    delay(100);
+    digitalWrite(BOARD_PWRKEY_PIN, HIGH);
+    delay(1000);
+    digitalWrite(BOARD_PWRKEY_PIN, LOW);
+    SerialMon.println(F("[MODEM] PWRKEY toggled. Waiting for boot..."));
+  };
 
-  SerialMon.println(F("[MODEM] Toggling PWRKEY..."));
-  pinMode(BOARD_PWRKEY_PIN, OUTPUT);
-  digitalWrite(BOARD_PWRKEY_PIN, LOW);
-  delay(100);
-  digitalWrite(BOARD_PWRKEY_PIN, HIGH);
-  delay(1000);
-  digitalWrite(BOARD_PWRKEY_PIN, LOW);
+  // Helper to wait for AT response (Adaptive Wait)
+  auto waitForModemToBoot = [](uint32_t timeout_ms) -> bool {
+      unsigned long start = millis();
+      while (millis() - start < timeout_ms) {
+          if (g_modem.testAT(100)) { // Fast check
+              return true;
+          }
+          delay(100); // Small delay between attempts
+          if (shutdown_is_requested()) return false;
+      }
+      return false;
+  };
 
-  SerialMon.println(F("[MODEM] Waiting for modem to boot..."));
-  delay(3000);
-
+  // Initialize SerialAT immediately
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
-  SerialMon.println(F("[MODEM] SerialAT configured."));
-  delay(1000);
+  delay(100);
 
-  SerialMon.println(F("[MODEM] Testing AT command response..."));
-  int retry = 0;
-#define MAX_AT_RETRIES 15
-  while (!g_modem.testAT(1000)) {
-    if (shutdown_is_requested()) {
-      SerialMon.println(F("[MODEM] AT test aborted by shutdown."));
+  bool modemReady = false;
+
+  // Check 1: Already ON? (Quick check)
+  if (g_modem.testAT(500)) {
+      SerialMon.println(F("[MODEM] Modem responded to AT. It is already ON."));
+      modemReady = true;
+  } else {
+      SerialMon.println(F("[MODEM] No response. Performing Power-On sequence (Attempt 1)..."));
+      
+      #ifdef MODEM_RESET_PIN
+      SerialMon.println(F("[MODEM] Resetting modem..."));
+      pinMode(MODEM_RESET_PIN, OUTPUT);
+      digitalWrite(MODEM_RESET_PIN, !MODEM_RESET_LEVEL);
+      delay(100);
+      digitalWrite(MODEM_RESET_PIN, MODEM_RESET_LEVEL);
+      delay(2600);
+      digitalWrite(MODEM_RESET_PIN, !MODEM_RESET_LEVEL);
+      delay(500);
+      #endif
+
+      togglePwrKey();
+      
+      // Adaptive wait for boot (up to 10 seconds)
+      if (waitForModemToBoot(10000)) {
+          modemReady = true;
+      } else {
+          // Re-init serial just in case
+          SerialAT.begin(115200, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
+          delay(500);
+
+          SerialMon.println(F("\n[MODEM] Still no response. We might have turned it OFF. Toggling PWRKEY again (Attempt 2)..."));
+          togglePwrKey();
+          
+          // Adaptive wait for boot (up to 10 seconds)
+          if (waitForModemToBoot(10000)) {
+             modemReady = true;
+          }
+      }
+  }
+
+  if (!modemReady) {
+      SerialMon.println(F("\n[MODEM] Failed to power on modem after two attempts."));
       mark_modem_offline();
       return false;
-    }
-    SerialMon.print(F("."));
-    if (retry++ >= MAX_AT_RETRIES) {
-      SerialMon.println(F("\n[MODEM] Failed to get AT response after multiple attempts. Trying to power cycle PWRKEY again."));
-      digitalWrite(BOARD_PWRKEY_PIN, LOW);
-      delay(100);
-      digitalWrite(BOARD_PWRKEY_PIN, HIGH);
-      delay(1000);
-      digitalWrite(BOARD_PWRKEY_PIN, LOW);
-      delay(3000);
-      retry = 0;
-      if (retry++ >= MAX_AT_RETRIES / 3) {
-        SerialMon.println(F("\n[MODEM] Still no AT response after power cycle. Giving up."));
-        mark_modem_offline();
-        return false;
-      }
-    }
-    if (retry > 5) delay(500);
   }
+
   SerialMon.println(F("\n[MODEM] AT command responded."));
 
   SerialMon.println(F("[MODEM] Initializing modem with modem.init()..."));
@@ -171,7 +193,7 @@ bool modem_initialize() {
   return true;
 }
 
-bool modem_connect_gprs(const String& apn_val, const String& user_val, const String& pass_val) {
+bool modem_connect_gprs(const String& apn_val, const String& user_val, const String& pass_val, uint32_t timeout_ms) {
   ModemLockGuard lock;
   if (!lock.isLocked()) {
     SerialMon.println(F("[MODEM] Unable to acquire modem lock for GPRS connect."));
@@ -186,7 +208,7 @@ bool modem_connect_gprs(const String& apn_val, const String& user_val, const Str
     return false;
   }
   SerialMon.print(F("[MODEM] Waiting for network..."));
-  if (!g_modem.waitForNetwork(240000L, true)) {
+  if (!g_modem.waitForNetwork(timeout_ms, true)) {
     SerialMon.println(F(" fail"));
     g_modem_gprs_connected = false;
     return false;
