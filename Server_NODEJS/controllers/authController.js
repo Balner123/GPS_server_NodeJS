@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const db = require('../database');
-const { sendVerificationEmail } = require('../utils/emailSender');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailSender');
 const { getRequestLogger } = require('../utils/requestLogger');
 
 const getLoginPage = (req, res) => {
@@ -486,6 +487,143 @@ const cancelEmailChange = async (req, res) => {
   }
 };
 
+const getForgotPasswordPage = (req, res) => {
+  res.render('forgot-password', { error: req.flash('error'), success: req.flash('success') });
+};
+
+const sendPasswordResetLink = async (req, res) => {
+  const { email } = req.body;
+  const log = getRequestLogger(req, { controller: 'auth', action: 'sendPasswordResetLink', email });
+
+  if (!email) {
+    req.flash('error', 'Please enter your email address.');
+    return res.redirect('/forgot-password');
+  }
+
+  try {
+    const user = await db.User.findOne({ where: { email } });
+    if (!user) {
+      // Security: Don't reveal if user exists or not, but log it
+      log.info('Password reset requested for non-existent email');
+      req.flash('success', 'If an account with that email exists, a reset link has been sent.');
+      return res.redirect('/forgot-password');
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 3600000); // 1 hour
+
+    user.reset_password_token = token;
+    user.reset_password_expires = expires;
+    await user.save();
+
+    const resetLink = `${req.protocol}://${req.get('host')}/reset-password/${token}`;
+    await sendPasswordResetEmail(user.email, resetLink);
+
+    log.info('Password reset link sent');
+    req.flash('success', 'If an account with that email exists, a reset link has been sent.');
+    res.redirect('/forgot-password');
+
+  } catch (err) {
+    log.error('Error sending reset link', err);
+    req.flash('error', 'An error occurred. Please try again later.');
+    res.redirect('/forgot-password');
+  }
+};
+
+const getResetPasswordPage = async (req, res) => {
+  const { token } = req.params;
+  const log = getRequestLogger(req, { controller: 'auth', action: 'getResetPasswordPage' });
+
+  try {
+    const user = await db.User.findOne({
+      where: {
+        reset_password_token: token,
+        reset_password_expires: { [db.Sequelize.Op.gt]: new Date() }
+      }
+    });
+
+    if (!user) {
+      req.flash('error', 'Password reset token is invalid or has expired.');
+      return res.redirect('/forgot-password');
+    }
+
+    res.render('reset-password', { token, error: req.flash('error') });
+
+  } catch (err) {
+    log.error('Error rendering reset page', err);
+    req.flash('error', 'An error occurred.');
+    res.redirect('/forgot-password');
+  }
+};
+
+const resetPassword = async (req, res) => {
+  const { token } = req.params;
+  const { password, confirmPassword, use_weak_password } = req.body;
+  const log = getRequestLogger(req, { controller: 'auth', action: 'resetPassword' });
+
+  if (!password || !confirmPassword) {
+    req.flash('error', 'Both password fields are required.');
+    return res.redirect(`/reset-password/${token}`);
+  }
+
+  if (password !== confirmPassword) {
+    req.flash('error', 'Passwords do not match.');
+    return res.redirect(`/reset-password/${token}`);
+  }
+
+  try {
+    const user = await db.User.findOne({
+      where: {
+        reset_password_token: token,
+        reset_password_expires: { [db.Sequelize.Op.gt]: new Date() }
+      }
+    });
+
+    if (!user) {
+      req.flash('error', 'Password reset token is invalid or has expired.');
+      return res.redirect('/forgot-password');
+    }
+
+    // Password complexity check
+    if (!use_weak_password) {
+        const passwordRequirements = [
+            { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
+            { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
+            { regex: /[0-9]/, message: 'Password must contain at least one number.' },
+            { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
+        ];
+        for (const requirement of passwordRequirements) {
+            if (!requirement.regex.test(password)) {
+                req.flash('error', requirement.message);
+                return res.redirect(`/reset-password/${token}`);
+            }
+        }
+    } else {
+        if (password.length < 3) {
+            req.flash('error', 'Weak password must be at least 3 characters long.');
+            return res.redirect(`/reset-password/${token}`);
+        }
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    user.password = hashedPassword;
+    user.reset_password_token = null;
+    user.reset_password_expires = null;
+    await user.save();
+
+    log.info('Password reset successful', { userId: user.id });
+    req.flash('success', 'Your password has been changed. You can now login.');
+    res.redirect('/login');
+
+  } catch (err) {
+    log.error('Error resetting password', err);
+    req.flash('error', 'An error occurred while resetting your password.');
+    res.redirect(`/reset-password/${token}`);
+  }
+};
+
 module.exports = {
   getLoginPage,
   loginUser,
@@ -498,5 +636,9 @@ module.exports = {
   logoutApk,
   resendVerificationCodeFromPage,
   setInitialPassword,
-  cancelEmailChange
+  cancelEmailChange,
+  getForgotPasswordPage,
+  sendPasswordResetLink,
+  getResetPasswordPage,
+  resetPassword
 };

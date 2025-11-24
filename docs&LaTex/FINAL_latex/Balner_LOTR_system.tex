@@ -18,10 +18,10 @@ openright
 \newcommand\zamereni{se zaměřením na počítačové sítě a programování} %% -- napiš číslo a název tvého oboru
 \newcommand\skola{Střední škola průmyslová a umělecká, Opava} %% vyplň název školy
 \newcommand\trida{IT4} %% vyplň jméno svého konzultanta
-\newcommand\jmenoAutora{Viktor Hujer}  %% vyplň své jméno
-\newcommand\skolniRok{2023/24} %% vyplň rok
-\newcommand\datumOdevzdani{1. 1. 2024} %% vyplň rok
-\newcommand\nazevPrace{Tvorba odborné dokumentace s využitím typografického systému \LaTeX} %% vyplň název své práce
+\newcommand\jmenoAutora{Štěpán Balner}  %% vyplň své jméno
+\newcommand\skolniRok{2025/26} %% vyplň rok
+\newcommand\datumOdevzdani{1. 1. 2026} %% vyplň rok
+\newcommand\nazevPrace{LOTR - LOcation TRacking System} %% vyplň název své práce
 
 \title{\nazevPrace} %% -- Název tvé práce
 \author{\jmenoAutora} %% -- tvé jméno
@@ -211,12 +211,6 @@ openright
 	style=JSES6Base
 }
 
-
-%% Bordel pro práci - můžeš smáznout :) 
-%%%%%%%%%%%%%%%%%%%
-
-\usepackage{lipsum} %% balíček který píše lipsum (nesmyslný text, který se používá pro kontrolu typografie)
-
 %% Začátek dokumentu
 %%%%%%%%%%%%%%%%%%%%
 \begin{document}
@@ -251,7 +245,7 @@ openright
 		
 		\begin{figure}[h]
 			\centering
-			\includegraphics[width=0.8\linewidth]{image/programovani-02.jpg} 
+			\includegraphics[width=0.4\linewidth]{image/logo_lotr.png} 
 		\end{figure}
 		
 		\vspace{0.02 \textheight}
@@ -276,7 +270,7 @@ openright
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
 	\noindent{\large{\bfseries{Poděkování}\\}}
-	\noindent Prostor k poděkování (například vedoucímu práce).
+	\noindent Děkuji těm, jimž poděkováno nebylo.\\
 	
 	\vspace*{0.7\textheight} %% Vertikální mezeru je možné upravit
 
@@ -304,31 +298,23 @@ openright
 
 %% Abstrakt v češtině
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	\noindent{\Large{\bfseries{Abstrakt}\\}}
-	\noindent Sem napíšeš svůj abstrakt.\\
-	Slouží jako pomoc čtenáři rychle se zorientovat v dané práci.\\
-	“Redukovaný text, který charakterizuje obsah dokumentu bez rozlišování autorství abstraktu, bez doplňkových informací, bez vlastní interpretace a hodnocení dokumentu (tj. nikoliv "v práci velmi dobře hodnotím podle mne zajímavý systém...", ale "práce hodnotí systém..."). Základními vlastnostmi anotace jsou výstižnost, přehlednost, jasnost, stručnost, přesnost, objektivnost a čtivost. Anotace je formulována v přirozeném jazyce – obvykle ve větách. Anotace může používat textových formulací z referovaného dokumentu, ale jako celek je formulován nově.“\\
-	Délka cca 100 – 250 slov
+	\noindent{\Large{\bfseries{Anotace}\\}}
+	\noindent Výsledkem projektu je sledovací systém složený z "funkčního" (?) hardwarového zařízení, 
+	webového serveru pro ukládání, zpracování a zobrazování dat v uživatelském rozhraní, 
+	Součástí je také minimalistická Aplikace pro mobilní zařízení (pro systém Android).
+	fungující jako plná náhrada hardwarového zařízení.Je také určen pro správu a vzdálenovu konfiguraci zařízení propojených s uživatelovým účtem.
+	(HW i APK). 
+	Hardwarové zařízení je postaveno na platformě ESP32 s GPS modulem a LTE modemem pro přenos dat přes mobilní síť spolu s Baterií její nabíječkou a Napájecím modulem.
+	Zatímco server je napsán ve frameworku Node.js s využitím databáze MySQL. Aplikace je postavena na jazyce Kotlin s použitím Android SDK.
+	
 	
 	\vspace{18pt}
 	
 	\noindent{\large{\bfseries{Klíčová slova}}}
 	
-	\noindent Šablona, \LaTeX, závěrečná práce, dokumentace, \dots 
+	\noindent GPS, sledovací systém, ESP32, webová aplikace, mobilní aplikace, Kotlin, Node.js \dots
 	
 	\vspace{18pt}
-
-%% Abstrakt v angličtině
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
-	\noindent{\Large{\bfseries{Abstract}}}
-	
-	\noindent Write your abstract here! \lipsum[1] %% přepiš!!
-	
-	\vspace{18pt}
-	
-	\noindent{\large{\bfseries{Keywords}}}
-	
-	\noindent Template, \LaTeX, High school proffessional activity, \dots 
 	
 	\clearpage %% Zalomení stránky
 
@@ -351,11 +337,6 @@ openright
 %První parametr toc označuje, že přidáváme záznam do Table of Contents (obsahu).
 %Druhý parametr chapter specifikuje úroveň záznamu. V tomto případě říkáme, že přidávaný záznam má být považován za kapitolu.
 %Třetí parametr Úvod je text, který se objeví v obsahu. V tomto případě bude v obsahu zobrazen název "Úvod".	
-Závěrečné studijní práce a jejich veřejné obhajoby jsou důležitou součástí vyvrcholení studia oboru informační technologie na \textit{Střední škole průmyslové a umělecké v Opavě}. Hlavním cílem je samostatně vypracovat komplexní, nejčastěji prakticky zaměřený projekt na vybrané téma z~oblasti ICT a napsat k tomuto projektu také příslušnou odbornou dokumentaci podle obecně platných pravidel. Nejúspěšnější studentské projekty bývají vybrány, aby školu reprezentovaly v soutěžních přehlídkách \emph{Středoškolské odborné činnosti} (dále SOČ), kde je pečlivá a přesná dokumentace rovněž vyžadována.
-
-Tento dokument vznikl se záměrem co nejvíce studentům usnadnit formální úpravu dokumentace k jejich odborné práci a poskytnout jim i dobré vodítko při strukturování samotného obsahu. Vzhledem k tomu, že příprava na vysokoškolské studium často vyžaduje znalost {\LaTeX}u, představujeme šablonu vytvořenou v této technologii, jejímž autorem je z velké části Jakub Dokulil a která byla původně určená pro soutěžící SOČ.  
-
-První kapitola této práce obsahuje základní informace o~{\LaTeX}u; stručně se zmiňuje o jeho vývoji, ale hlavně se soustředí na základní principy, které je nezbytné znát při sestavování rozsáhlejších  textových dokumentů. Součástí této kapitoly je i výběr některých programových prostředků, které mohou výrazněji urychlit a usnadnit psaní zdrojového kódu {\LaTeX}u. V kapitole nazvané "Jak psát odbornou dokumentaci" jsou zdůrazněna nejdůležitější pravidla, jež by měla být dodržena při psaní (nejen) odborného textu, a to jak zásady týkající se obsahu, tak i formální stránky - pravopisné, typografické apod. Závěrečná kapitola se soustředí na praktické ukázky správného použití různých typů obsahu v odborné práci. 
 
 %Tipy k psaní úvodu
 %Je povinný, nadpis neměňte, rozsah - max. 1 strana. 
@@ -648,11 +629,11 @@ Správné citování zdrojů je klíčové pro akademickou integritu a umožňuj
 	
 	\begin{figure}[h!] \centering
 		\begin{subfigure}[h]{0.63\textwidth} %%prostředí pro podobrázek {šířka podobrázku}
-			\includegraphics[width=\textwidth]{image/vysledek_10} 
+			\includegraphics[width=\textwidth]{image/logo-skoly.png} 
 			\caption{} %% aby se ti vysázelo označení obrázku.
 		\end{subfigure}
 		\begin{subfigure}[h]{0.63\textwidth}
-			\includegraphics[width=\textwidth]{image/vysledek_20}
+			\includegraphics[width=\textwidth]{image/logo-skoly.png}
 			\caption{}
 		\end{subfigure}
 		\caption[Graf závislosti rotace DH PSF $\Delta\varphi$ na defokusaci objektivu $\Delta z$.]{Graf závislosti rotace DH PSF $\Delta\varphi$ na defokusaci objektivu $\Delta z$, (a) při použití objektivu Plan Fluor 10, (b) při použití objektivu Plan Fluor 20. Měřená data (žluté body) jsou lineárně proloženy (přerušovaná přímka). }

@@ -98,6 +98,3 @@ Ačkoliv jde primárně o backend, aplikace obsahuje UI:
 
 ## 9. Testování
 - **Skripty**: Přítomnost `scripts/testy.py` naznačuje použití Python skriptů pro integrační nebo zátěžové testování API endpointů.
-
----
-*Tento přehled byl vygenerován na základě analýzy zdrojového kódu verze z listopadu 2025.*

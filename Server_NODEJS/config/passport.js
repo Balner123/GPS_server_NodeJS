@@ -121,7 +121,7 @@ passport.use(new GitHubStrategy({
         });
         return done(null, newUser);
     }
-    }
+    
 
     return done(null, user);
   } catch (err) {

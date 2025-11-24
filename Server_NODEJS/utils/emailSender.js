@@ -79,4 +79,25 @@ async function sendGeofenceReturnEmail(to, device, location) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendGeofenceAlertEmail, sendGeofenceReturnEmail };
+async function sendPasswordResetEmail(to, resetLink) {
+  const subject = 'Reset Your Password - LOTR System';
+  const text = `
+    You have requested to reset your password for the LOTR System.
+
+    Please click the following link to set a new password:
+    ${resetLink}
+
+    This link is valid for 1 hour.
+
+    If you did not request this, please ignore this email and your password will remain unchanged.
+  `;
+
+  await transporter.sendMail({
+    from: `LOTR System <${process.env.EMAIL_USER}>`,
+    to,
+    subject,
+    text
+  });
+}
+
+module.exports = { sendVerificationEmail, sendGeofenceAlertEmail, sendGeofenceReturnEmail, sendPasswordResetEmail };

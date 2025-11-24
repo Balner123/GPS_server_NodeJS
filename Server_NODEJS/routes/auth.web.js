@@ -113,4 +113,10 @@ router.post('/verify-email', authController.verifyEmailCode);
 router.post('/resend-verification-from-page', authController.resendVerificationCodeFromPage);
 router.post('/verify-email/cancel', authController.cancelEmailChange);
 
+// Password Reset Routes
+router.get('/forgot-password', authController.getForgotPasswordPage);
+router.post('/forgot-password', authController.sendPasswordResetLink);
+router.get('/reset-password/:token', authController.getResetPasswordPage);
+router.post('/reset-password/:token', authController.resetPassword);
+
 module.exports = router;
