@@ -15,7 +15,6 @@ Tento dokument popisuje, jak mohou přihlášení uživatelé spravovat svůj vl
 ## 5.2. Změna hesla
 
 - **Endpoint**: `POST /api/settings/password`
-- **Dostupnost**: Pouze pro lokální účty (`provider: 'local'`).
 - **Logika**:
   1. Uživatel musí zadat své staré heslo, nové heslo a potvrzení nového hesla.
   2. Staré heslo se ověří proti databázi pomocí `bcrypt.compare()`.

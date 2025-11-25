@@ -6,7 +6,7 @@ Tento dokument detailně popisuje proces, jakým server zpracovává a agreguje 
 
 ## 7.1. Cíl a princip
 
-Když vozidlo nebo zařízení delší dobu stojí na jednom místě (např. na parkovišti), GPS modul stále posílá data s mírnými odchylkami polohy. Zobrazení všech těchto bodů na mapě by bylo nepřehledné. Cílem agregace je tyto "stacionární" body dynamicky sloučit do jednoho reprezentativního bodu, který zastupuje delší časový úsek.
+při neměnné poloze zařízení GPS modul stále posílá data s mírnými odchylkami polohy. Zobrazení všech těchto bodů na mapě by bylo nepřehledné. Cílem agregace je možnost tyto "stacionární" body dynamicky sloučit do jednoho reprezentativního bodu, který zastupuje delší časový úsek.
 
 **Princip**: Zpracování probíhá "On-Read" – tedy v momentě, kdy si frontend vyžádá data o historii. **Původní data v databázi se nikdy nemění**, což zaručuje jejich integritu a možnost budoucího alternativního zpracování.
 

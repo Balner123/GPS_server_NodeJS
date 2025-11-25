@@ -71,7 +71,6 @@ Seznam klíčových knihoven a technologií použitých v projektu (viz `package
 | **Bezpečnost** | `bcryptjs`, `express-rate-limit` | Hashování hesel a ochrana proti brute-force útokům. |
 | **Validace** | `express-validator` | Validace a sanitizace dat přicházejících od klienta. |
 | **API Dokumentace**| `swagger-ui-express` | Automaticky generovaná dokumentace pro API. |
-| **Vývoj** | `nodemon` | Automatické restartování serveru při změnách v kódu. |
 | **Ostatní** | `dotenv`, `nodemailer`, `cors` | Správa konfiguračních proměnných, odesílání e-mailů, Cross-Origin Resource Sharing. |
 
 ## 1.3. Struktura projektu
@@ -133,5 +132,3 @@ Základní serverový logger je implementován v `utils/logger.js` a všechny HT
 - **Oddělené úrovně pro metody**: Od listopadu 2025 je úroveň logu svázána s metodou. GET požadavky používají úroveň `[GET]` a jsou logovány pouze jedním stručným řádkem (`GET /route ...`) bez payloadu. Zbytek metod (POST, PUT, DELETE, …) zachovává detailní logování payloadů i odpovědí a úroveň odpovídající metodě (`[POST]`, `[PUT]`, …).
 - **Maskování citlivých dat**: Logger automaticky rediguje hodnoty klíčů jako `password`, `token`, `authorization` atd. Funkce `sanitizePayload` navíc ořezává příliš velké objekty podle hodnoty `LOGGER_MAX_BODY_LENGTH` (výchozí 8192 bajtů, konfigurovatelná přes env).
 - **Kontextové loggery**: Volání `req.log = logger.child({ ... })` umožňuje controllerům a middleware sdílet stejné `requestId` a přidávat vlastní metadata.
-
-> Tip: Pro rychlé sledování nových záznamů použijte `tail -f log.txt` (nebo PowerShell `Get-Content log.txt -Wait`).

@@ -86,7 +86,7 @@ Pro zobrazení historie na mapě bez přehlcení:
 Ačkoliv jde primárně o backend, aplikace obsahuje UI:
 - **Template Engine**: **EJS**. Umožňuje vkládat data do HTML na straně serveru (`<%= user.username %>`).
 - **CSS Framework**: Vlastní styly + pravděpodobně integrace CSS knihovny (např. Bootstrap - dle tříd v EJS).
-- **Mapy**: Integrace mapových podkladů (pravděpodobně Leaflet nebo Google Maps API na klientovi) pro vizualizaci souřadnic.
+- **Mapy**: Integrace mapových podkladů (OpenStreetMaps) pro vizualizaci souřadnic.
 
 ## 8. DevOps a Prostředí
 

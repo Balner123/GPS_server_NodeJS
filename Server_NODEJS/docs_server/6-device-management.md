@@ -18,9 +18,6 @@ Primárně se používá sjednocený endpoint:
 Poznámka k chování unified registrace:
 - Endpoint `POST /api/devices/register` vrací `201` při úspěšném vytvoření, `200` pokud je zařízení již registrováno u stejného uživatele a `409` když zařízení patří jinému uživateli.
 
-3.  **Manuálně v UI** (aktuálně není implementováno)
-  - V uživatelském rozhraní `/devices` je prostor pro doplnění formuláře, který by umožnil manuální zadání `deviceId` a jeho registraci k účtu.
-
 ### Handshake
 
 - **Endpoint**: `POST /api/devices/handshake`
@@ -45,7 +42,7 @@ Poznámka: Handshake endpoint také aktualizuje `device.device_type`, `device.po
 ## 6.3. Zobrazení dat
 
 - **Live mapa**: Na hlavní stránce (`/`) se pomocí `GET /api/devices/coordinates` periodicky načítají poslední známé polohy všech aktivních zařízení uživatele a zobrazují se na mapě.
-- **Historie polohy**: Na stránce `/devices` si může uživatel zobrazit historii polohy pro vybrané zařízení. Data se načítají z `GET /api/devices/data` a v controlleru prochází **agregací** (shlukováním) pro lepší přehlednost při stání vozidla.
+- **Historie polohy**: Na stránce `/devices` si může uživatel zobrazit historii polohy pro vybrané zařízení. Data se načítají z `GET /api/devices/data` a v controlleru prochází **agregací** (shlukováním) pro lepší přehlednost
 
 ## 6.4. Konfigurace zařízení
 
@@ -53,6 +50,7 @@ Uživatel může na stránce `/devices` měnit nastavení pro každé zařízen�
 
 - **Změna názvu**: `POST /api/devices/name`
 - **Změna intervalů**: `POST /api/devices/settings`
+- dle druhu módu : `simple` | `batch`
   - `interval_gps`: Jak často má zařízení zjišťovat polohu.
   - `interval_send`: Po kolika zjištěných polohách má zařízení odeslat data na server (pro dávkový režim).
   - `satellites`: Minimální počet satelitů pro fix (relevantní zejména pro `device_type: 'HW'`).
@@ -63,7 +61,7 @@ Uživatel může na stránce `/devices` měnit nastavení pro každé zařízen�
   - Na mapě v `/devices` může uživatel nakreslit polygon (pomocí `Leaflet.draw`), který se uloží jako JSON do sloupce `geofence` u daného zařízení.
 - **Kontrola**: Při každém přijetí nových souřadnic (`handleDeviceInput`) server zkontroluje, zda se bod nachází uvnitř uložené ohrady.
 - **Spuštění poplachu**: Pokud je bod **mimo** ohradu a stav není aktivní, systém nastaví `geofence_alert_active = true`, uloží alert a odešle e‑mail (`sendGeofenceAlertEmail`).
-- **Návrat do ohrady**: Pokud se zařízení vrátí dovnitř a stav byl aktivní, systém jej zruší (`geofence_alert_active = false`). Kód obsahuje i odeslání informačního e‑mailu o návratu, nicméně tento e‑mail není exportován z `utils/emailSender.js` (aktuálně by se neposlal). 
+- **Návrat do ohrady**: Pokud se zařízení vrátí dovnitř a stav byl aktivní, systém jej zruší (`geofence_alert_active = false`). Kód obsahuje i odeslání informačního e‑mailu o návratu.
 
 ## 6.6. Poplachy (Alerts)
 
@@ -90,7 +88,3 @@ Další alert endpointy dostupné v kódu:
 
 Poznámka: Pokud pro dané zařízení nejsou žádná data, endpoint vrátí HTTP 404 s jednoduchým textovým tělem (server nastaví `Content-Type: text/plain`).
 
-### Poznámky k identifikátoru zařízení
-
-- V uživatelských operacích (`/api/devices/...`) se jako `deviceId` používá HW ID (`device_id`, řetězec).
-- Administrátorské API pro mazání zařízení (`/api/admin/delete-device/:deviceId`) očekává databázové ID (číselné `id`).

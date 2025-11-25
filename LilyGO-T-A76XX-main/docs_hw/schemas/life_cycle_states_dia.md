@@ -63,7 +63,7 @@ stateDiagram-v2
             state "Server Communication" as Server_Comm {
                 Handshake : POST /handshake
                 Check_Reg : Kontrola registrace
-                Upload : Upload dávek (max 15 záznamů na 1 POST")
+                Upload : Upload dávek (max 15 záznamů)
                 Server_Cmd : Zpracování příkazů (TURN_OFF / Config)
                 
                 Handshake --> Check_Reg
@@ -113,7 +113,6 @@ stateDiagram-v2
     end note
 
     Active_Cycle --> Shutdown : Interrupce tlačítkem (Graceful)
-    OTA_Mode --> Shutdown : Interrupce tlačítkem (Graceful)
     Sleep --> Boot : Wakeup Timer / Button
 ```
 

@@ -16,11 +16,12 @@ Přístup je striktně omezen pomocí autorizačního middlewaru `isRoot`.
 Poznámka: Webová administrace je dostupná přes `GET /administration` (renderuje `views/administration.ejs`). API pro administraci je přístupné pod prefixem `/api/admin` a vyžaduje session cookie (middleware `isAuthenticated`) a často také `isRoot`.
 ## 9.2. Zobrazení dat
 
-Administrátorská stránka poskytuje přímý pohled do databáze a zobrazuje tři hlavní tabulky:
+Administrátorská stránka poskytuje přímý pohled do databáze a zobrazuje čtyři hlavní tabulky:
 
 1.  **Users**: Seznam všech uživatelů v systému, včetně jejich ID, jména, e-mailu, stavu ověření, hashe hesla a počtu vlastněných zařízení.
 2.  **Devices**: Seznam všech zařízení v systému, včetně jejich `deviceId`, jména, vlastníka a času poslední aktivity (`last_seen`).
 3.  **Latest Locations**: Výpis posledních 50 zaznamenaných poloh (pagination podporována) napříč všemi zařízeními pro rychlý přehled o aktivitě systému.
+4.  **Alerts**: tabulka s uloženými poplachy v db
 
 Další detaily načítání dat (viz `controllers/administrationController.js`):
 - `userSearch`, `deviceSearch`, `locationSearch`, `alertSearch` — query parametry pro filtrování.
@@ -28,16 +29,15 @@ Další detaily načítání dat (viz `controllers/administrationController.js`)
 - Locations paging: page parametr a `pageSize = 50` (offset = (page-1) * pageSize).
 - Alerts paging: `alertsPage` a `alertsPageSize = 50`.
 - `devices` rows include last known `Location` (limit 1, ordered by `timestamp DESC`) a vlastník `User.username`.
-## 9.3. Správa uživatelů
 
+## 9.3. Správa uživatelů
 
 - **Endpoint**: `POST /api/admin/delete-user/:userId`
 - **Funkce**: Administrátor může smazat jakéhokoliv uživatele (kromě sebe sama). Pokud se root uživatel pokusí smazat sám sebe, akce je zablokována a uživatel je přesměrován zpět s flash chybou.
 - **Chování a odpovědi:** Tento endpoint je navržen pro použití z administrátorského webu — po úspěchu provede `req.flash('success')` a redirect (`302`) na `/administration`. Při chybě se také vrací redirect s flash chybou.
-- **Implementace:** Kontrolér volá `db.User.destroy({ where: { id: userId } })` a zapisuje logy. Poznámka: v tomto kódu není explicitní transaction — odstranění spoléhá na ORM/DB pravidla a případné cascade chování.
+- **Implementace:** Kontrolér volá `db.User.destroy({ where: { id: userId } })` a zapisuje logy. Odstranění spoléhá na ORM/DB pravidla a případné cascade chování.
 
 ## 9.4. Správa zařízení
-
 
 - **Endpoint**: `POST /api/admin/delete-device/:deviceId`
 - **Funkce**: Administrátor může smazat jakékoliv zařízení v systému přímo, bez ohledu na to, kdo je jeho vlastníkem.
@@ -50,16 +50,10 @@ Další detaily načítání dat (viz `controllers/administrationController.js`)
 
 Poznámka: `:deviceId` zde odkazuje **na databázové `id`** (číselné), ne na HW `device_id` string používaný v zařízení API.
 
-Tento postup bezpečně zaručuje, že související data jsou odstraněna i pokud DB nepodporuje kaskádové mazání pro všechny vztahy.
-
----
-
 ## 9.5. Ověření uživatele přes admin
 
 - **Endpoint**: `POST /api/admin/verify-user/:userId`
 - **Funkce**: Nastaví `is_verified = true` pro daného uživatele. Po úspěchu provede flash message a redirect na `/administration`.
-
----
 
 ## 9.6. Správa poplachů (alerts)
 
@@ -71,10 +65,8 @@ Tento postup bezpečně zaručuje, že související data jsou odstraněna i pok
 	- Root uživatel může smazat jakýkoliv alert. Ostatní uživatelé mohou smazat pouze své vlastní alerty (`alert.user_id === req.session.user.id`). V případě nedostatečných práv vrací `403` (JSON) nebo flash+redirect.
 	- Po úspěchu vrací `200` a `{ success: true }` pro JSON požadavky, nebo flash success a redirect pro web.
 
----
-
 ## 9.7. Shrnutí zabezpečení a odpovědí
 
-- Většina administrativních akcí je dostupná pouze pro přihlášené uživatele s účtem `root`. Webové endpointy používají `req.flash()` + redirecty; API volání (která přijmou `Accept: application/json`) vrací JSON statusy a chybové kódy.
+- Většina administrativních akcí je dostupná pouze pro přihlášeného uživatele s účtem `root`. Webové endpointy používají `req.flash()` + redirecty; API volání (která přijmou `Accept: application/json`) vrací JSON statusy a chybové kódy.
 - V některých případech (např. mazání alertu) existuje rozlišování mezi `DELETE` API a POST formulářovou variantou z důvodu starších prohlížečů/formů.
 

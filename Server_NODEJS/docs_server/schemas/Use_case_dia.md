@@ -9,7 +9,7 @@ flowchart TD
 
     %% --- 1. AKTÉŘI (Actors) ---
     User((👤 Uživatel / Admin)):::actor
-    Device((🛰️ GPS Klient<br>HW / APK)):::actor
+    Device((GPS Klient<br>HW / APK)):::actor
 
     %% --- 2. SYSTÉM (Node.js Server) ---
     subgraph System ["SERVEROVÁ APLIKACE"]
@@ -22,7 +22,7 @@ flowchart TD
         end
 
         %% Bezpečnost
-        AuthBlock["🛡️ Security & Auth<br>(Passport / Middleware)"]:::logic
+        AuthBlock["Security & Auth<br>(Passport / Middleware)"]:::logic
 
         %% Aplikační Logika (Sloučené Controllery)
         subgraph BusinessLogic ["Aplikační Logika (Controllers)"]

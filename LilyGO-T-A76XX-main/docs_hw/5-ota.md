@@ -2,7 +2,7 @@
 
 Tento článek popisuje režim používaný pro servisní zásahy: registraci zařízení, konfiguraci připojení, testy konektivity a nahrávání firmwaru. Hlavní implementace je v `MAIN/FINAL/ota_mode.cpp`.
 
-## Vstup do servisního režimu
+## Vstup do OTA režimu
 
 - Po zapnutí zařízení držte stisknuté servisní tlačítko na pinu `PIN_BTN` (GPIO32). Držení delší než `BTN_LONG_PRESS_MS` (2 s) přepne zařízení do servisního režimu.
 - Krátké stisky vyvolají běžné interakce (probuzení, ruční vypnutí); neaktivují OTA.
@@ -31,9 +31,7 @@ OTA rozhraní zapisuje následující klíče, které používá i tracker reži
 - `apn`, `gprsUser`, `gprsPass`
 - `server`, `port`
 - `deviceName`
-- `ota_ssid`, `ota_password`
-
-Poznámka k `ota_password`: v aktuální implementaci firmwareu se při vstupu do OTA režimu, pokud je v Preferences uložené `ota_password`, toto pole explicitně vymaže (uloží se prázdné heslo). Důvodem je, že webový hotspot bývá často otevřený pro první konfiguraci; pokud chcete mít trvale chráněný AP, je třeba upravit nastavení po prvním startu nebo upravit firmware.
+- `ota_ssid`
 
 Backend přes handshake nebo konfigurace může také přepisovat provozní klíče jako `sleepTime`, `minSats`, `batch_size`, `registered` nebo `mode`.
 
@@ -41,9 +39,9 @@ Backend přes handshake nebo konfigurace může také přepisovat provozní klí
 
 - Pokud není dostupné GPRS při pokusu o registraci, vrací rozhraní HTTP 503 a registrace selže.
 - Chyby během nahrávání firmwaru zruší proces bez aplikace změn; stav zůstává v režimu servisního rozhraní.
-- Po úspěšné registraci nebo konfiguraci doporučujeme provést kontrolovaný restart do běžného režimu.
+- Po úspěšné registraci nebo konfiguraci je doporučeno provést kontrolovaný restart do běžného režimu.
 
-## Doporučený servisní postup
+## Doporučený "SET UP" postup
 
 1. Vstup do OTA režimu pomocí servisního tlačítka (stisk do doby než signální LED začne blikat)
 2. Připojení k AP `lotrTrackerOTA_<DeviceID>` a otevření `http://192.168.4.1`.
