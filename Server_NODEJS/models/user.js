@@ -26,12 +26,16 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BOOLEAN,
       defaultValue: false
     },
-    verification_code: {
+    action_token: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    verification_expires: {
+    action_token_expires: {
       type: DataTypes.DATE,
+      allowNull: true
+    },
+    action_type: {
+      type: DataTypes.STRING, // 'VERIFY_EMAIL', 'RESET_PASSWORD', 'DELETE_ACCOUNT'
       allowNull: true
     },
     created_at: {
@@ -53,22 +57,6 @@ module.exports = (sequelize, DataTypes) => {
     },
     provider_data: {
       type: DataTypes.TEXT,
-      allowNull: true
-    },
-    deletion_code: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    deletion_code_expires: {
-      type: DataTypes.DATE,
-      allowNull: true
-    },
-    reset_password_token: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    reset_password_expires: {
-      type: DataTypes.DATE,
       allowNull: true
     }
   }, {

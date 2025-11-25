@@ -155,8 +155,9 @@ const updateEmail = async (req, res) => {
 
         await user.update({
             pending_email: email,
-            verification_code: code,
-            verification_expires: expires
+            action_token: code,
+            action_token_expires: expires,
+            action_type: 'VERIFY_EMAIL'
         });
 
         await sendVerificationEmail(email, code);
@@ -189,8 +190,9 @@ const deleteAccount = async (req, res) => {
         const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         await user.update({
-            deletion_code: code,
-            deletion_code_expires: expires
+            action_token: code,
+            action_token_expires: expires,
+            action_type: 'DELETE_ACCOUNT'
         });
 
         // Send email with deletion code
@@ -369,15 +371,15 @@ const confirmDeleteAccount = async (req, res) => {
             return res.redirect('/settings');
         }
 
-        // Check for code expiration
-        if (!user.deletion_code || !user.deletion_code_expires || new Date() > user.deletion_code_expires) {
-            req.flash('error', 'Verification code has expired. Please try deleting your account again.');
+        // Check for code expiration and validity
+        if (!user.action_token || !user.action_token_expires || new Date() > user.action_token_expires || user.action_type !== 'DELETE_ACCOUNT') {
+            req.flash('error', 'Verification code has expired or is invalid. Please try deleting your account again.');
             delete req.session.pendingDeletionUserId;
             return res.redirect('/settings');
         }
 
         // Check if code matches
-        if (user.deletion_code !== code) {
+        if (user.action_token !== code) {
             req.flash('error', 'The provided code is incorrect.');
             return res.redirect('/settings/confirm-delete');
         }
@@ -397,9 +399,8 @@ const confirmDeleteAccount = async (req, res) => {
                 return res.redirect('/login');
             }
             res.clearCookie('connect.sid');
-            req.flash('success', 'Your account has been successfully deleted.');
             log.info('Account deleted');
-            res.redirect('/login');
+            res.redirect('/login?message=account_deleted');
         });
 
     } catch (err) {
@@ -429,8 +430,9 @@ const resendDeletionCode = async (req, res) => {
         const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         await user.update({
-            deletion_code: code,
-            deletion_code_expires: expires
+            action_token: code,
+            action_token_expires: expires,
+            action_type: 'DELETE_ACCOUNT'
         });
 
         await sendVerificationEmail(user.email, code, 'account_deletion');
@@ -459,8 +461,9 @@ const cancelDeleteAccount = async (req, res) => {
         const user = await db.User.findByPk(userId);
         if (user) {
             await user.update({
-                deletion_code: null,
-                deletion_code_expires: null
+                action_token: null,
+                action_token_expires: null,
+                action_type: null
             });
         }
 

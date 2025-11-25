@@ -8,7 +8,20 @@ const getLoginPage = (req, res) => {
   if (req.session.isAuthenticated) {
     return res.redirect('/');
   }
-  res.render('login', { error: null, currentPage: 'login' });
+  
+  let successMessage = req.flash('success'); // Retrieve existing flash messages
+  
+  if (req.query.message === 'account_deleted') {
+      // If manual query param exists, append/set it
+      // Note: req.flash() returns an array.
+      if (successMessage.length === 0) {
+          successMessage = ['Your account has been successfully deleted.'];
+      } else {
+          successMessage.push('Your account has been successfully deleted.');
+      }
+  }
+
+  res.render('login', { error: req.flash('error'), success: successMessage, currentPage: 'login' });
 };
 
 const loginUser = async (req, res) => {
@@ -42,8 +55,9 @@ const loginUser = async (req, res) => {
         const code = Math.floor(1000 + Math.random() * 9000).toString();
         const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        user.verification_code = code;
-        user.verification_expires = expires;
+        user.action_token = code;
+        user.action_token_expires = expires;
+        user.action_type = 'VERIFY_EMAIL';
         await user.save();
 
         try {
@@ -161,8 +175,9 @@ const registerUser = async (req, res) => {
       email,
       password: hashedPassword,
       is_verified: false,
-      verification_code: code,
-      verification_expires: expires
+      action_token: code,
+      action_token_expires: expires,
+      action_type: 'VERIFY_EMAIL'
     });
 
     try {
@@ -216,14 +231,14 @@ const verifyEmailCode = async (req, res) => {
         return res.redirect('/'); // Already verified, go to dashboard
     }
 
-    // Check for code expiration
-    if (!user.verification_code || !user.verification_expires || new Date() > user.verification_expires) {
-      req.flash('error', 'Verification code has expired. Please request a new one.');
+    // Check for code expiration and validity
+    if (!user.action_token || !user.action_token_expires || new Date() > user.action_token_expires || user.action_type !== 'VERIFY_EMAIL') {
+      req.flash('error', 'Verification code has expired or is invalid. Please request a new one.');
       return res.redirect(req.session.pendingEmailChange ? '/settings' : '/login');
     }
 
     // Check if code matches
-    if (user.verification_code !== code) {
+    if (user.action_token !== code) {
       req.flash('error', 'The provided code is incorrect.');
       return res.redirect('/verify-email');
     }
@@ -235,8 +250,9 @@ const verifyEmailCode = async (req, res) => {
       await user.update({
         email: user.pending_email,
         pending_email: null,
-        verification_code: null,
-        verification_expires: null
+        action_token: null,
+        action_token_expires: null,
+        action_type: null
       });
 
       // Authenticate the user and update session
@@ -255,8 +271,9 @@ const verifyEmailCode = async (req, res) => {
     if (!user.is_verified) {
       await user.update({ 
         is_verified: true, 
-        verification_code: null, 
-        verification_expires: null 
+        action_token: null, 
+        action_token_expires: null,
+        action_type: null
       });
 
       req.session.isAuthenticated = true;
@@ -378,8 +395,9 @@ const resendVerificationCodeFromPage = async (req, res) => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     const expires = new Date(Date.now() + 10 * 60 * 1000);
 
-    user.verification_code = code;
-    user.verification_expires = expires;
+    user.action_token = code;
+    user.action_token_expires = expires;
+    user.action_type = 'VERIFY_EMAIL';
     await user.save();
 
     await sendVerificationEmail(targetEmail, code);
@@ -468,8 +486,9 @@ const cancelEmailChange = async (req, res) => {
     if (user) {
       await user.update({
         pending_email: null,
-        verification_code: null,
-        verification_expires: null
+        action_token: null,
+        action_token_expires: null,
+        action_type: null
       });
     }
 
@@ -512,8 +531,9 @@ const sendPasswordResetLink = async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 3600000); // 1 hour
 
-    user.reset_password_token = token;
-    user.reset_password_expires = expires;
+    user.action_token = token;
+    user.action_token_expires = expires;
+    user.action_type = 'RESET_PASSWORD';
     await user.save();
 
     const resetLink = `${req.protocol}://${req.get('host')}/reset-password/${token}`;
@@ -537,8 +557,9 @@ const getResetPasswordPage = async (req, res) => {
   try {
     const user = await db.User.findOne({
       where: {
-        reset_password_token: token,
-        reset_password_expires: { [db.Sequelize.Op.gt]: new Date() }
+        action_token: token,
+        action_type: 'RESET_PASSWORD',
+        action_token_expires: { [db.Sequelize.Op.gt]: new Date() }
       }
     });
 
@@ -574,8 +595,9 @@ const resetPassword = async (req, res) => {
   try {
     const user = await db.User.findOne({
       where: {
-        reset_password_token: token,
-        reset_password_expires: { [db.Sequelize.Op.gt]: new Date() }
+        action_token: token,
+        action_type: 'RESET_PASSWORD',
+        action_token_expires: { [db.Sequelize.Op.gt]: new Date() }
       }
     });
 
@@ -609,8 +631,9 @@ const resetPassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     user.password = hashedPassword;
-    user.reset_password_token = null;
-    user.reset_password_expires = null;
+    user.action_token = null;
+    user.action_token_expires = null;
+    user.action_type = null;
     await user.save();
 
     log.info('Password reset successful', { userId: user.id });

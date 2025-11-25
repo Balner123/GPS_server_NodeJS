@@ -12,7 +12,10 @@
         <div class="card login-card fade-in-on-load" style="animation-delay: 0.2s;">
             <div class="card-body">
                 <h3 class="card-title text-center mb-4">Login</h3>
-                <% if (error) { %>
+                <% if (typeof success !== 'undefined' && success && success.length > 0) { %>
+                    <div class="alert alert-success"><%= success %></div>
+                <% } %>
+                <% if (error && error.length > 0) { %>
                     <div class="alert alert-danger"><%= error %></div>
                 <% } %>
                 <form action="/api/auth/login" method="POST">
