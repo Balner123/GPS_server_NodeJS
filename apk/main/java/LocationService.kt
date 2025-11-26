@@ -47,6 +47,7 @@ class LocationService : Service() {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     private var currentServiceState: ServiceState = ServiceState()
+    private var lastProcessedLocationTime: Long = 0
 
     private val NOTIFICATION_CHANNEL_ID = "LocationServiceChannel"
     private val NOTIFICATION_ID = 12345
@@ -231,6 +232,12 @@ class LocationService : Service() {
     }
 
     private fun sendLocationAndProcessResponse(location: Location) {
+        if (location.time <= lastProcessedLocationTime || Math.abs(location.time - lastProcessedLocationTime) < 500) {
+            ConsoleLogger.debug("LocationService: Duplicate or rapid-fire location ignored (dt=${location.time - lastProcessedLocationTime}ms).")
+            return
+        }
+        lastProcessedLocationTime = location.time
+
         val dao = AppDatabase.getDatabase(applicationContext).locationDao()
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(applicationContext)
         val deviceId = sharedPrefs.getString("device_id", null)

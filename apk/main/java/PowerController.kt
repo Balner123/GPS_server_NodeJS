@@ -77,7 +77,7 @@ object PowerController {
             // The user or another process must explicitly request to turn it back on.
             SharedPreferencesHelper.setPowerState(
                 context,
-                powerState = PowerState.OFF, // Keep power OFF
+                state = PowerState.OFF, // Keep power OFF
                 pendingAck = false,           // Clear the flag
                 reason = origin
             )

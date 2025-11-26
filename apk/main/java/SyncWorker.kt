@@ -105,6 +105,11 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
                 continueSync = handleServerResponse(sharedPrefs, response)
                 dao.deleteLocationsByIds(idsToDelete)
+                
+                val remainingCount = dao.getCachedCount()
+                val currentState = ServiceStateRepository.serviceState.value
+                ServiceStateRepository.updateState(currentState.copy(cachedCount = remainingCount))
+                
                 ConsoleLogger.debug("Sync: Batch of ${idsToDelete.size} positions sent successfully")
 
                 ConsoleLogger.debug("Sync: Triggering handshake after batch completion")
