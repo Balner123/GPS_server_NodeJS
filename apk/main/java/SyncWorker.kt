@@ -30,7 +30,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
     override suspend fun doWork(): Result {
-        ConsoleLogger.info("Sync: Worker started")
+        ConsoleLogger.debug("Sync: Worker started")
 
         val dao = AppDatabase.getDatabase(applicationContext).locationDao()
         val sharedPrefs = getEncryptedSharedPreferences()
@@ -56,7 +56,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
         while (continueSync) {
             val cachedLocations = dao.getLocationsBatch(batchSize)
             if (cachedLocations.isEmpty()) {
-                ConsoleLogger.info("Sync: No positions to upload")
+                ConsoleLogger.debug("Sync: No positions to upload")
                 break
             }
 
@@ -112,9 +112,6 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 
                 ConsoleLogger.debug("Sync: Batch of ${idsToDelete.size} positions sent successfully")
 
-                ConsoleLogger.debug("Sync: Triggering handshake after batch completion")
-                HandshakeManager.launchHandshake(applicationContext, reason = "sync_batch_complete")
-
             } catch (e: UnauthorizedException) {
                 ConsoleLogger.error("Sync: Unauthorized access: ${e.message}")
                 handleUnauthorized()
@@ -127,6 +124,9 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 return Result.retry()
             }
         }
+
+        ConsoleLogger.debug("Sync: Triggering handshake after sync session completion")
+        HandshakeManager.launchHandshake(applicationContext, reason = "sync_complete")
 
         return Result.success()
     }
@@ -179,7 +179,7 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
     private fun restartLocationServiceIfActive() {
         if (SharedPreferencesHelper.getPowerState(applicationContext) == PowerState.OFF) {
-            ConsoleLogger.info("Sync: Service restart skipped (power is OFF)")
+            ConsoleLogger.debug("Sync: Service restart skipped (power is OFF)")
             return
         }
 

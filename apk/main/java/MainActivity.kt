@@ -21,6 +21,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -52,8 +53,6 @@ class MainActivity : AppCompatActivity() {
             showLogoutDialog(message)
         }
     }
-
-    // statusReceiver is now replaced by the StateFlow collector in observeServiceState()
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -100,6 +99,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         ConsoleLogger.initialize(this)
+        // Initialize the repository with the persisted state immediately
+        PowerController.initializeState(this)
 
         val sharedPrefs = getEncryptedSharedPreferences()
         if (!sharedPrefs.getBoolean("isAuthenticated", false)) {
@@ -125,7 +126,6 @@ class MainActivity : AppCompatActivity() {
         lastPowerStatus = SharedPreferencesHelper.getPowerState(this).toString()
         lastAckPending = SharedPreferencesHelper.isTurnOffAckPending(this)
         powerStatusTextView.text = "Power: ${lastPowerStatus}"
-        toggleButton.isEnabled = !lastAckPending
 
         updateUiState(false) // Initialize default state (service not running)
 
@@ -173,15 +173,9 @@ class MainActivity : AppCompatActivity() {
                     lastConnectionStatusTextView.text = serviceState.connectionStatus
                     cachedCountTextView.text = "Cached positions: ${serviceState.cachedCount}"
                     powerStatusTextView.text = "Power: ${serviceState.powerStatus}"
-                    toggleButton.isEnabled = !serviceState.ackPending
                     
-                    if(serviceState.ackPending) {
-                        serverInstructionBanner.visibility = View.VISIBLE
-                        serverInstructionBanner.text = "Service paused by: ${serviceState.powerInstructionSource}"
-                    } else {
-                        serverInstructionBanner.visibility = View.GONE
-                        serverInstructionBanner.text = ""
-                    }
+                    serverInstructionBanner.visibility = View.GONE
+                    serverInstructionBanner.text = ""
 
                     if (!serviceState.powerStatus.equals(lastPowerStatus, ignoreCase = true)) {
                         if (serviceState.powerStatus.equals("OFF", ignoreCase = true) && serviceState.powerInstructionSource?.contains("server", true) == true) {
@@ -230,10 +224,10 @@ class MainActivity : AppCompatActivity() {
                 pendingAck = false,
                 reason = "logout"
             )
-            sharedPrefs.edit()
-                .remove("session_cookie")
-                .putBoolean("isAuthenticated", false)
-                .apply()
+            sharedPrefs.edit {
+                remove("session_cookie")
+                    .putBoolean("isAuthenticated", false)
+            }
             Toast.makeText(this@MainActivity, "Logged out successfully.", Toast.LENGTH_SHORT).show()
             startActivity(Intent(this@MainActivity, LoginActivity::class.java))
             finish()
@@ -283,12 +277,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUiState(isServiceRunning: Boolean) {
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(this)
-        toggleButton.isEnabled = !ackPending
-        serverInstructionBanner.visibility = if (ackPending) View.VISIBLE else View.GONE
         serverInstructionBanner.visibility = View.GONE
         serverInstructionBanner.text = ""
         if (ackPending) {
-            statusTextView.text = "Service paused by server"
+            statusTextView.text = "Service is stopped"
             toggleButton.text = "OFF"
             toggleButton.setBackgroundResource(R.drawable.button_bg_off)
             return
@@ -317,7 +309,7 @@ class MainActivity : AppCompatActivity() {
                 countdownTextView.text = "in ${millisUntilFinished / 1000}s"
             }
             override fun onFinish() {
-                countdownTextView.text = "Uploading..."
+                countdownTextView.text = "-"
             }
         }.start()
     }
@@ -345,20 +337,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 3. Background Location (Android 10+) - must be requested separately
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                // Explain why background location is needed
-                AlertDialog.Builder(this)
-                    .setTitle("Background Location Access")
-                    .setMessage("This app requires background location access to track your position even when the app is closed. Please select 'Allow all the time' in the next screen.")
-                    .setPositiveButton("Grant") { _, _ ->
-                        // The launcher will now handle the result of this single permission request
-                        requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
-                return // Wait for user response
-            }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // Explain why background location is needed
+            AlertDialog.Builder(this)
+                .setTitle("Background Location Access")
+                .setMessage("This app requires background location access to track your position even when the app is closed. Please select 'Allow all the time' in the next screen.")
+                .setPositiveButton("Grant") { _, _ ->
+                    // The launcher will now handle the result of this single permission request
+                    requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+            return // Wait for user response
         }
 
         // All permissions are granted, start the service
@@ -401,7 +391,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showConsoleOptionsDialog() {
-        val allLevels = ConsoleLogger.LogLevel.values()
+        val allLevels = ConsoleLogger.LogLevel.entries.toTypedArray()
         val levelNames = allLevels.map { it.name }.toTypedArray()
         val checkedItems = allLevels.map { ConsoleLogger.getDisplayedLogLevels().contains(it) }.toBooleanArray()
 

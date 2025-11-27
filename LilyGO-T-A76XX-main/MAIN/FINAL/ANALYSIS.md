@@ -44,9 +44,3 @@ The firmware follows a linear "Work Cycle" approach wrapped in a setup-loop stru
     *   **Handshake:** `POST /handshake` (Exchange status/config).
     *   **Upload:** `POST /input` (Batch upload cached data).
     *   **Shutdown:** Deep Sleep or Power Off based on registration status.
-
-## 5. Discrepancies & Bugs (Code vs Intent)
-### 2. GPS Timeout Blocking
-*   **Issue:** `gps_get_fix` has a long timeout (5 minutes). While it checks `gpsAbortRequested` (set by button ISR), it effectively blocks the main thread.
-*   **Status:** Functional, but could be improved with a non-blocking state machine if more multitasking is needed in the future. For now, it is acceptable as `gpsAbortRequested` handles the user "off" button.
-

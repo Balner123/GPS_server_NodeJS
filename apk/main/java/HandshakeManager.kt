@@ -26,10 +26,10 @@ object HandshakeManager {
         .build()
 
     suspend fun performHandshake(context: Context, reason: String = "manual") {
-        ConsoleLogger.info("Handshake: Starting (reason=$reason)")
+        ConsoleLogger.debug("Handshake: Starting (reason=$reason)")
 
         if (!NetworkUtils.isOnline(context)) {
-            ConsoleLogger.warn("Handshake: Skipped – internet unavailable")
+            ConsoleLogger.debug("Handshake: Skipped – internet unavailable")
             enqueueHandshakeWork(context)
             return
         }
@@ -61,8 +61,8 @@ object HandshakeManager {
         )
     }
 
-    fun schedulePeriodicHandshake(context: Context, repeatMinutes: Long = 60) {
-        ConsoleLogger.info("Handshake: Scheduling periodic run every ${repeatMinutes} min")
+    fun schedulePeriodicHandshake(context: Context, repeatMinutes: Long = 15) {
+        ConsoleLogger.debug("Handshake: Scheduling periodic run every ${repeatMinutes} min")
         val periodicWork = PeriodicWorkRequestBuilder<HandshakeWorker>(repeatMinutes, TimeUnit.MINUTES)
             .setConstraints(handshakeConstraints)
             .setInputData(workDataOf("reason" to "periodic"))
@@ -75,7 +75,7 @@ object HandshakeManager {
     }
 
     fun cancelPeriodicHandshake(context: Context) {
-        ConsoleLogger.info("Handshake: Cancelling periodic run")
+        ConsoleLogger.debug("Handshake: Cancelling periodic run")
         WorkManager.getInstance(context).cancelUniqueWork(HANDSHAKE_PERIODIC_WORK_NAME)
     }
 
@@ -104,7 +104,7 @@ object HandshakeManager {
 
         try {
             val response = ApiClient.performHandshake(baseUrl, sessionCookie, requestPayload)
-            handleHandshakeResponse(context, response)
+            handleHandshakeResponse(context, response, reason)
         } catch (e: ApiException) {
             // Handled by the caller (performHandshake) for general errors
             // Specific handling for UnauthorizedException could be added here if needed
@@ -112,7 +112,7 @@ object HandshakeManager {
         }
     }
 
-    private fun handleHandshakeResponse(context: Context, response: HandshakeResponse) {
+    private fun handleHandshakeResponse(context: Context, response: HandshakeResponse, reason: String) {
         if (!response.registered) {
             ConsoleLogger.error("Handshake: Device is not registered.")
             val intent = Intent(LocationService.ACTION_FORCE_LOGOUT).apply {
@@ -153,12 +153,23 @@ object HandshakeManager {
             "Handshake: State: instruction=${powerInstruction ?: "NONE"} current=$currentPowerState ackPending=$ackPending"
         )
 
+        // FIX: Do not restart service if we are currently IN the startup sequence ('service_start').
+        // The LocationService will apply the config itself after this method returns.
         if (settingsChanged && isCurrentlyOn && powerInstruction != "TURN_OFF" && !ackPending) {
-            restartLocationService(context)
+            if (reason != "service_start") {
+                restartLocationService(context)
+            } else {
+                ConsoleLogger.debug("Handshake: Config updated. Restart skipped (service is starting).")
+            }
         }
 
         if (powerInstruction == "TURN_OFF") {
-            PowerController.requestTurnOff(context, origin = "handshake")
+            val currentState = SharedPreferencesHelper.getPowerState(context)
+            if (currentState == PowerState.OFF) {
+                PowerController.markTurnOffAcknowledged(context, origin = "handshake")
+            } else {
+                PowerController.requestTurnOff(context, origin = "handshake")
+            }
         } else {
             PowerController.markTurnOffAcknowledged(context, origin = "handshake")
         }
@@ -166,7 +177,7 @@ object HandshakeManager {
 
     private fun restartLocationService(context: Context) {
         if (SharedPreferencesHelper.getPowerState(context) == PowerState.OFF) {
-            ConsoleLogger.info("Handshake: Service restart skipped (power OFF)")
+            ConsoleLogger.debug("Handshake: Service restart skipped (power OFF)")
             return
         }
         ConsoleLogger.info("Handshake: Restarting LocationService to apply new config")

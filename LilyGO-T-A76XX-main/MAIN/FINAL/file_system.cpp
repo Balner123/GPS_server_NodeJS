@@ -61,23 +61,23 @@ class FsLockGuard {
 bool fs_init() {
   FsLockGuard lock;
   if (!lock.isLocked()) {
-    SerialMon.println(F("[FS] Failed to acquire FS lock during init."));
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock during init."));
     return false;
   }
   if (!LittleFS.begin()) {
-    SerialMon.println(F("[FS] An Error has occurred while mounting LittleFS"));
+    DBG_PRINTLN(F("[FS] An Error has occurred while mounting LittleFS"));
     return false;
   }
-  SerialMon.println(F("[FS] LittleFS mounted successfully."));
+  DBG_PRINTLN(F("[FS] LittleFS mounted successfully."));
   preferences.begin(PREFERENCES_NAMESPACE, false); // false for read/write
-  SerialMon.println(F("[FS] Preferences initialized."));
+  DBG_PRINTLN(F("[FS] Preferences initialized."));
   return true;
 }
 
 void fs_load_configuration() {
   FsLockGuard lock;
   if (!lock.isLocked()) {
-    SerialMon.println(F("[FS] Failed to acquire FS lock while loading configuration."));
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock while loading configuration."));
     return;
   }
   // Load GPRS settings
@@ -155,36 +155,36 @@ void fs_load_configuration() {
     isRegistered = true;
   }
 
-  SerialMon.println(F("[FS] Configuration loaded from Preferences."));
+  DBG_PRINTLN(F("[FS] Configuration loaded from Preferences."));
 }
 
 void fs_end() {
   FsLockGuard lock;
   if (!lock.isLocked()) {
-    SerialMon.println(F("[FS] Failed to acquire FS lock during shutdown."));
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock during shutdown."));
     return;
   }
   preferences.end();
   // The mounted() check is not available/needed. LittleFS.end() is safe to call.
   LittleFS.end();
-  SerialMon.println(F("[FS] Preferences and LittleFS closed."));
+  DBG_PRINTLN(F("[FS] Preferences and LittleFS closed."));
 }
 
 void append_to_cache(String jsonRecord) {
   FsLockGuard lock;
   if (!lock.isLocked()) {
-    SerialMon.println(F("[FS] Failed to acquire FS lock while appending to cache."));
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock while appending to cache."));
     return;
   }
   File file = LittleFS.open(CACHE_FILE, "a"); // a = append
   if (!file) {
-    SerialMon.println(F("[FS] Failed to open cache file for writing."));
+    DBG_PRINTLN(F("[FS] Failed to open cache file for writing."));
     return;
   }
   if (file.println(jsonRecord)) {
-    SerialMon.println(F("[FS] GPS data point appended to cache."));
+    DBG_PRINTLN(F("[FS] GPS data point appended to cache."));
   } else {
-    SerialMon.println(F("[FS] Failed to write to cache file."));
+    DBG_PRINTLN(F("[FS] Failed to write to cache file."));
   }
   file.close();
 }
@@ -192,7 +192,7 @@ void append_to_cache(String jsonRecord) {
 bool send_cached_data() {
   FsLockGuard lock;
   if (!lock.isLocked()) {
-    SerialMon.println(F("[FS] Failed to acquire FS lock while sending cached data."));
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock while sending cached data."));
     return false;
   }
   
@@ -203,7 +203,7 @@ bool send_cached_data() {
     if (!file || file.size() == 0) {
       if (file) file.close();
       if (allDataSent) {
-        SerialMon.println(F("[FS] Cache is empty. All data sent."));
+        DBG_PRINTLN(F("[FS] Cache is empty. All data sent."));
         LittleFS.remove(CACHE_FILE); // Clean up empty file
       }
       return allDataSent;
@@ -239,12 +239,12 @@ bool send_cached_data() {
       return true;
     }
 
-    SerialMon.printf("[FS] Sending batch of %d records...\n", recordCount);
+    DBG_PRINTF("[FS] Sending batch of %d records...\n", recordCount);
     int httpStatus = 0;
     String response = modem_send_post_request(RESOURCE_POST, payload, &httpStatus);
 
     if (httpStatus == 404) {
-      SerialMon.println(F("[FS] Server returned 404 - device not registered."));
+      DBG_PRINTLN(F("[FS] Server returned 404 - device not registered."));
       fs_set_registered(false);
       allDataSent = false;
       file.close();
@@ -252,7 +252,7 @@ bool send_cached_data() {
     }
 
     if (httpStatus == 409) {
-      SerialMon.println(F("[FS] Server returned 409 - device claimed by another user."));
+      DBG_PRINTLN(F("[FS] Server returned 409 - device claimed by another user."));
       fs_set_registered(false);
       allDataSent = false;
       file.close();
@@ -260,8 +260,8 @@ bool send_cached_data() {
     }
 
     if (httpStatus >= 500) {
-      SerialMon.print(F("[FS] Server error while sending batch: "));
-      SerialMon.println(httpStatus);
+      DBG_PRINT(F("[FS] Server error while sending batch: "));
+      DBG_PRINTLN(httpStatus);
       allDataSent = false;
       file.close();
       break;
@@ -280,13 +280,13 @@ bool send_cached_data() {
       if (!serverResponseDoc["registered"].isNull()) {
         fs_set_registered(serverResponseDoc["registered"].as<bool>());
         if (!isRegistered) {
-          SerialMon.println(F("[FS] Server indicated device is not registered."));
+          DBG_PRINTLN(F("[FS] Server indicated device is not registered."));
         }
       }
     }
 
     if (!error && serverResponseDoc["success"] == true && httpStatus < 400) {
-      SerialMon.println(F("[FS] Batch sent successfully. Updating cache file."));
+      DBG_PRINTLN(F("[FS] Batch sent successfully. Updating cache file."));
       if (batchContainsPowerStatus) {
         power_instruction_acknowledged();
         power_status_report_acknowledged();
@@ -308,7 +308,7 @@ bool send_cached_data() {
           LittleFS.remove(CACHE_FILE);
           LittleFS.rename("/cache.tmp", CACHE_FILE);
         } else {
-          SerialMon.println(F("[FS] Error creating temp file for cache update."));
+          DBG_PRINTLN(F("[FS] Error creating temp file for cache update."));
           if(tempFile) tempFile.close();
           if(originalFile) originalFile.close();
           allDataSent = false;
@@ -316,17 +316,17 @@ bool send_cached_data() {
         }
       } else {
         LittleFS.remove(CACHE_FILE);
-        SerialMon.println(F("[FS] All cached data sent."));
+        DBG_PRINTLN(F("[FS] All cached data sent."));
         break; 
       }
     } else {
-      SerialMon.println(F("[FS] Failed to send batch data. Cache will be kept."));
+      DBG_PRINTLN(F("[FS] Failed to send batch data. Cache will be kept."));
       if (error) {
-        SerialMon.print(F("[FS] JSON parsing of server response failed: "));
-        SerialMon.println(error.c_str());
+        DBG_PRINT(F("[FS] JSON parsing of server response failed: "));
+        DBG_PRINTLN(error.c_str());
       }
       if (serverResponseDoc["registered"] == false) {
-        SerialMon.println(F("[FS] Server indicated device is not registered. Halting."));
+        DBG_PRINTLN(F("[FS] Server indicated device is not registered. Halting."));
         fs_set_registered(false);
       }
       allDataSent = false;
@@ -340,7 +340,7 @@ bool send_cached_data() {
 bool fs_cache_exists() {
   FsLockGuard lock;
   if (!lock.isLocked()) {
-    SerialMon.println(F("[FS] Failed to acquire FS lock while checking cache."));
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock while checking cache."));
     return false;
   }
   return LittleFS.exists(CACHE_FILE);
@@ -353,7 +353,7 @@ void fs_apply_server_config(const JsonVariantConst& config) {
 
   FsLockGuard lock;
   if (!lock.isLocked()) {
-    SerialMon.println(F("[FS] Failed to acquire FS lock while applying server config."));
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock while applying server config."));
     return;
   }
 
@@ -362,8 +362,8 @@ void fs_apply_server_config(const JsonVariantConst& config) {
     if (interval > 0) {
       sleepTimeSeconds = interval;
       preferences.putULong64("sleepTime", sleepTimeSeconds);
-      SerialMon.print(F("[FS] Server set GPS interval to: "));
-      SerialMon.println(sleepTimeSeconds);
+      DBG_PRINT(F("[FS] Server set GPS interval to: "));
+      DBG_PRINTLN(sleepTimeSeconds);
     }
   }
 
@@ -378,29 +378,29 @@ void fs_apply_server_config(const JsonVariantConst& config) {
     }
     batchSizeThreshold = sendInterval; // Update global variable
     preferences.putUChar(KEY_BATCH_THRESHOLD, batchSizeThreshold); // Store in preferences
-    SerialMon.print(F("[FS] Server set batch send threshold to: "));
-    SerialMon.println(batchSizeThreshold);
+    DBG_PRINT(F("[FS] Server set batch send threshold to: "));
+    DBG_PRINTLN(batchSizeThreshold);
   }
 
   if (!config["satellites"].isNull()) {
     minSatellitesForFix = config["satellites"].as<int>();
     preferences.putInt("minSats", minSatellitesForFix);
-    SerialMon.print(F("[FS] Server set minimum satellites to: "));
-    SerialMon.println(minSatellitesForFix);
+    DBG_PRINT(F("[FS] Server set minimum satellites to: "));
+    DBG_PRINTLN(minSatellitesForFix);
   }
 
   if (!config["mode"].isNull()) {
     operationMode = config["mode"].as<String>();
     preferences.putString("mode", operationMode);
-    SerialMon.print(F("[FS] Server set operation mode to: "));
-    SerialMon.println(operationMode);
+    DBG_PRINT(F("[FS] Server set operation mode to: "));
+    DBG_PRINTLN(operationMode);
   }
 }
 
 void fs_set_registered(bool registered) {
   FsLockGuard lock;
   if (!lock.isLocked()) {
-    SerialMon.println(F("[FS] Failed to acquire FS lock while updating registration state."));
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock while updating registration state."));
     return;
   }
   isRegistered = registered;
@@ -420,14 +420,14 @@ size_t fs_get_cache_size() {
 size_t fs_get_cache_record_count() {
   FsLockGuard lock;
   if (!lock.isLocked()) {
-    SerialMon.println(F("[FS] Failed to acquire FS lock while counting cache records."));
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock while counting cache records."));
     return 0;
   }
   if (!LittleFS.exists(CACHE_FILE)) return 0;
 
   File file = LittleFS.open(CACHE_FILE, "r");
   if (!file) {
-    SerialMon.println(F("[FS] Failed to open cache file for counting records."));
+    DBG_PRINTLN(F("[FS] Failed to open cache file for counting records."));
     return 0;
   }
 
@@ -448,7 +448,7 @@ void fs_clear_cache() {
   if (!lock.isLocked()) return;
   if (LittleFS.exists(CACHE_FILE)) {
     LittleFS.remove(CACHE_FILE);
-    SerialMon.println(F("[FS] Cache file cleared manually."));
+    DBG_PRINTLN(F("[FS] Cache file cleared manually."));
   }
 }
 
@@ -456,14 +456,14 @@ void fs_reset_tracking_defaults() {
   {
     FsLockGuard lock;
     if (!lock.isLocked()) {
-      SerialMon.println(F("[FS] Failed to acquire FS lock while resetting defaults."));
+      DBG_PRINTLN(F("[FS] Failed to acquire FS lock while resetting defaults."));
       return;
     }
     preferences.remove("sleepTime");
     preferences.remove("minSats");
     preferences.remove(KEY_BATCH_THRESHOLD);
     preferences.remove("mode");
-    SerialMon.println(F("[FS] Tracking settings keys removed."));
+    DBG_PRINTLN(F("[FS] Tracking settings keys removed."));
   }
   // Reload to apply defaults to global variables
   fs_load_configuration();

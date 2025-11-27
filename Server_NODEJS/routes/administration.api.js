@@ -62,12 +62,86 @@ router.post('/delete-user/:userId', isAuthenticated, isRoot, administrationContr
  */
 router.post('/delete-device/:deviceId', isAuthenticated, isRoot, administrationController.deleteDeviceAndData);
 
+/**
+ * @swagger
+ * /api/admin/verify-user/{userId}:
+ *   post:
+ *     summary: (Admin) Verify a user manually
+ *     tags: [Administration API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: The ID of the user to verify.
+ *     responses:
+ *       '200':
+ *         description: User verified successfully.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: User not found.
+ *       '500':
+ *         description: Server error.
+ */
 router.post('/verify-user/:userId', isAuthenticated, isRoot, administrationController.verifyUser);
 
+/**
+ * @swagger
+ * /api/admin/alerts/{alertId}:
+ *   delete:
+ *     summary: (Admin) Delete a specific system alert
+ *     tags: [Administration API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: alertId
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: The ID of the alert to delete.
+ *     responses:
+ *       '200':
+ *         description: Alert deleted successfully.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Alert not found.
+ *       '500':
+ *         description: Server error.
+ */
+router.delete('/alerts/:alertId', isAuthenticated, isRoot, administrationController.deleteAlert);
 
-router.delete('/alerts/:alertId', isAuthenticated, administrationController.deleteAlert);
-
-// Admin-only POST endpoint left for HTML forms that cannot send DELETE
+/**
+ * @swagger
+ * /api/admin/delete-alert/{alertId}:
+ *   post:
+ *     summary: (Admin) Delete a specific system alert (Alternative Method)
+ *     description: Useful for clients (like HTML forms) that cannot issue DELETE requests.
+ *     tags: [Administration API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: alertId
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: The ID of the alert to delete.
+ *     responses:
+ *       '200':
+ *         description: Alert deleted successfully.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Alert not found.
+ *       '500':
+ *         description: Server error.
+ */
 router.post('/delete-alert/:alertId', isAuthenticated, isRoot, administrationController.deleteAlert);
 
 module.exports = router;

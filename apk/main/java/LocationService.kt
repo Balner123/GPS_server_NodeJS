@@ -3,6 +3,7 @@ package com.example.gpsreporterapp
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -12,24 +13,30 @@ import android.location.Location
 import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
-import androidx.work.*
-import com.google.android.gms.location.*
-import android.app.PendingIntent
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.WorkManager
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 class LocationService : Service() {
 
     companion object {
-        // Actions are deprecated in favor of StateFlow and direct calls.
-        // ACTION_FORCE_LOGOUT is still used by SyncWorker.
         const val ACTION_FORCE_LOGOUT = "com.example.gpsreporterapp.FORCE_LOGOUT"
         const val EXTRA_LOGOUT_MESSAGE = "extra_logout_message"
     }
@@ -39,15 +46,20 @@ class LocationService : Service() {
     private lateinit var locationManager: LocationManager
     private lateinit var connectivityManager: ConnectivityManager
 
-    private var gpsIntervalSeconds: Int = 60 // Default to 60 seconds
-    private var syncIntervalCount: Int = 1 // Default to 1 location before sending
+    private var gpsIntervalSeconds: Int = 60 
+    private var syncIntervalCount: Int = 1 
 
     private var sendIntervalMillis: Long = 0
     private var isNetworkAvailable: Boolean = true
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    
+    private var isStopping: Boolean = false
 
     private var currentServiceState: ServiceState = ServiceState()
     private var lastProcessedLocationTime: Long = 0
+    
+    // Flag to force immediate upload for the first location after startup
+    private var isFirstLocationAfterStart: Boolean = true
 
     private val NOTIFICATION_CHANNEL_ID = "LocationServiceChannel"
     private val NOTIFICATION_ID = 12345
@@ -82,8 +94,6 @@ class LocationService : Service() {
         }
     }
 
-    // stopServiceReceiver is no longer needed. Service is stopped via stopService() intent.
-
     override fun onCreate() {
         super.onCreate()
         ConsoleLogger.info("LocationService: Creating.")
@@ -106,6 +116,7 @@ class LocationService : Service() {
 
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
+                if (isStopping) return 
                 locationResult.lastLocation?.let { location ->
                     ConsoleLogger.debug("New location: lat=${location.latitude}, lon=${location.longitude}")
                     val nextUpdate = System.currentTimeMillis() + sendIntervalMillis
@@ -121,7 +132,12 @@ class LocationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // ACTION_REQUEST_STATUS_UPDATE is obsolete and replaced by StateFlow repository.
+        // FIX: Idempotency check. If already running and ON, ignore the restart request.
+        if (currentServiceState.isRunning && currentServiceState.powerStatus == PowerState.ON.toString()) {
+            ConsoleLogger.debug("LocationService: Already running. Ignoring start request.")
+            startForegroundService() 
+            return START_STICKY
+        }
 
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(this)
         if (ackPending) {
@@ -145,7 +161,7 @@ class LocationService : Service() {
             return START_NOT_STICKY
         }
 
-        ConsoleLogger.info("LocationService: Started.")
+        ConsoleLogger.info("LocationService: Started. Initializing sequence...")
         NotificationHelper.cancelGpsDisabledNotification(this)
         if (isNetworkAvailable) {
             NotificationHelper.cancelNetworkUnavailableNotification(this)
@@ -156,41 +172,61 @@ class LocationService : Service() {
             pendingAck = false,
             reason = "service_start"
         )
-        updateAndBroadcastState(status = StatusMessages.SERVICE_STARTING, isRunning = true, powerStatus = PowerState.ON)
-
-        val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
-        gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
-        syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
-        sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
-        ConsoleLogger.info("LocationService: GPS interval=${gpsIntervalSeconds}s, Sync interval=${syncIntervalCount} points.")
-        HandshakeManager.launchHandshake(applicationContext, reason = "service_start")
-        HandshakeManager.schedulePeriodicHandshake(applicationContext)
-
+        
+        // Reset stopping flag to ensure we are ready to run
+        isStopping = false
+        
+        // 1. Start Foreground immediately (requirement)
         startForegroundService()
-        startLocationUpdates()
+        
+        // 2. Launch sequential initialization
+        CoroutineScope(Dispatchers.Main).launch {
+            initializeAndStart()
+        }
 
         return START_STICKY
     }
 
+    private suspend fun initializeAndStart() {
+        try {
+            // Step A: Fetch Configuration
+            updateAndBroadcastState(status = "Syncing configuration...", isRunning = true)
+            
+            withContext(Dispatchers.IO) {
+                try {
+                    HandshakeManager.performHandshake(applicationContext, reason = "service_start")
+                    HandshakeManager.schedulePeriodicHandshake(applicationContext)
+                } catch (e: Exception) {
+                    ConsoleLogger.warn("LocationService: Initial handshake failed (${e.message}). Using cached config.")
+                }
+            }
+
+            // Step B: Load Configuration
+            val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
+            gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
+            syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
+            sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
+            
+            ConsoleLogger.info("LocationService: Config loaded (GPS=${gpsIntervalSeconds}s, Batch=${syncIntervalCount}). Starting tracking.")
+
+            // Step C: Start Tracking
+            startLocationUpdates()
+            
+        } catch (e: Exception) {
+            ConsoleLogger.error("LocationService: Fatal error during initialization: ${e.message}")
+            // Fallback: Try to start tracking anyway with defaults if config load failed
+            startLocationUpdates()
+        }
+    }
+
     private fun startLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
+        isFirstLocationAfterStart = true 
 
-        // Immediately try to fetch a location when the service starts
-        try {
-            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-                .addOnSuccessListener { location: Location? ->
-                    location?.let {
-                        ConsoleLogger.debug("LocationService: Immediate location acquired at startup.")
-                        sendLocationAndProcessResponse(it)
-                    }
-                }
-                .addOnFailureListener { e ->
-                    ConsoleLogger.warn("LocationService: Failed to acquire immediate location: ${e.message}")
-                }
-        } catch (e: SecurityException) {
-            ConsoleLogger.error("LocationService: Permission error on immediate location: ${e.message}")
-        }
-
+        // We rely solely on periodic updates. The first one will come immediately upon fix.
+        // Removing explicit getCurrentLocation to prevent duplicate "first" points.
+        
+        // Start periodic updates
         val locationRequest = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
             sendIntervalMillis
@@ -213,14 +249,23 @@ class LocationService : Service() {
                 connectionStatus = "Permission error",
                 isRunning = false
             )
-            stopSelf() // Stop the service if permissions are missing
+            stopSelf()
         }
     }
 
-    private fun enqueueSyncWorker() {
-        ConsoleLogger.debug("LocationService: Scheduling SyncWorker job.")
+    private fun enqueueSyncWorker(expedited: Boolean = false) {
+        ConsoleLogger.debug("LocationService: Scheduling SyncWorker job (expedited=$expedited).")
         val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-        val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints).build()
+        
+        val builder = OneTimeWorkRequestBuilder<SyncWorker>()
+            .setConstraints(constraints)
+        
+        if (expedited) {
+            builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        }
+            
+        val syncWorkRequest = builder.build()
+        
         WorkManager.getInstance(applicationContext).enqueueUniqueWork(
             "sync_locations",
             ExistingWorkPolicy.REPLACE,
@@ -231,23 +276,11 @@ class LocationService : Service() {
         updateAndBroadcastState(connectionStatus = connectionLabel, isRunning = true)
     }
 
-    private fun sendLocationAndProcessResponse(location: Location) {
-        if (location.time <= lastProcessedLocationTime || Math.abs(location.time - lastProcessedLocationTime) < 500) {
-            ConsoleLogger.debug("LocationService: Duplicate or rapid-fire location ignored (dt=${location.time - lastProcessedLocationTime}ms).")
-            return
-        }
-        lastProcessedLocationTime = location.time
-
+    private suspend fun persistLocationToDb(location: Location): Int {
         val dao = AppDatabase.getDatabase(applicationContext).locationDao()
         val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(applicationContext)
-        val deviceId = sharedPrefs.getString("device_id", null)
+        val deviceId = sharedPrefs.getString("device_id", "unknown")
         val powerState = SharedPreferencesHelper.getPowerState(applicationContext)
-
-        if (deviceId == null) {
-            ConsoleLogger.error(StatusMessages.DEVICE_ID_ERROR)
-            updateAndBroadcastState()
-            return
-        }
 
         val cachedLocation = CachedLocation(
             latitude = location.latitude,
@@ -257,28 +290,54 @@ class LocationService : Service() {
             accuracy = if (location.hasAccuracy()) location.accuracy else -1.0f,
             satellites = location.extras?.getInt("satellites", 0) ?: 0,
             timestamp = location.time,
-            deviceId = deviceId,
+            deviceId = deviceId!!,
             deviceName = "${Build.MANUFACTURER} ${Build.MODEL}",
             powerStatus = powerState.toString()
         )
+        
+        dao.insertLocation(cachedLocation)
+        return dao.getCachedCount()
+    }
+
+    private fun sendLocationAndProcessResponse(location: Location) {
+        if (location.time <= lastProcessedLocationTime || Math.abs(location.time - lastProcessedLocationTime) < 500) {
+            ConsoleLogger.debug("LocationService: Duplicate or rapid-fire location ignored (dt=${location.time - lastProcessedLocationTime}ms).")
+            return
+        }
+        lastProcessedLocationTime = location.time
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                dao.insertLocation(cachedLocation)
-                val cachedCount = dao.getCachedCount()
+                val cachedCount = persistLocationToDb(location)
                 ConsoleLogger.debug("Location cached (cache=$cachedCount)")
 
-                if (cachedCount >= syncIntervalCount) {
-                    enqueueSyncWorker()
+                var syncTriggered = false
+                if (cachedCount >= syncIntervalCount || isFirstLocationAfterStart) {
+                    var isExpedited = false
+                    if (isFirstLocationAfterStart) {
+                         ConsoleLogger.debug("LocationService: FIRST LOCATION - Forcing immediate expedited sync.")
+                         isFirstLocationAfterStart = false
+                         isExpedited = true
+                    } else {
+                         ConsoleLogger.debug("LocationService: Batch full ($cachedCount >= $syncIntervalCount) - Triggering sync.")
+                    }
+                    enqueueSyncWorker(expedited = isExpedited)
+                    syncTriggered = true
                 }
 
-                val nextUpdate = System.currentTimeMillis() + sendIntervalMillis
-                updateAndBroadcastState(
-                    status = StatusMessages.LOCATION_CACHED,
-                    cachedCount = cachedCount,
-                    powerStatus = powerState,
-                    nextUpdate = nextUpdate
-                )
+                if (!isStopping) {
+                    val nextUpdate = System.currentTimeMillis() + sendIntervalMillis
+                    val powerState = SharedPreferencesHelper.getPowerState(applicationContext)
+                    
+                    val statusMsg = if (syncTriggered) StatusMessages.SYNC_IN_PROGRESS else StatusMessages.LOCATION_CACHED
+                    
+                    updateAndBroadcastState(
+                        status = statusMsg,
+                        cachedCount = cachedCount,
+                        powerStatus = powerState,
+                        nextUpdate = nextUpdate
+                    )
+                }
 
                 if (!isNetworkAvailable) {
                     NotificationHelper.showNetworkUnavailableNotification(applicationContext, cachedCount)
@@ -311,15 +370,13 @@ class LocationService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Location Service Channel",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(serviceChannel)
-        }
+        val serviceChannel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            "Location Service Channel",
+            NotificationManager.IMPORTANCE_DEFAULT
+        )
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(serviceChannel)
     }
 
     private fun updateAndBroadcastState(
@@ -332,7 +389,6 @@ class LocationService : Service() {
         ackPending: Boolean? = null,
         instructionSource: String? = null
     ) {
-        // Update current state
         status?.let { currentServiceState.statusMessage = it }
         connectionStatus?.let { currentServiceState.connectionStatus = it }
         nextUpdate?.let { currentServiceState.nextUpdateTimestamp = it }
@@ -350,8 +406,6 @@ class LocationService : Service() {
         val resolvedSource = instructionSource ?: SharedPreferencesHelper.getPowerTransitionReason(this)
         currentServiceState.powerInstructionSource = resolvedSource
 
-
-        // Update the state in the central repository
         ServiceStateRepository.updateState(currentServiceState.copy())
     }
 
@@ -367,14 +421,7 @@ class LocationService : Service() {
             }
         }
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                connectivityManager.registerDefaultNetworkCallback(networkCallback!!)
-            } else {
-                val request = NetworkRequest.Builder()
-                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                    .build()
-                connectivityManager.registerNetworkCallback(request, networkCallback!!)
-            }
+            connectivityManager.registerDefaultNetworkCallback(networkCallback!!)
         } catch (ex: Exception) {
             ConsoleLogger.error("LocationService: Network callback registration failed: ${ex.message}")
             networkCallback = null
@@ -410,9 +457,51 @@ class LocationService : Service() {
     }
 
     override fun onDestroy() {
+        isStopping = true 
         super.onDestroy()
         ConsoleLogger.info("LocationService: Stopping.")
         fusedLocationClient.removeLocationUpdates(locationCallback)
+
+        fun triggerFinalFlush() {
+            if (!isNetworkAvailable) return
+            ConsoleLogger.debug("LocationService: Triggering final sync flush.")
+            val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+            val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+                .setConstraints(constraints)
+                .build()
+            WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                "sync_locations_flush",
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
+                syncWorkRequest
+            )
+        }
+
+        try {
+            fusedLocationClient.lastLocation.addOnCompleteListener { task ->
+                val location = if (task.isSuccessful) task.result else null
+                
+                if (location != null) {
+                    ConsoleLogger.debug("LocationService: Captured final location. Saving...")
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            persistLocationToDb(location)
+                            ConsoleLogger.debug("LocationService: Final location saved. NOW flushing.")
+                        } catch (e: Exception) {
+                            ConsoleLogger.error("LocationService: Failed to save final location: ${e.message}")
+                        } finally {
+                            triggerFinalFlush()
+                        }
+                    }
+                } else {
+                    ConsoleLogger.debug("LocationService: No final location available. Flushing immediately.")
+                    triggerFinalFlush()
+                }
+            }
+        } catch (e: Exception) {
+            ConsoleLogger.warn("LocationService: Error getting final location: ${e.message}")
+            triggerFinalFlush()
+        }
+
         unregisterReceiver(locationProviderReceiver)
         unregisterNetworkCallback()
         NotificationHelper.cancelNetworkUnavailableNotification(this)
@@ -422,17 +511,11 @@ class LocationService : Service() {
         } else {
             "service_destroy"
         }
-        SharedPreferencesHelper.setPowerState(
-            applicationContext,
-            PowerState.OFF,
-            pendingAck = ackPending,
-            reason = transitionReason
-        )
+        
         if (!ackPending) {
             HandshakeManager.launchHandshake(applicationContext, reason = "service_stop")
         }
         HandshakeManager.cancelPeriodicHandshake(applicationContext)
-        // Send final state update to ensure UI is correct
         updateAndBroadcastState(
             status = StatusMessages.SERVICE_STOPPED,
             connectionStatus = "Inactive",

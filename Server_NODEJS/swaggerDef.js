@@ -30,7 +30,15 @@ const options = {
     ]
   },
   // Path to the API docs
-  apis: ['./routes/*.js'], // Look for JSDoc comments in all .js files in the routes directory
+  apis: [
+    './routes/auth.api.js', 
+    './routes/devices.api.js', 
+    './routes/settings.api.js', 
+    './routes/administration.api.js', 
+    './routes/apk.js', 
+    './routes/hw.api.js',
+    './routes/logs.api.js'
+  ],
 };
 
 const swaggerSpec = swaggerJsdoc(options);

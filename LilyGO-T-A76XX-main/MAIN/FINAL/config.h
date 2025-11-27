@@ -76,3 +76,19 @@ const uint64_t DEFAULT_SLEEP_SECONDS = 60;
 #define SerialMon Serial
 // #define TINY_GSM_DEBUG SerialMon // Uncomment for TinyGSM internal debug
 // #define DUMP_AT_COMMANDS // Uncomment to see all AT commands
+
+#define DEBUG_MODE true
+
+#if DEBUG_MODE
+  #define DBG_BEGIN(...)    SerialMon.begin(__VA_ARGS__)
+  #define DBG_PRINT(...)    SerialMon.print(__VA_ARGS__)
+  #define DBG_PRINTLN(...)  SerialMon.println(__VA_ARGS__)
+  #define DBG_PRINTF(...)   SerialMon.printf(__VA_ARGS__)
+  #define DBG_FLUSH()       SerialMon.flush()
+#else
+  #define DBG_BEGIN(...)
+  #define DBG_PRINT(...)
+  #define DBG_PRINTLN(...)
+  #define DBG_PRINTF(...)
+  #define DBG_FLUSH()
+#endif

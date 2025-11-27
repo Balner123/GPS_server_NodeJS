@@ -13,7 +13,7 @@ object ConsoleLogger {
         DEBUG, INFO, WARN, ERROR
     }
 
-    private const val MAX_LOG_LINES = 200
+    private const val MAX_LOG_LINES = 50
     private const val PREFS_NAME = "ConsoleLoggerPrefs"
     private const val KEY_LOG_LEVELS = "logLevels"
 

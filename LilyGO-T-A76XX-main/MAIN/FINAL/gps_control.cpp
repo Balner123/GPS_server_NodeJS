@@ -31,23 +31,23 @@ volatile bool gpsLoopActive = false;
 void gps_power_up() {
   pinMode(GPS_POWER_PIN, OUTPUT);
   digitalWrite(GPS_POWER_PIN, HIGH);
-  SerialMon.println(F("[GPS] Powering GPS module ON..."));
+  DBG_PRINTLN(F("[GPS] Powering GPS module ON..."));
   delay(1000);
 }
 
 void gps_power_down() {
   digitalWrite(GPS_POWER_PIN, LOW);
-  SerialMon.println(F("[GPS] GPS module powered OFF."));
+  DBG_PRINTLN(F("[GPS] GPS module powered OFF."));
 }
 
 void gps_init_serial() {
   SerialGPS.begin(GPS_BAUD_RATE, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
-  SerialMon.printf("[GPS] HardwareSerial for GPS initialized on pins RX:%d, TX:%d at %d baud.\n", GPS_RX_PIN, GPS_TX_PIN, GPS_BAUD_RATE);
+  DBG_PRINTF("[GPS] HardwareSerial for GPS initialized on pins RX:%d, TX:%d at %d baud.\n", GPS_RX_PIN, GPS_TX_PIN, GPS_BAUD_RATE);
 }
 
 void gps_close_serial() {
   SerialGPS.end();
-  SerialMon.println(F("[GPS] HardwareSerial for GPS closed."));
+  DBG_PRINTLN(F("[GPS] HardwareSerial for GPS closed."));
 }
 
 void gps_display_and_store_info() {
@@ -77,14 +77,14 @@ void gps_display_and_store_info() {
     gpsSecond = 0;
   }
 
-  SerialMon.println(F("\n*** GPS FIX OBTAINED (External) ***"));
-  SerialMon.printf("Lat: %.6f  Lon: %.6f\n", gpsLat, gpsLon);
-  SerialMon.printf("Speed: %.2f km/h  Altitude: %.2f m\n", gpsSpd, gpsAlt);
-  SerialMon.printf("Satellites: %d  HDOP: %.2f\n", gpsSats, gpsHdop);
+  DBG_PRINTLN(F("\n*** GPS FIX OBTAINED (External) ***"));
+  DBG_PRINTF("Lat: %.6f  Lon: %.6f\n", gpsLat, gpsLon);
+  DBG_PRINTF("Speed: %.2f km/h  Altitude: %.2f m\n", gpsSpd, gpsAlt);
+  DBG_PRINTF("Satellites: %d  HDOP: %.2f\n", gpsSats, gpsHdop);
   if (gpsYear != 0) {
-    SerialMon.printf("Date: %04d-%02d-%02d  Time: %02d:%02d:%02d (UTC from GPS)\n", gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+    DBG_PRINTF("Date: %04d-%02d-%02d  Time: %02d:%02d:%02d (UTC from GPS)\n", gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
   } else {
-    SerialMon.println(F("Date/Time: Not available from GPS"));
+    DBG_PRINTLN(F("Date/Time: Not available from GPS"));
   }
 }
 
@@ -95,13 +95,13 @@ bool gps_get_fix(unsigned long timeout) {
   gpsAbortRequested = false;
   gpsLoopActive = true;
 
-  SerialMon.print(F("[GPS] Attempting to get GPS fix (External)... (Timeout: "));
-  SerialMon.print(timeout / 1000);
-  SerialMon.println(F("s)"));
+  DBG_PRINT(F("[GPS] Attempting to get GPS fix (External)... (Timeout: "));
+  DBG_PRINT(timeout / 1000);
+  DBG_PRINTLN(F("s)"));
 
   while (millis() - startTime < timeout) {
     if (gpsAbortRequested) {
-      SerialMon.println(F("[GPS] Fix attempt aborted."));
+      DBG_PRINTLN(F("[GPS] Fix attempt aborted."));
       break;
     }
     while (SerialGPS.available() > 0) {
@@ -123,20 +123,20 @@ bool gps_get_fix(unsigned long timeout) {
 
     if (millis() - lastPrintTime > 5000) {
       lastPrintTime = millis();
-      SerialMon.print(F("[GPS] Waiting for external GPS fix... Sats: "));
-      SerialMon.print(gps.satellites.isValid() ? gps.satellites.value() : 0);
-      SerialMon.print(F(", Valid Pos: "));
-      SerialMon.print(gps.location.isValid());
-      SerialMon.print(F(", Date Valid: "));
-      SerialMon.print(gps.date.isValid());
-      SerialMon.print(F(", Time Valid: "));
-      SerialMon.println(gps.time.isValid());
+      DBG_PRINT(F("[GPS] Waiting for external GPS fix... Sats: "));
+      DBG_PRINT(gps.satellites.isValid() ? gps.satellites.value() : 0);
+      DBG_PRINT(F(", Valid Pos: "));
+      DBG_PRINT(gps.location.isValid());
+      DBG_PRINT(F(", Date Valid: "));
+      DBG_PRINT(gps.date.isValid());
+      DBG_PRINT(F(", Time Valid: "));
+      DBG_PRINTLN(gps.time.isValid());
     }
     delay(1); // Yield to other tasks but return quickly
   }
 
   if (!gpsFixObtained) {
-    SerialMon.println(F("\n[GPS] GPS fix timeout (External)."));
+    DBG_PRINTLN(F("\n[GPS] GPS fix timeout (External)."));
   }
   gpsLoopActive = false;
   return gpsFixObtained;

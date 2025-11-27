@@ -27,6 +27,9 @@ const { isAuthenticated, isUser, authenticateDevice, isNotRootApi } = require('.
  *           description: The unique ID of the device.
  *           example: "AC12345678"
  *         name:
+ *           type: string
+ *           description: Optional friendly name.
+ *           example: "My Device"
  *         speed:
  *           type: number
  *           format: float
@@ -326,6 +329,29 @@ router.get('/coordinates', isAuthenticated, deviceController.getCurrentCoordinat
  */
 router.get('/data', isAuthenticated, deviceController.getDeviceData);
 
+/**
+ * @swagger
+ * /api/devices/raw-data:
+ *   get:
+ *     summary: Get raw debug data for a device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The hardware ID of the device.
+ *     responses:
+ *       '200':
+ *         description: Raw data retrieved successfully.
+ *       '401':
+ *         description: Unauthorized.
+ *       '500':
+ *         description: Server error.
+ */
 router.get('/raw-data', isAuthenticated, deviceController.getRawDeviceData);
 
 /**
@@ -577,6 +603,32 @@ router.post('/geofence', isAuthenticated, isNotRootApi, deviceController.updateG
  *         description: Server error.
  */
 router.get('/alerts', isAuthenticated, deviceController.getUnreadAlerts);
+
+/**
+ * @swagger
+ * /api/devices/alerts/unread/{deviceId}:
+ *   get:
+ *     summary: Get unread alerts for a specific device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: deviceId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The hardware ID of the device.
+ *     responses:
+ *       '200':
+ *         description: List of unread alerts for the device.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found.
+ *       '500':
+ *         description: Server error.
+ */
 router.get('/alerts/unread/:deviceId', isAuthenticated, deviceController.getUnreadAlertsForDevice);
 
 /**

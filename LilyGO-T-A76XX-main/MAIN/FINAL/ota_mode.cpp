@@ -16,7 +16,7 @@ bool handshakeSucceededOTA = false;
 String lastRegistrationMessage = "";
 
 void start_ota_mode() {
-  SerialMon.println(F("--- OTA Service Mode Activated ---"));
+  DBG_PRINTLN(F("--- OTA Service Mode Activated ---"));
 #ifdef BOARD_POWERON_PIN
   pinMode(BOARD_POWERON_PIN, OUTPUT);
   digitalWrite(BOARD_POWERON_PIN, HIGH);
@@ -35,7 +35,7 @@ void start_ota_mode() {
 
   // Mount filesystem and open Preferences so configuration reads/writes work in OTA.
   if (!fs_init()) {
-    SerialMon.println(F("[OTA] Failed to initialize filesystem; using defaults only."));
+    DBG_PRINTLN(F("[OTA] Failed to initialize filesystem; using defaults only."));
   }
 
   // Load configuration from Preferences (needed for OTA SSID/Pass and GPRS settings)
@@ -57,8 +57,8 @@ void start_ota_mode() {
   mac.replace(":", "");
   // Use the last 10 characters of the MAC address for a shorter ID
   deviceID = mac.substring(mac.length() - 10);
-  SerialMon.print(F("Device ID (last 10 of MAC): "));
-  SerialMon.println(deviceID);
+  DBG_PRINT(F("Device ID (last 10 of MAC): "));
+  DBG_PRINTLN(deviceID);
 
   auto finalizeOtaHotspot = [&]() {
     if (ota_ssid == DEFAULT_OTA_SSID) {
@@ -68,7 +68,7 @@ void start_ota_mode() {
   finalizeOtaHotspot();
 
   // 1. Initialize Modem (synchronously) - Moved before WiFi AP to prevent brownouts on battery.
-  SerialMon.println(F("[OTA] Initializing modem synchronously..."));
+  DBG_PRINTLN(F("[OTA] Initializing modem synchronously..."));
   if (modem_initialize()) {
     // Connect with a timeout
     bool connected = modem_connect_gprs(apn, gprsUser, gprsPass, 15000);
@@ -76,22 +76,22 @@ void start_ota_mode() {
     lastGprsTestSuccess = connected;
     
     if (connected) {
-      SerialMon.println(F("[OTA] Modem ready and connected. Performing handshake..."));
+      DBG_PRINTLN(F("[OTA] Modem ready and connected. Performing handshake..."));
       handshakeAttemptedOTA = true;
       bool handshakeOk = modem_perform_handshake();
       handshakeSucceededOTA = handshakeOk;
       
       if (handshakeOk) {
-        SerialMon.println(F("[OTA] Handshake success. Reloading config."));
+        DBG_PRINTLN(F("[OTA] Handshake success. Reloading config."));
         fs_load_configuration(); 
       } else {
-        SerialMon.println(F("[OTA] Handshake failed."));
+        DBG_PRINTLN(F("[OTA] Handshake failed."));
       }
     } else {
-      SerialMon.println(F("[OTA] GPRS connection failed."));
+      DBG_PRINTLN(F("[OTA] GPRS connection failed."));
     }
   } else {
-    SerialMon.println(F("[OTA] Modem init failed. Proceeding without modem."));
+    DBG_PRINTLN(F("[OTA] Modem init failed. Proceeding without modem."));
     gprsConnectedOTA = false;
     lastGprsTestSuccess = false;
     handshakeAttemptedOTA = false;
@@ -99,7 +99,7 @@ void start_ota_mode() {
   }
 
   // 2. Start WiFi AP
-  SerialMon.println(F("Starting WiFi AP..."));
+  DBG_PRINTLN(F("Starting WiFi AP..."));
   WiFi.disconnect(true);
   WiFi.mode(WIFI_AP);
   bool apStarted = ota_password.length() == 0
@@ -107,16 +107,16 @@ void start_ota_mode() {
                        : WiFi.softAP(ota_ssid.c_str(), ota_password.c_str());
   if (apStarted) {
     if (ota_password.length() == 0) {
-      SerialMon.println(F("WiFi AP started as open network."));
+      DBG_PRINTLN(F("WiFi AP started as open network."));
     } else {
-      SerialMon.println(F("WiFi AP started with configured credentials."));
+      DBG_PRINTLN(F("WiFi AP started with configured credentials."));
     }
   } else {
-    SerialMon.println(F("[OTA] Failed to start WiFi AP with configured credentials; fallback open AP may be used."));
+    DBG_PRINTLN(F("[OTA] Failed to start WiFi AP with configured credentials; fallback open AP may be used."));
   }
   IPAddress apIP = WiFi.softAPIP();
-  SerialMon.print(F("AP IP address: "));
-  SerialMon.println(apIP);
+  DBG_PRINT(F("AP IP address: "));
+  DBG_PRINTLN(apIP);
 
   // 3. Define Web Server Handlers
 
@@ -280,10 +280,10 @@ void start_ota_mode() {
     bool restartNeeded = false;
     if (apn != old_apn || gprsUser != old_gprsUser || gprsPass != old_gprsPass || 
         server != old_server || port != old_port) {
+      DBG_PRINTLN(F("[OTA] Critical settings changed. Restarting network connection..."));
       restartNeeded = true;
-      SerialMon.println(F("[OTA] Critical settings changed. Restarting network connection..."));
     } else {
-      SerialMon.println(F("[OTA] No critical network settings changed. Skipping modem restart."));
+      DBG_PRINTLN(F("[OTA] No critical network settings changed. Skipping modem restart."));
     }
 
     if (restartNeeded) {
@@ -318,29 +318,29 @@ void start_ota_mode() {
     String test_user = otaServer.arg("user");
     String test_pass = otaServer.arg("pass");
 
-    SerialMon.println("--- Testing GPRS Connection ---");
-    SerialMon.printf("APN: %s, User: %s\n", test_apn.c_str(), test_user.c_str());
+    DBG_PRINTLN("--- Testing GPRS Connection ---");
+    DBG_PRINTF("APN: %s, User: %s\n", test_apn.c_str(), test_user.c_str());
 
     modem_disconnect_gprs(); // Disconnect any existing GPRS connection
-    SerialMon.println("GPRS disconnected for test.");
+    DBG_PRINTLN("GPRS disconnected for test.");
     delay(1000);
 
     bool success = modem_connect_gprs(test_apn, test_user, test_pass, 45000);
     lastGprsTestSuccess = success;
 
     String message = success ? "GPRS test connection successful." : "GPRS test connection failed.";
-    SerialMon.println(message);
+    DBG_PRINTLN(message);
 
     modem_disconnect_gprs(); // Disconnect after test
 
     // Reconnect with original settings (if it was connected before)
-    SerialMon.println("Reconnecting to GPRS with saved settings...");
+    DBG_PRINTLN("Reconnecting to GPRS with saved settings...");
     bool restored = modem_connect_gprs(apn, gprsUser, gprsPass, 30000);
     gprsConnectedOTA = restored;
     if (restored) {
-      SerialMon.println("Reconnected successfully.");
+      DBG_PRINTLN("Reconnected successfully.");
     } else {
-      SerialMon.println("Failed to reconnect to GPRS with saved settings.");
+      DBG_PRINTLN("Failed to reconnect to GPRS with saved settings.");
       handshakeAttemptedOTA = false;
       handshakeSucceededOTA = false;
       message += " Saved credentials failed to reconnect.";
@@ -398,8 +398,8 @@ void start_ota_mode() {
       return;
     }
 
-    SerialMon.println("--- Testing Server Connection ---");
-    SerialMon.printf("Host: %s, Port: %d\n", test_host.c_str(), test_port);
+    DBG_PRINTLN("--- Testing Server Connection ---");
+    DBG_PRINTF("Host: %s, Port: %d\n", test_host.c_str(), test_port);
 
     bool success = modem_test_server_connection(test_host, test_port);
     doc["success"] = success;
@@ -476,7 +476,7 @@ void start_ota_mode() {
   }, []() {
     HTTPUpload& upload = otaServer.upload();
     if (upload.status == UPLOAD_FILE_START) {
-      SerialMon.printf("Update: %s\n", upload.filename.c_str());
+      DBG_PRINTF("Update: %s\n", upload.filename.c_str());
       if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { // Start with max available size
         Update.printError(SerialMon);
       }
@@ -486,7 +486,7 @@ void start_ota_mode() {
       }
     } else if (upload.status == UPLOAD_FILE_END) {
       if (Update.end(true)) { // True to set the size to the current progress
-        SerialMon.printf("Update Success: %u bytes\n", upload.totalSize);
+        DBG_PRINTF("Update Success: %u bytes\n", upload.totalSize);
       } else {
         Update.printError(SerialMon);
       }
@@ -495,7 +495,7 @@ void start_ota_mode() {
 
   // 4. Start Web Server
   otaServer.begin();
-  SerialMon.println(F("OTA Web Server started. Waiting for connections..."));
+  DBG_PRINTLN(F("OTA Web Server started. Waiting for connections..."));
 
   // 5. Removed: Automatic Modem Connection (Parallel Task) - Modem is now initialized synchronously before WiFi AP.
 

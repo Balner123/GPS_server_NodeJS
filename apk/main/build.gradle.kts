@@ -48,11 +48,10 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    
+    // Lifecycle
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
 
-
-    // Navigation
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
-    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
 
     // Google Play Services for Location
     implementation("com.google.android.gms:play-services-location:21.2.0")

@@ -184,8 +184,91 @@ router.post('/delete-account', isAuthenticated, isUser, settingsController.delet
  *         description: Unauthorized.
  */
 router.post('/set-password', isAuthenticated, isUser, settingsController.setPassword);
+
+/**
+ * @swagger
+ * /api/settings/disconnect:
+ *   post:
+ *     summary: Disconnect a third-party provider from the account
+ *     tags: [Settings API]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - provider
+ *             properties:
+ *               provider:
+ *                 type: string
+ *                 description: The provider to disconnect (e.g., 'google', 'github').
+ *                 example: 'google'
+ *     responses:
+ *       '200':
+ *         description: Provider disconnected successfully.
+ *       '400':
+ *         description: Bad request.
+ *       '401':
+ *         description: Unauthorized.
+ *       '500':
+ *         description: Server error.
+ */
 router.post('/disconnect', isAuthenticated, isUser, settingsController.disconnect);
+
+/**
+ * @swagger
+ * /api/settings/confirm-delete:
+ *   post:
+ *     summary: Confirm account deletion with a verification code
+ *     tags: [Settings API]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 description: The verification code sent to the user's email.
+ *                 example: '123456'
+ *     responses:
+ *       '200':
+ *         description: Account deleted successfully.
+ *       '400':
+ *         description: Invalid code or bad request.
+ *       '401':
+ *         description: Unauthorized.
+ *       '500':
+ *         description: Server error.
+ */
 router.post('/confirm-delete', isAuthenticated, isUser, settingsController.confirmDeleteAccount);
+
+/**
+ * @swagger
+ * /api/settings/resend-deletion-code:
+ *   post:
+ *     summary: Resend the account deletion verification code
+ *     tags: [Settings API]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: Code resent successfully.
+ *       '400':
+ *         description: No deletion process in progress.
+ *       '401':
+ *         description: Unauthorized.
+ *       '500':
+ *         description: Server error.
+ */
 router.post('/resend-deletion-code', isAuthenticated, isUser, settingsController.resendDeletionCode);
 
 /**

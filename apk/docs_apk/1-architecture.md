@@ -18,7 +18,7 @@ Tento dokument popisuje architekturu a hlavní komponenty mobilní aplikace. Tex
 
 - **HandshakeManager / HandshakeWorker**: Orchestruje komunikaci s `/api/devices/handshake` pomocí `ApiClient`. Aplikuje konfiguraci ze serveru a interpretuje `power_instruction`, kterou rovněž předává `PowerController`.
 
-- **PowerController**: Klíčová komponenta pro správu stavového stroje napájení (`ON`/`OFF`). Centralizuje logiku pro zpracování instrukce `TURN_OFF`. Zajišťuje, že služba zůstane neaktivní, dokud není `TURN_OFF` instrukce potvrzena a zrušena serverem. Spravuje příznak `pending_turn_off_ack`.
+- **PowerController**: Klíčová komponenta pro správu stavového stroje napájení (`ON`/`OFF`). Centralizuje logiku pro zpracování instrukce `TURN_OFF`. Zajišťuje, že služba zůstane neaktivní, dokud není `TURN_OFF` instrukce potvrzena a zrušena serverem, nebo dokud uživatel nevynutí manuální spuštění. Spravuje příznak `pending_turn_off_ack`.
 
 - **AppDatabase (Room)**: Lokální perzistentní úložiště pro `CachedLocation`, které slouží jako cache pro případ dočasné nedostupnosti sítě.
 
@@ -35,11 +35,11 @@ Základní tok dat a instrukcí je následující:
 2.  **Synchronizace**: `SyncWorker` se periodicky spouští, načítá dávku dat z `Room` a odesílá ji na server (`/api/devices/input`).
 3.  **Zpracování odpovědi**: Server může v odpovědi poslat konfigurační změny nebo instrukci (`power_instruction`).
     -   **Změna konfigurace**: `SyncWorker` nebo `HandshakeManager` uloží nové intervaly a v případě potřeby iniciuje restart `LocationService`.
-    -   **Instrukce `TURN_OFF`**:
-        a. `SyncWorker` nebo `HandshakeManager` zavolá `PowerController.requestTurnOff()`.
-        b. `PowerController` nastaví interní stav na `OFF`, uloží příznak `pending_turn_off_ack = true` a zastaví `LocationService`.
-        c. Jakákoli další snaha o spuštění služby je blokována, dokud `pending_turn_off_ack` je `true`.
-4.  **Potvrzení (Acknowledgement)**: `HandshakeManager` v rámci periodického handshake informuje server o svém stavu (`power_status = 'OFF'`). Když server odpoví bez `power_instruction = 'TURN_OFF'`, `HandshakeManager` zavolá `PowerController.markTurnOffAcknowledged()`, který resetuje `pending_turn_off_ack` na `false`. Tím je cyklus uzavřen a službu lze opět spustit.
+        - **Instrukce `TURN_OFF`**:
+            a. `SyncWorker` nebo `HandshakeManager` zavolá `PowerController.requestTurnOff()`.
+            b. `PowerController` nastaví interní stav na `OFF`, uloží příznak `pending_turn_off_ack = true` a zastaví `LocationService`.
+            c. Automatické spuštění služby je blokováno, dokud je `pending_turn_off_ack` `true`. Manuální spuštění uživatelem (tlačítko) tento blok ruší.
+    4.  **Potvrzení (Acknowledgement)**: `HandshakeManager` v rámci periodického handshake informuje server o svém stavu (`power_status = 'OFF'`). Když server odpoví bez `power_instruction = 'TURN_OFF'`, `HandshakeManager` zavolá `PowerController.markTurnOffAcknowledged()`, který resetuje `pending_turn_off_ack` na `false`. Tím je cyklus uzavřen a službu lze opět spustit.
 
 ## Konvence a doporučení pro implementaci
 

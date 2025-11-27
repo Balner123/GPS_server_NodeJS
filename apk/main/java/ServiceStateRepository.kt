@@ -22,6 +22,6 @@ object ServiceStateRepository {
      * This should typically be called by the LocationService.
      */
     fun updateState(newState: ServiceState) {
-        _serviceState.value = newState
+        _serviceState.tryEmit(newState)
     }
 }

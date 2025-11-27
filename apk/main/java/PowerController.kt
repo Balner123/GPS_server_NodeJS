@@ -20,10 +20,15 @@ object PowerController {
      */
     fun requestTurnOn(context: Context, origin: String): Boolean {
         if (SharedPreferencesHelper.isTurnOffAckPending(context)) {
-            ConsoleLogger.warn("PowerController: Start request from '$origin' denied, TURN_OFF is pending acknowledgement.")
-            // Optionally, trigger a handshake to try to resolve the pending state
-            HandshakeManager.launchHandshake(context, reason = "turn_on_while_ack_pending")
-            return false
+            if (origin == "manual_button") {
+                ConsoleLogger.info("PowerController: Manual override of pending TURN_OFF acknowledgement.")
+                // Clear the pending flag since the user explicitly wants it ON
+                SharedPreferencesHelper.setPowerState(context, PowerState.OFF, pendingAck = false, reason = "manual_override")
+            } else {
+                ConsoleLogger.warn("PowerController: Start request from '$origin' denied, TURN_OFF is pending acknowledgement.")
+                HandshakeManager.launchHandshake(context, reason = "turn_on_while_ack_pending")
+                return false
+            }
         }
 
         ConsoleLogger.info("PowerController: Start request from '$origin' approved.")
@@ -81,6 +86,34 @@ object PowerController {
                 pendingAck = false,           // Clear the flag
                 reason = origin
             )
+            // Update Repository to reflect the change immediately
+            refreshRepository(context)
         }
+    }
+
+    /**
+     * Synchronizes the ServiceStateRepository with the current persisted state in SharedPreferences.
+     * Call this at app startup to ensure the UI shows the correct state immediately.
+     */
+    fun initializeState(context: Context) {
+        refreshRepository(context)
+        ConsoleLogger.info("PowerController: State initialized from storage.")
+    }
+
+    private fun refreshRepository(context: Context) {
+        val currentState = ServiceStateRepository.serviceState.value
+        val persistedPower = SharedPreferencesHelper.getPowerState(context)
+        val ackPending = SharedPreferencesHelper.isTurnOffAckPending(context)
+        val reason = SharedPreferencesHelper.getPowerTransitionReason(context)
+        
+        // We update the repository with the persisted "intent" (PowerState)
+        // Note: isRunning remains whatever it was (likely false at startup) until the service actually reports in.
+        ServiceStateRepository.updateState(
+            currentState.copy(
+                powerStatus = persistedPower.toString(),
+                ackPending = ackPending,
+                powerInstructionSource = reason
+            )
+        )
     }
 }

@@ -42,7 +42,7 @@ void power_on() {
   g_pending_power_instruction = PowerInstruction::None;
   power_status_mark_on();
   status_led_set(true);
-  SerialMon.println(F("[POWER] Main power latch ON."));
+  DBG_PRINTLN(F("[POWER] Main power latch ON."));
 }
 
 void power_init() {
@@ -67,7 +67,7 @@ void power_init() {
 
   // Attach interrupt to the button pin
   attachInterrupt(digitalPinToInterrupt(PIN_BTN), on_button_isr, FALLING);
-  SerialMon.println(F("[POWER] Button interrupt and shutdown task initialized."));
+  DBG_PRINTLN(F("[POWER] Button interrupt and shutdown task initialized."));
 }
 
 void IRAM_ATTR on_button_isr() {
@@ -103,15 +103,15 @@ void ShutdownTask(void* pvParameters) {
     }
 
     if (valid_press) {
-      SerialMon.println(F("[BUTTON] Button press detected. Initiating graceful shutdown."));
+      DBG_PRINTLN(F("[BUTTON] Button press detected. Initiating graceful shutdown."));
       graceful_shutdown();
     }
   }
 }
 
 void graceful_shutdown() {
-  SerialMon.println(F("\n[POWER] Shutdown requested - starting graceful power-off..."));
-  SerialMon.flush();
+  DBG_PRINTLN(F("\n[POWER] Shutdown requested - starting graceful power-off..."));
+  DBG_FLUSH();
 
   // Detach interrupt to prevent any further triggers during shutdown
   detachInterrupt(digitalPinToInterrupt(PIN_BTN));
@@ -144,10 +144,10 @@ void graceful_shutdown() {
 }
 
 void enter_deep_sleep(uint64_t seconds) {
-  SerialMon.print(F("[SLEEP] Entering deep sleep for "));
-  SerialMon.print(seconds);
-  SerialMon.println(F(" seconds..."));
-  SerialMon.flush();
+  DBG_PRINT(F("[SLEEP] Entering deep sleep for "));
+  DBG_PRINT(seconds);
+  DBG_PRINTLN(F(" seconds..."));
+  DBG_FLUSH();
 
   // Detach interrupt before sleeping to prevent issues on wake
   detachInterrupt(digitalPinToInterrupt(PIN_BTN));
@@ -202,7 +202,7 @@ PowerInstruction power_instruction_get() {
 void power_instruction_apply(PowerInstruction instruction) {
   g_pending_power_instruction = instruction;
   if (instruction == PowerInstruction::TurnOff) {
-    SerialMon.println(F("[POWER] Power instruction received: TURN_OFF."));
+    DBG_PRINTLN(F("[POWER] Power instruction received: TURN_OFF."));
     g_instruction_ack_pending = true;
     g_instruction_shutdown_ready = false;
     power_status_mark_off();
@@ -216,7 +216,7 @@ void power_instruction_acknowledged() {
   if (g_pending_power_instruction == PowerInstruction::TurnOff && (g_instruction_ack_pending || !g_instruction_shutdown_ready)) {
     g_instruction_ack_pending = false;
     g_instruction_shutdown_ready = true;
-    SerialMon.println(F("[POWER] Power instruction TURN_OFF acknowledged by server."));
+    DBG_PRINTLN(F("[POWER] Power instruction TURN_OFF acknowledged by server."));
   }
 }
 

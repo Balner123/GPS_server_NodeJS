@@ -7,7 +7,7 @@ Tento dokument popisuje servisní komponenty aplikace, jejich odpovědnosti a o�
 
 - **Role**: Popřední služba zodpovědná za akvizici polohy a její lokální persistenci.
 - **Řízení stavu**: Její spuštění a běh jsou plně pod kontrolou `PowerController`.
-  - Pokus o spuštění služby je ignorován, pokud `PowerController` hlásí stav `OFF` nebo pokud je aktivní příznak `pending_turn_off_ack`.
+  - Pokus o spuštění služby je ignorován, pokud `PowerController` hlásí stav `OFF` nebo pokud je aktivní příznak `pending_turn_off_ack`. Výjimkou je manuální spuštění uživatelem, které příznak `pending_turn_off_ack` zruší.
   - Při ztrátě GPS nebo externím pokynu k zastavení služba provede řádný shutdown a informuje `PowerController`.
 - **Start služby (pokud je povolen `PowerController`)**:
   1. Načtení provozních parametrů (`gps_interval_seconds`, `sync_interval_count`).
