@@ -47,8 +47,9 @@ db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
 // Sync database schema
-sequelize.sync({ alter: true }).then(() => {
-  logger.info('Database schema synchronized');
+const syncOptions = process.env.NODE_ENV === 'production' ? {} : { alter: true };
+sequelize.sync(syncOptions).then(() => {
+  logger.info('Database schema synchronized', { env: process.env.NODE_ENV, options: syncOptions });
 }).catch(err => {
   logger.error('Error synchronizing database schema', err);
 });

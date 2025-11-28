@@ -69,6 +69,10 @@ router.post('/register-device', deviceController.registerDeviceFromHardware);
 
 /**
  * @swagger
+ * /api/hw/handshake:
+ *   post:
+ *     summary: Device handshake
+ *     tags: [Hardware API]
  *     requestBody:
  *       required: true
  *       content:

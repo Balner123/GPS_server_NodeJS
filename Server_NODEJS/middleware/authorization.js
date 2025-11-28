@@ -36,6 +36,12 @@ const isUser = (req, res, next) => {
   if (hasUserSession(req) && req.session.user.username === 'root') {
     return res.redirect('/administration');
   }
+  
+  // Don't show an error message if the user simply visits the landing page
+  if (req.path === '/') {
+    return res.redirect('/login');
+  }
+
   req.flash?.('error', 'Please log in to view this page.');
   res.redirect('/login');
 };

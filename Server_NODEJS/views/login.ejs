@@ -13,10 +13,26 @@
             <div class="card-body">
                 <h3 class="card-title text-center mb-4">Login</h3>
                 <% if (typeof success !== 'undefined' && success && success.length > 0) { %>
-                    <div class="alert alert-success"><%= success %></div>
+                    <div class="alert alert-success">
+                        <% if (Array.isArray(success)) { %>
+                            <% success.forEach(function(msg){ %>
+                                <div><%= msg %></div>
+                            <% }); %>
+                        <% } else { %>
+                            <%= success %>
+                        <% } %>
+                    </div>
                 <% } %>
                 <% if (error && error.length > 0) { %>
-                    <div class="alert alert-danger"><%= error %></div>
+                    <div class="alert alert-danger">
+                        <% if (Array.isArray(error)) { %>
+                            <% error.forEach(function(msg){ %>
+                                <div><%= msg %></div>
+                            <% }); %>
+                        <% } else { %>
+                            <%= error %>
+                        <% } %>
+                    </div>
                 <% } %>
                 <form action="/api/auth/login" method="POST">
                     <div class="mb-3">

@@ -122,7 +122,22 @@ app.use((err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
   }
-  res.status(500).json({ error: 'An unexpected server error occurred!' });
+
+  const isApiRequest = req.path.startsWith('/api') || 
+                       (req.headers['accept'] && req.headers['accept'].includes('application/json'));
+
+  if (isApiRequest) {
+    return res.status(500).json({ 
+      success: false,
+      error: 'An unexpected server error occurred!' 
+    });
+  }
+
+  // Render error page for web requests
+  res.status(500).render('error', { 
+    message: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected server error occurred.',
+    currentPage: 'error'
+  });
 });
 
 // Start server
