@@ -1,5 +1,7 @@
 # 3. API a routy
 
+> **Důležité upozornění:** Tento dokument slouží pouze jako stručný přehled. **Autoritativní a aktuální dokumentace API** je generována automaticky ze zdrojového kódu (pomocí Swagger/OpenAPI) a je dostupná na endpointu `/api-docs` běžícího serveru. V případě rozporů má přednost Swagger dokumentace.
+
 Tento dokument popisuje hlavní REST API a webové routy. Detailní specifikace (parametry, schémata, příklady odpovědí) jsou dostupné v Swagger UI na `/api-docs` a v `docs_server/schemas/`.
 
 ## Autorizace a middleware

@@ -30,7 +30,7 @@ graph TD
 
 ## 7.3. Algoritmus Agregace
 
-Logika je implementována ve funkci `clusterLocations(locations, distanceThreshold)`.
+Logika je implementována v modulu `utils/geoUtils.js` ve funkci `clusterLocations(locations, distanceThreshold)`.
 
 
   1.  Funkce iteruje polem seřazených bodů.

@@ -4,31 +4,31 @@ Tento diagram vizualizuje kompletní stavový automat firmwaru, včetně rozhodo
 
 ```mermaid
 stateDiagram-v2
-    %% --- Počáteční stav ---
-    [*] --> Boot : Připojení baterie / Timer / Tlačítko
+
+
 
     %% --- Bootovací sekvence ---
     state "Boot Sequence" as Boot {
-        Power_Latch : Aktivace PIN_EN (Hold Power)
+        [*] --> Check_Button : Aktivace PIN_EN (Hold Power)
         Check_Button : Kontrola tlačítka (GPIO32)
         
         state button_decision <<choice>>
-        
-        Power_Latch --> Check_Button
+
         Check_Button --> button_decision
     }
 
     button_decision --> OTA_Mode : Dlouhý stisk (> 2s)
-    button_decision --> Active_Cycle : Žádný stisk / Krátký stisk
+    button_decision --> Active_Cycle : Krátký stisk (< 2s)
 
     %% --- OTA Režim ---
     state "OTA / Service Mode" as OTA_Mode {
-        Start_WiFi : Start AP (lotrTrackerOTA_...)
-        Web_Server : Běží HTTP Server (Config/FW)
+        Start_WiFi : Start Wifi AP
+        Web_Server : Běží HTTP Server
         
         Start_WiFi --> Web_Server
-        Web_Server --> Web_Server : Čekání na uživatele
     }
+
+    OTA_Mode --> Shutdown
     %% Z OTA se vystupuje jen restartem (není v diagramu automatu)
 
     %% --- Hlavní pracovní cyklus ---
@@ -83,7 +83,11 @@ stateDiagram-v2
 
         Init --> GPS_Phase
         GPS_Phase --> Cache_Phase
-        Cache_Phase --> Modem_Phase
+        
+        state batch_check <<choice>>
+        Cache_Phase --> batch_check
+        batch_check --> Modem_Phase : Cache >= Limit
+        batch_check --> end_decision : Cache < Limit
     }
 
     %% --- Ukončovací stavy ---
@@ -92,7 +96,7 @@ stateDiagram-v2
     Active_Cycle --> end_decision : Cyklus dokončen
     
     state "Deep Sleep" as Sleep {
-        Timer_Set : Nastavení timeru (např. 60s)
+        Timer_Set : Nastavení timeru
         Go_Sleep : esp_deep_sleep_start()
     }
 
@@ -105,15 +109,8 @@ stateDiagram-v2
     end_decision --> Sleep : Je registrován
     end_decision --> Shutdown : Není registrován OR Příkaz TURN_OFF
 
-    %% Globální přerušení
-    note right of Shutdown
-        Graceful Shutdown lze vyvolat
-        kdykoliv tlačítkem (GPIO32)
-        během Active_Cycle.
-    end note
-
     Active_Cycle --> Shutdown : Interrupce tlačítkem (Graceful)
-    Sleep --> Boot : Wakeup Timer / Button
+    Sleep --> Active_Cycle : Wakeup Timer / Button
 ```
 
 ## Popis stavů

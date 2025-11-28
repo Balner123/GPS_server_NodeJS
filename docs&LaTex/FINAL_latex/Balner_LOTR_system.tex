@@ -328,13 +328,20 @@ openright
 %% Stránka s úvodem - povinná část
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%		
 	\chapter*{Úvod}
-	Můžeme říci, že od začátku za cíl projektu bylo vytvořit kompletní a hlavně uzavřený systém, co by mohl žít svým vlastním životem a jehož použití by bylo možné nasadit v reálných podmínkách.
-	Již kdysi jsem se zabýval "sběrnými" nebo "sledovacími" systémy. Poohlížel jsem se z variabilních důvodů po možnostech jak by šlo sestrojit zařízení schopné nahrávat video a ukládat na SD kartu nebo jiné uložiště.
-	Sledování polohy je jenom dalším krokem v tomto směru. Možnost že bych měl krabičku jež bych mohl dát někomu do auta, nebo jej připnout k nápravě kamionu a sledoval jeho pohyb do doby vybití baterie je velmi přitažlivá.
-	Bylo jasné, že již existují řešení a "GPS-trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem dumal nad tématem pro zavěrečný projekt, výroba a řešení konstrukce vlastního, sic nízkokvalitního a dosti poruchového, zařízení se ukázal jako vhodný nápad.
-	Existovala možnost vytvořit opravdu pouze "krabici" trackeru s ukládáním dat n apevné úložiště , avšak rozhodl jsem se to spojit s vývojem serveru jež by umožňoval sledování v reálném čase. Na tomto servr by šlo zobrazovat a spravovat data posílaná  zařízením přes mobilní síť  (z počátku jsem počítal pouze se sítí 2G).
-
+	Můžeme říci, že již od začátku cílem projektu bylo vytvořit kompletní a hlavně uzavřený systém, co by mohl žít svým vlastním životem a jehož použití by bylo možné nasadit v reálných podmínkách.
 	
+	Již kdysi jsem se zabýval "sběrnými" nebo "sledovacími" systémy. Poohlížel jsem se z variabilních důvodů po možnostech jak by šlo sestrojit zařízení schopné nahrávat video a ukládat na SD kartu nebo jiné uložiště.
+	Sledování polohy je jenom dalším krokem v tomto směru. Možnost že bych měl krabičku jež bych mohl dát někomu do auta, nebo jej připnout k nápravě kamionu a sledoval jeho pohyb do doby vybití baterie byla, a stále je, velmi přitažlivá.
+	
+	Bylo jasné, že již existují řešení a "GPS-trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem dumal nad tématem pro zavěrečný projekt, výroba a řešení konstrukce vlastního, sic nízkokvalitního a dosti poruchového, zařízení se ukázal jako vhodný nápad.
+	Existovala možnost vytvořit opravdu pouze "krabici" trackeru s ukládáním dat n apevné úložiště , avšak rozhodl jsem se to spojit s vývojem serveru jež by umožňoval sledování v reálném čase. Na tomto "webovém" serveru by tak šlo zobrazovat a spravovat data posílaná  zařízením přes mobilní síť.
+	To se pak přirozeně rozvinulo do plného systému s uživatelskými účty a možností spravovat více zařízení na jednom z nich. 
+	Již z počátků pak bylo také na výledni ,že pokud by server měl fungovat a přijímat data spolehlivě, tak jeho jádrem by muselo být responzivní a hlavně "robustní" API. Jeho struktura se však, hlavně kvůli postupnému přehodnocuvání principu komunikace mezi serverem a zařízeními, dosti drasticky měnila.
+	Fyzické zařízení totiž bylo hlavním pilířem celého systému a jeho kontrukce, složení, a hlavně samotný kod, udávaly směr vývoje všeho ostatního. 
+
+	Jako méně důležitou, ale přesto užitečnou součást systému jsem pak viděl souběžný vývoj mobilní aplikace pro systém Android. Ta měla sloužit jako plnohodnotná náhrada hardwarového zařízení a možná jako náhrada více schopná.
+
+%Příkaz \chapter*{Úvod}	
 %Tento příkaz vytvoří novou kapitolu s názvem "Úvod" ve vašem dokumentu.
 %Hvězdička * u příkazu \chapter* znamená, že tato kapitola nebude mít číslo. Ve výsledném dokumentu se tedy objeví jako "Úvod" bez předcházejícího čísla kapitoly, které se obvykle zobrazuje u číslovaných kapitol.
 %Tento příkaz také znamená, že kapitola se automaticky neobjeví v obsahu, protože LaTeX standardně zahrnuje do obsahu pouze číslované kapitoly.
@@ -351,397 +358,67 @@ openright
 %* předem definované cíle práce, 
 %* motivaci pro další čtení textu včetně stručného uvedení obsahu následujících kapitol 
 
+\chapter{Fyzické zařízení \uv{tracker}}
+\section{Úvod}
+\label{sec:uvod}
 
-\chapter{Typografický systém LaTeX}
+\section{Technologie}
+\label{sec:technologie}
+
+\section{Hardware}
+\label{sec:hardware}
+
+\subsection{Mikrokonrolér + Modem}
+
+\subsection{GPS modul}
+
+\subsection{Napájení a baterie}
+
+\section{Firmware}
+\label{sec:firmware}
+\subsection{Knihovny}
+
+\subsection{Struktura kódu}
+
+\subsection{Funkce a logika}
+
+\section{Manuál a použití}
+
+%%
+\chapter{Serverová část}
 
 \section{Úvod}
 \label{sec:uvod}
 
-V této kapitole se seznámíme s \LaTeX{}, což je vysoko kvalitní typografický systém, speciálně navržený pro produkci technické a vědecké dokumentace. \LaTeX{} je široce používán akademiky, vědci, inženýry a dalšími profesionály, kteří potřebují efektivně vytvářet vysoce kvalitní dokumenty, jako jsou články, reporty, knihy a dokonce i prezentace.
+\section{Architektura a technologie}
+\label{sec:architektura_a_technologie}
 
-\subsection{Co je \LaTeX{}}
-\LaTeX{} je založen na programu \TeX{}, který byl původně vytvořen Donaldem E. Knuthem v pozdních 70. letech. Na rozdíl od běžných textových procesorů, které jsou "What You See Is What You Get" (WYSIWYG), \LaTeX{} funguje na principu "What You See Is What You Mean" (WYSIWYM). To znamená, že se uživatelé soustředí na strukturu a obsah svého textu, zatímco vzhled dokumentu je řízen předdefinovanými šablonami.
+\section{Backend}
+\label{sec:backend}
 
-\subsection{Výhody používání \LaTeX{}}
-Hlavní výhodou používání \LaTeX{} je jeho schopnost vytvářet profesionálně vypadající dokumenty s konzistentním formátováním. Dále nabízí:
+\section{Frontend}
+\label{sec:frontend}
 
-\begin{itemize}
-	\item Vynikající kvalitu sazby, zvláště pro matematické vzorce.
-	\item Automatizované generování obsahu, seznamů obrázků, tabulek a bibliografických odkazů.
-	\item Možnost snadno pracovat s komplexními dokumenty jako jsou disertace nebo knihy.
-	\item Rozsáhlé možnosti přizpůsobení a širokou škálu balíčků rozšiřujících jeho funkčnost.
-\end{itemize}
+\section{API}
+\label{sec:api}
 
-V následujících sekcích se podrobněji podíváme na základní prvky \LaTeX{} a naučíme se, jak je používat k vytváření kvalitních dokumentů.
+\section{Manuál a použití}
+\subsection{}
 
-
-\section{Základní struktura dokumentu}
-\label{sec:zakladni_struktura}
-
-V této kapitole se podrobněji podíváme na základní strukturu dokumentu v \LaTeX{}u. Po porozumění této struktuře budete schopni vytvářet vlastní dokumenty s přizpůsobeným formátováním a strukturou.
-
-\subsection{Preambule dokumentu}
-Preambule je první částí každého \LaTeX{}ového dokumentu. Zde definujeme typ dokumentu, který chceme vytvořit, a nastavíme různé parametry, které ovlivňují celkový vzhled dokumentu. Preambule také často obsahuje příkazy pro načítání různých balíčků, které rozšiřují základní funkčnost \LaTeX{}u.
-
-\begin{verbatim}
-	\documentclass[options]{class}
-	\usepackage[options]{package}
-\end{verbatim}
-
-\subsection{Hlavní tělo dokumentu}
-Hlavní tělo dokumentu začíná příkazem \verb|\begin{document}| a končí \verb|\end{document}|. Veškerý obsah, který chcete mít ve svém dokumentu, by měl být umístěn mezi tyto dva příkazy. 
-
-\subsection{Sekce a podsekce}
-Pro organizaci obsahu se často používají sekce a podsekce. Tyto struktury pomáhají čtenáři lépe navigovat dokumentem a rozdělit text do logických bloků.
-
-\begin{verbatim}
-	\section{Název sekce}
-	\subsection{Název podsekce}
-	\subsubsection{Název podpodsekce}
-\end{verbatim}
-
-\subsection{Odstavce a rozestupy}
-V \LaTeX{}u je nový odstavec vytvořen jednoduše vložením jedné nebo více prázdných řádek. Rozestupy mezi odstavci, stejně jako zarovnání textu, můžeme upravit podle potřeby.
-
-\section{Práce s textem}
-\label{sec:prace_s_textem}
-
-Tato část se zaměřuje na základní techniky práce s textem v \LaTeX{}u, včetně formátování textu, vytváření seznamů a využití křížových odkazů a poznámek pod čarou.
-
-\subsection{Formátování textu}
-Formátování textu je klíčovým prvkem pro zvýraznění důležitých informací a zlepšení čitelnosti dokumentu.
-
-\subsubsection{Zvýraznění textu}
-V \LaTeX{}u existuje několik způsobů, jak zvýraznit text. Můžeme použít tučné písmo, kurzívu nebo podtržení.
-
-\begin{verbatim}
-	\textbf{tučné písmo}, \textit{kurzíva}, \underline{podtržený text}
-\end{verbatim}
-
-\subsubsection{Seznamy a výčty}
-Seznamy jsou užitečné pro strukturování informací a jejich uspořádání do čitelné formy. \LaTeX{} podporuje nečíslované, číslované a popisné seznamy.
-
-\begin{verbatim}
-	\begin{itemize}
-		\item Nečíslovaný seznam
-	\end{itemize}
-	
-	\begin{enumerate}
-		\item Číslovaný seznam
-	\end{enumerate}
-	
-	\begin{description}
-		\item[Popisek] Popisný seznam
-	\end{description}
-\end{verbatim}
-
-\subsection{Křížové odkazy a poznámky pod čarou}
-Křížové odkazy a poznámky pod čarou jsou důležité pro odkazování na jiné části dokumentu a poskytování dodatečných informací.
-
-\subsubsection{Křížové odkazy}
-Pomocí křížových odkazů můžeme odkazovat na jiné sekce, obrázky nebo tabulky v dokumentu.
-
-\begin{verbatim}
-	\label{sec:nazev_sekce}
-	Odkaz na sekci \ref{sec:nazev_sekce}.
-\end{verbatim}
-
-\subsubsection{Poznámky pod čarou}
-Poznámky pod čarou poskytují dodatečné informace bez přerušení toku hlavního textu.
-
-\begin{verbatim}
-	Text s poznámkou pod čarou.\footnote{Text poznámky pod čarou.}
-\end{verbatim}
-
-
-
-\section{Matematické vzorce a symboly}
-\label{sec:matematicke_vzorce_a_symboly}
-
-Tato část poskytuje přehled o vkládání matematických vzorců a symbolů do dokumentů v \LaTeX{}u, což je nezbytné pro tvorbu akademických a vědeckých textů.
-
-\subsection{Základní matematické prostředí}
-\LaTeX{} nabízí několik prostředí pro práci s matematikou, včetně "math" pro základní matematické výrazy a "displaymath" pro samostatné rovnice.
-
-\begin{verbatim}
-	$z = x + y$ % Inline matematika
-	\begin{displaymath}
-		z = x + y
-	\end{displaymath}
-\end{verbatim}
-
-\subsection{Rovnice a symboly}
-Matematické rovnice a symboly jsou základem mnoha vědeckých dokumentů, a \LaTeX{} poskytuje širokou škálu nástrojů pro jejich efektivní použití.
-
-\subsubsection{Vložení jednoduché rovnice}
-Pro vložení jednoduché rovnice můžeme použít prostředí "equation" nebo "align" pro více rovnic s zarovnáním.
-
-\begin{verbatim}
-	\begin{equation}
-		E = mc^2
-	\end{equation}
-\end{verbatim}
-
-\subsubsection{Pokročilé matematické výrazy}
-Pro složitější matematické výrazy, jako jsou integrály, sumy nebo frakce, \LaTeX{} nabízí rozsáhlé možnosti.
-
-\begin{verbatim}
-	\begin{equation}
-		\int_0^\infty e^{-x} \, dx
-	\end{equation}
-\end{verbatim}
-
-
-
-\section{Práce s obrázky a tabulkami}
-\label{sec:prace_s_obrazky_a_tabulkami}
-
-Tato kapitola je zaměřena na vkládání a formátování obrázků a tabulek v \LaTeX{}u, což jsou klíčové dovednosti pro vytváření vizuálně atraktivních a informativních dokumentů.
-
-\subsection{Vkládání obrázků}
-Vkládání obrázků do dokumentů \LaTeX{}u umožňuje autorům přidávat vizuální prvky, které podporují a doplňují textový obsah.
-
-\subsubsection{Formáty obrázků}
-\LaTeX{} podporuje různé formáty obrázků, včetně populárních formátů jako JPEG, PNG a PDF. Výběr správného formátu je důležitý pro kvalitu a velikost souboru.
-
-\begin{verbatim}
-	\includegraphics[width=0.5\textwidth]{obrazek.jpg}
-\end{verbatim}
-
-\subsubsection{Pozicování obrázků}
-Správné pozicování obrázků je klíčové pro zachování čitelnosti a estetiky dokumentu. \LaTeX{} nabízí několik možností, jak ovlivnit umístění obrázků v textu.
-
-\begin{verbatim}
-	\begin{figure}[h]
-		\centering
-		\includegraphics[width=0.5\textwidth]{obrazek.jpg}
-		\caption{Popisek obrázku}
-		\label{fig:obrazek}
-	\end{figure}
-\end{verbatim}
-
-\subsection{Vytváření tabulek}
-Tabulky jsou nezbytné pro organizované a efektivní prezentování dat. \LaTeX{} umožňuje vytváření jak jednoduchých, tak složitých tabulek.
-
-\subsubsection{Základní tabulky}
-Pro vytváření základních tabulek lze využít prostředí "tabular". Jednoduchá tabulka může být vytvořena bez složitých formátovacích nástrojů.
-
-\begin{verbatim}
-	\begin{tabular}{|c|c|c|}
-		\hline
-		A & B & C \\
-		\hline
-		1 & 2 & 3 \\
-		\hline
-	\end{tabular}
-\end{verbatim}
-
-\subsubsection{Pokročilé tabulky}
-Pro složitější tabulky, jako jsou tabulky s více řádky nebo sloupci, lze použít pokročilé formátovací možnosti, jako jsou sloučené buňky a speciální zarovnání.
-
-\begin{verbatim}
-	\begin{table}[h]
-		\centering
-		\begin{tabular}{|c|c|c|}
-			\hline
-			\multirow{2}{*}{A} & B1 & C1 \\
-			\cline{2-3}
-			& B2 & C2 \\
-			\hline
-		\end{tabular}
-		\caption{Pokročilá tabulka}
-		\label{tab:pokrocila_tabulka}
-	\end{table}
-\end{verbatim}
-
-
-
-\section{Bibliografie a citace}
-\label{sec:bibliografie_a_citace}
-
-Tato kapitola poskytuje podrobný návod na vytváření bibliografie a správné citování zdrojů v \LaTeX{}u, což jsou nezbytné dovednosti pro akademické psaní a publikování.
-
-\subsection{Vytváření bibliografie}
-\LaTeX{} umožňuje efektivní správu bibliografických záznamů a jejich automatické formátování. Tento proces zahrnuje několik kroků od definování zdrojů po jejich začlenění do dokumentu.
-
-\begin{verbatim}
-	\begin{thebibliography}{99}
-		\bibitem{nazev}
-		Autor, \emph{Název knihy}, Nakladatelství, Rok.
-	\end{thebibliography}
-\end{verbatim}
-
-\subsection{Citování zdrojů}
-Správné citování zdrojů je klíčové pro akademickou integritu a umožňuje čtenářům dohledat zmiňované informace. V \LaTeX{}u je možné citovat zdroje jednoduše pomocí příkazu \verb|\cite|.
-
-\begin{verbatim}
-	Jak bylo zmíněno v \cite{nazev}, ...
-\end{verbatim}
-
-
+\chapter{Aplikace pro Android}
+\section{Architektura a implementace}
+\label{sec:architektura_a_implementace}
 
 	
-
-	\chapter{Tipy k psaní}
-	\pagestyle{fancy}
-	Jak už jsem psal výše \LaTeX je dosti komplexní systém, který umožňuje psát velmi rozsáhlé text. Jeho autor Donald Knuth ho stvořil, aby mohl vydat jeho učebnici \emph{The Art of Computer Programming} a dodnes se je využíván pro sazbu skript, učebnic, článků či závěrečných prací. V této kapitole najdeš ukázky různých funkcí a balíčků \LaTeX u od těch nejzákladnějších až po složitější. Neznamená to nutně, že všechny musíš použít, ale když potřebuješ pomoct, tak je dobré mít oporu. 
-	
-	Pokud s \LaTeX em úplně začínáš tak ti můžu doporučit přiručku \emph{Ne příliš stručný úvod do systému \LaTeX2e}~\cite{LaTeXprirucka}. Případně spoustu užitečných informací nalezneš na Wikibooks~\cite{wikibooksLaTeX}. Pokud narazíš na nějaký problém googli. Na internetu je spoustu fór, kde pravděpodobně už někdo podobný problém řešil. Asi nejvíce otho najdeš na stránce \emph{TeX - LaTeX Stackexchange} \cite{stackExchange}.
-	
-	
-	\section[Základy]{Základy: Text, obrázky, tabulky a citace} %%[Text, který bude v obsahu]{Text, který se vytiskne na stránce} Zkus měnit jednotlivé závorky a uvidíš :) 
-	Psaní v \LaTeX{u} není žádná věda, stačí psát normálně do zdrojového souboru. Pokud bys chtěl psát obrážky či číslovaný seznam, pak můžeš použít prostředí \texttt{itemize} či \texttt{enumerate}. Často je důležité používat nezlomitelnou mezeru. Tu uděláš pomocí \verb|~|~(tildy). Pokud budeš chtít psát uvozovky použij příkaz \texttt{uv}, pomocí něj se ti vytvoří uvozovky podle příslušného jazyka. V česku tedy ve formátu 99 66. Použití příkazu najdeš níže v textu.
-	
-	Občas je zapotřebí \LaTeX{u} pomoct při rozdělování slov. To se udělá snadno vložením symbolů \verb|\-| mezi jednotlivé slabiky.
-	
-	\subsection{Tabulky}
-	
-	U tabulek platí to stejné co u obrázků. Zarovnávají se na střed a nechávají se \uv{plavat} v textu. Tabulka narozdíl od textu, má popisek nahoře. U tabulky \ref{tab:ukazka} je použit balíček \texttt{booktabs}, pomocí kterého je celá tabulka naformátovaná.
-	
-	Seznam jak obrázků tak tabulek je pak vytvořen pomocí příkazů \texttt{listoftables} a~\texttt{list\-of\-fig\-ures} na konci práce před literaturou.
-	
-	\begin{table}[h]
-		\caption{Tato tabulka slouží jako ukázka toho, jak mohou tabulky vypadat.} %% popisek se u tebaluky píše nad ní
-		\label{tab:ukazka} %% označení pro pozdější odkazování se 
-		\centering
-		\begin{tabular}{lll}
-			\toprule %% příkazy z balíčku booktabs
-			záhlaví& této & tabulky\\
-			\midrule
-			obsah&tabulky& už\\
-			není & oddělený &čarami\\
-			\bottomrule
-		\end{tabular}
-	\end{table}
-	
-	
-	\subsection{Obrázky}
-	
-	U obrázků je dobré používat vektorové formáty, pokud to jde. \LaTeX se nejvíc kamarádí s formátem PDF. Do známého PDFka lze z jiných vektorových formátů (ať už SVG či ESP) obrázky přenést snadno pomocí grafických programů, jako je třeba Inkscape. \LaTeX si rozhodně poradí i s tradičními formáty PNG a JPG, avšak tyto obrázky mohou zabírat více prostoru a při tisku se může projevit nižší rozlišení obrázků. Pokud chceš používat tyto obrázky, rozhodně měj na paměti, aby měli rozlišení alespoň 250 indálně 330 ppi.
-	
-	Obrázky se vkládají do prostředí \texttt{figure}, při úpravě šířky je možné krom tradičních jednotek jako cm nebo mm použít také jako jednotku šířku stránky \texttt{textwidth} to se hodí zejména když chceš mít více podobrázků. 
-	
-	U každého obrázku je důležité aby měl popisek, \texttt{caption}. Do popisku napiš, co na obrázku je, případně nějaký další popis, tak aby čtenář následně neměl sebemenší pochybnost. U obrázků co nejsou tvoje nezapomeň an citaci. Jinak by to totiž znamenalo, že jsi obrázek dělal ty sám, což není etické přivlastňovat si cizí díla. Popisek obrázku je věta, proto musí vždy končit tečkou.
-	
-	\begin{figure}[h!]
-		\centering %% příkaz, který ti obrázek zarovná na střed
-		\includegraphics[width=0.6\textwidth]{image/logo-skoly.png} %% vložení samotného obrátku
-		\caption{Logo SŠPU Opava \cite{sspuLogo}.} %% popisek obrázku, nezapomeň na citace!
-		\label{fig:logoSSPU} %% označení až budeš chtít na obrázek odkazovat
-	\end{figure}
-	
-	Když chceš odkazovat na obrázek, stačí pak už jen napsat příkaz \texttt{ref} a do závorek napsat označení obrázku. Třeba logo SOČky, můžeš vidět na obrázku \ref{fig:logoSSPU} \cite{socSSPU}.
-	
-	
-	\begin{figure}[h!] \centering
-		\begin{subfigure}[h]{0.63\textwidth} %%prostředí pro podobrázek {šířka podobrázku}
-			\includegraphics[width=\textwidth]{image/logo-skoly.png} 
-			\caption{} %% aby se ti vysázelo označení obrázku.
-		\end{subfigure}
-		\begin{subfigure}[h]{0.63\textwidth}
-			\includegraphics[width=\textwidth]{image/logo-skoly.png}
-			\caption{}
-		\end{subfigure}
-		\caption[Graf závislosti rotace DH PSF $\Delta\varphi$ na defokusaci objektivu $\Delta z$.]{Graf závislosti rotace DH PSF $\Delta\varphi$ na defokusaci objektivu $\Delta z$, (a) při použití objektivu Plan Fluor 10, (b) při použití objektivu Plan Fluor 20. Měřená data (žluté body) jsou lineárně proloženy (přerušovaná přímka). }
-		\label{fig:rotace_grafy}
-	\end{figure}
-	
-		Pokud bys měl více podobrázků přichází do hry balíček \texttt{subcaption}. Pomocí něj lze vysázet i podobrázky. U podobrázků se popisek píše pouze jeden, dolů. Je v tomto připadě vhodné použít navíc hranaté závorky, do nichž se napíše kratší popisek, který se následně ukáže v seznamu obrázků.
-	
-	Všimni si, že obrázky jsou naschvál široké. Je to proto, aby byly dobře čitelné. Také si všimni popisku grafů. Ačkoli nejspíš netušíš co je to DH PSF či defokusace objektivu mělo by ti být jasné, že je důležité přesně graf popsat. To znamená co je na vodorovné ose, co je na svislé ose. V jakých jednotkách veličiny jsou. Které body co znamenají, která křivka má jaký význam. Napsat samotné \uv{$\Delta \varphi$} je málo, vždy raději připoměň, co daná značka znamená.
-	
-
-	
-	\subsection{Literatura}
-	
-	V \LaTeX{}u lze dělat seznam literatury dvěma způsoby. V této šabloně jsem použil ten, kdy se seznam literatury píše přímo do práce. Pro jeho vygenerování doporučuji použít některý z generátarů, jako jsou například Citace PRO \cite{citacePRO}. Pomocí citací lze vygenerovat přímo dokument, který se pak už jen překopíruje do textu a člověk nemusí nic zvýrazňovat. Dále lze využít Bibtex, který rozhodně do budoucna hodlám zaimplementovat do šablony, avšak jeho použití nemusí být tak přátelské k začátečníkům.
-	
-	Pokud bys chtěl odkazovat na vícero zdrojů stačí je napsat vedle sebe oddělené čárkou \cite{LaTeXprirucka, citacePRO, Born2019}. Případně můžu odkaz na konkrétní stránku dát do hranatých závorek, viz \cite[str.~1]{Born2019}
-	
-	\subsection{Programový kód}
-	Pro vložení programového kódu do dokumentu LaTeX s možností zvýraznění syntaxe můžete použít balíček \texttt{listings}. Tento balíček nabízí široké možnosti pro formátování kódu, včetně zvýraznění syntaxe pro různé programovací jazyky.
-	
-	Nejprve je třeba do preambule LaTeX dokumentu přidat \texttt{\\usepackage{listings}} a nastavit příslušné parametry. Příklad nastavení pro jazyk Python by mohl vypadat takto:
-	
-
-\begin{lstlisting}[style=Python, caption={Ukázka Python kódu}]
-	# Python code here
-	def hello_world():
-		print("Hello, world!")
-\end{lstlisting}
-
-
-\begin{lstlisting}[style=JavaScript, title={Kód}, caption={Ukázka JS kódu}]
-	// JavaScript code here
-	function helloWorld() {
-		console.log("Hello, world!");
-	}
-\end{lstlisting}	
-	
-\begin{lstlisting}[style=ES6, caption={ES6 (ECMAScript-2015) Listing}]
-	/* eslint-env es6 */
-	/* eslint-disable no-unused-vars */
-	
-	import Axios from 'axios'
-	import { BASE_URL } from './utils/api'
-	import { getAPIToken } from './utils/helpers'
-	
-	export default class User {
-		constructor () {
-			this.id = null
-			this.username = null
-			this.email = ''
-			this.isActive = false
-			this.lastLogin = ''  // ISO 8601 formatted timestamp.
-			this.lastPWChange = ''  // ISO 8601 formatted timestamp.
-		}
-	}
-	
-	const getUserProfile = async (id) => {
-		let user = new User()
-		await Axios.get(
-		`${BASE_URL}/users/${id}`,
-		{
-			headers: {
-				'Authorization': `Token ${getAPIToken()}`,
-			}
-		}
-		).then{response => {
-				// ...
-			}).catch(error => {
-				// ...
-			})
-		}
-\end{lstlisting}	
-	
-	\section[Pokročilejší tipy]{Pokročilejší tipy, které se mohou hodit}
-	
-	\subsection{Rovnice}
-	
-	Sazba matematiky je věda sama o sobě. Ačkoli Word prošel obrovskou změnou a je v~tomto mnohem lepší, tak \LaTeX je pro to přímo (ještě jsem neviděl matematika, co by používal Word). Spolu s balíčky \texttt{amsmath} a \texttt{amsfonts} snad neexistuje nic, co by se používalo a \LaTeX by to nezvládl. Ať už jde o základní věci jako řecká písmenka -- $\alpha, \beta, \gamma, \dots$ -- integrály -- $\int_{l_i}^{l_f} \tau \dif l $ -- až třeba po speciální písmena -- $\mathscr{F}: \mathbb{R}^n \to \mathbb{R}^m$. Pro případ, že bys potřeboval nějaké speciální integrály, je tu balíček \texttt{esint}, pomocí něj můžeš napsat třeba
-	$$ \oiint_{S(V)} \vec{E} \cdot \dif \vec{S} = \iiint_{V} \left(\vec{\nabla} \cdot \vec{E}\right) \dif V .$$
-	
-	Jak můžeš vidět tak rovnice lze psát jednak do textu a nebo pokud se jedná o nějakou důležitou nebo rozsáhlejší rovnici tak na samostatný řádek. Pokud je rovnice opravdu důležitá, tak je vhodné ji také číslovat. Pak se na ni můžeš dále odkazovat v textu.
-	\begin{equation}
-		\vec{F} = m \vec{a}
-		\label{eq:newton2}
-	\end{equation}
-	\dots Například podle druhého Newtonova zákona, rovnice (\ref{eq:newton2}) \dots Zároveň je vždy nutné vysvětlit co která veličina znamená. V tomto případě bych napsal, že v druhém Newtonově zákoně vektor síly $\vec F$ odpovídá součinu hmotnosti tělesa $m$ a jeho zrychlení $\vec a$. 
-	
-	Věřím, že se sazbou matematiky ti pomůže tvůj školitel, případně mi můžeš napsat (mail je v úvodu). Jednotlivé funkcionality spolu se seznamem znaků nalezneš jednak v Ne příliš stručném úvodu~\cite{LaTeXprirucka} nebo na Wikibooks v sekcích \emph{Mathematics} a \emph{Advanced mathematics}~\cite{wikibooksLaTeX}.
-	
-	
-	
-	
-	\chapter{Když dokončuji práci}
+\chapter{Když dokončuji práci}
 	
 	Každou práci je dobré zkontrolovat, aby v ní nebyly pravopisné chyby, nebyla těžkopádně napsaná -- byla čtivá -- a neobsahovala žádný typografický nedostatek. Proto, když práci sepíšeš, nech ji chvilku odležet, třeba týden. Pak si ji po sobě znovu přečti. Hned uvidíš, kolik věcí bys napsal jinak případně kde tě bije do očí jaká chyba. Dej práci přečíst také svému školiteli a případně češtináři. Zajistíš tak, že bude obsahovat méně chyb.
 	
 	Pak můžeš práci vytisknout a hurá do soutěže.
 	
-	\chapter*{Závěr}
+\chapter*{Závěr}
 	
-	Věřím, že jsem ti spolu se šablonou poskytl několik tipů, jak napsat práci. Ať už jde o úplné začátky s \LaTeX{}em. Či ukázku toho, co vše s ním zvládneš. Pokud bys měl k šabloně libovolné dotazy, rouhodně se na mě obrať. \LaTeX tvé práci dodá určitou krásu, tak doufám, že ti dodá sebevědomí a uspěješ při souteži. A i kdyby ne vzpomeň si, kolik ses toho musel naučit a hned uvidíš o jaký kus ses posunul.
+	
 	
 	%% literatura
 	\begin{thebibliography}{99}

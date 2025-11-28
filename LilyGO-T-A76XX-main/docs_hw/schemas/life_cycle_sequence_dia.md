@@ -24,7 +24,8 @@ sequenceDiagram
     end
 
     %% 2. Modem Fáze
-    App->>Modem: Power ON & Init
+    opt Cache >= Limit OR Urgent
+        App->>Modem: Power ON & Init
     activate Modem
     App->>Modem: Connect GPRS (APN)
     
@@ -54,8 +55,9 @@ sequenceDiagram
         App->>App: Skip Upload (Data zůstávají v cache)
     end
 
-    App->>Modem: Power OFF
-    deactivate Modem
+        App->>Modem: Power OFF
+        deactivate Modem
+    end
 
     Note over App: Vstup do Deep Sleep (dle configu)
 ```

@@ -86,7 +86,7 @@ Seznam klíčových knihoven a technologií použitých v projektu (viz `package
 ├── public/             # Statické soubory (CSS, JS, obrázky)
 ├── routes/             # Definice všech endpointů (rout)
 ├── scripts/            # Pomocné skripty
-├── utils/              # Utility (např. odesílání emailů)
+├── utils/              # Utility (logger, geoUtils, gpxGenerator)
 ├── views/              # Šablony stránek (EJS)
 ├── .env                # Konfigurační proměnné (lokální)
 ├── docker-compose.yml  # Konfigurace pro spuštění s Dockerem

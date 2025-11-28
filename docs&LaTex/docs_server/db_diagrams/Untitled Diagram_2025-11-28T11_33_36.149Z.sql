@@ -4,15 +4,14 @@ CREATE TABLE IF NOT EXISTS `users` (
 	`email` VARCHAR(255) NOT NULL UNIQUE,
 	`password` VARCHAR(255) NOT NULL,
 	`is_verified` BOOLEAN NOT NULL DEFAULT 0,
-	`verification_code` VARCHAR(10),
-	`verification_expires` TIMESTAMP NOT NULL,
 	`created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	`pending_email` VARCHAR(255) DEFAULT NULL,
 	`provider` VARCHAR(50) DEFAULT 'local',
 	`provider_id` VARCHAR(255),
 	`provider_data` TEXT,
-	`deletion_code` VARCHAR(10),
-	`deletion_code_expires` TIMESTAMP NOT NULL,
+	`action_token` VARCHAR(255) DEFAULT NULL,
+	`action_token_expires` TIMESTAMP NOT NULL,
+	`action_type` VARCHAR(50) DEFAULT NULL,
 	PRIMARY KEY(`id`)
 );
 

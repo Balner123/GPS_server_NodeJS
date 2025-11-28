@@ -1,4 +1,12 @@
+ACTUAL
+--------------------
 https://www.laskakit.cz/nabijecka-li-ion-clanku-tp4056-boost-mt3608/
-
 https://lilygo.cc/products/t-call-v1-4
 https://botland.cz/gps-moduly/22732-multi-gnss-polohovaci-modul-l76k-gps-beidou-bds-glonass-qzss-waveshare-23721.html
+
+
+HISTORIC
+--------------------
+https://www.laskakit.cz/lilygo-ttgo-t-call-v1-3-esp32-sim800l-wifi-gprs-modul/
+https://www.laskakit.cz/nabijecka-li-ion-clanku-tp4056-s-ochranou-microusb/
+

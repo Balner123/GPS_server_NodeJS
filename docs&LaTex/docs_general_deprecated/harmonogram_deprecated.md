@@ -22,6 +22,18 @@
 - Docker -> pro snadné nasazení
 ---
 
+**HISTORIE - PRECHODY**
+přechod mezi deskami
+//only HTTP --> HTTP SSL support
+
+
+WEB SETUP
+---
+ORACLE_cloud, ubuntu 
+domena (spaceship.com)
+letsencrypt
+reverseproxy
+---
 
 **problémy** 
 - SIM800L nezvládá SSL certifikáty, tudíž komunikace probíhá pouze na HTTP (?)
