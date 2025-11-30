@@ -53,8 +53,19 @@ openright
 \setlength{\cftbeforechapskip}{0pt}  % Menší rozestup pro kapitoly
 \setlength{\cftbeforesecskip}{0pt}   % Menší rozestup pro sekce
 
-\setcounter{secnumdepth}{2}
-\setcounter{tocdepth}{1}
+% Nastavení hloubky číslování a obsahu
+\setcounter{secnumdepth}{3} % Číslování až do úrovně 1.1.1
+\setcounter{tocdepth}{3}    % Obsah zobrazuje až do úrovně 1.1.1
+
+% Nastavení vzhledu položek v obsahu
+\renewcommand{\cftchapfont}{\scshape\bfseries} % Kapitoly: Kapitálky + Tučně
+\renewcommand{\cftsecfont}{\scshape}           % Sekce: Kapitálky
+\renewcommand{\cftsubsecfont}{\scshape}        % Podsekce: Kapitálky
+\renewcommand{\cftsubsubsecfont}{\normalfont}  % Pod-podsekce: Normální písmo (malé)
+
+% Zmenšení mezer pro nejnižší úroveň
+\setlength{\cftbeforesubsubsecskip}{-2pt}      % Zmenšená mezera před subsubsection
+
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \renewcommand{\headrulewidth}{0.025pt}
@@ -298,20 +309,18 @@ openright
 %% Abstrakt v češtině
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	\noindent{\Large{\bfseries{Anotace}\\}}
-	\noindent Výsledkem projektu je sledovací systém složený z "funkčního" (?) hardwarového zařízení, 
-	webového serveru pro ukládání, zpracování a zobrazování dat v uživatelském rozhraní, 
-	Součástí je také minimalistická Aplikace pro mobilní zařízení (pro systém Android).
-	fungující jako plná náhrada hardwarového zařízení.Je také určen pro správu a vzdálenovu konfiguraci zařízení propojených s uživatelovým účtem.
-	(HW i APK). 
-	Hardwarové zařízení je postaveno na platformě ESP32 s GPS modulem a LTE modemem pro přenos dat přes mobilní síť spolu s Baterií její nabíječkou a Napájecím modulem.
-	Zatímco server je napsán ve frameworku Node.js s využitím databáze MySQL. Aplikace je postavena na jazyce Kotlin s použitím Android SDK.
+	\noindent Cílem této práce je návrh a realizace sledovacího systému LOTR (LOcation TRacking System), který se skládá z fyzického hardwarového zařízení, serverové infrastruktury a klientské mobilní aplikace.
+	
+	Hardwarová část je postavena na platformě ESP32 s využitím modemu SIMCOM A7670 pro komunikaci přes sítě LTE a modulu GPS pro získávání polohy. Firmware je optimalizován pro nízkou spotřebu energie a spolehlivý přenos dat. Serverová část, realizovaná v prostředí Node.js s databází MySQL, zajišťuje sběr telemetrických dat, správu uživatelů a poskytuje REST API pro komunikaci s koncovými zařízeními. Součástí systému je také nativní aplikace pro OS Android vyvinutá v jazyce Kotlin, která slouží jako plnohodnotná softwarová náhrada hardwarového trackeru.
+	
+	Výsledkem projektu je funkční prototyp IoT řešení umožňující sledování polohy v reálném čase, historii pohybu a vzdálenou konfiguraci připojených zařízení.
 	
 	
 	\vspace{18pt}
 	
 	\noindent{\large{\bfseries{Klíčová slova}}}
 	
-	\noindent GPS, sledovací systém, ESP32, webová aplikace, mobilní aplikace, Kotlin, Node.js \dots
+	\noindent GPS, IoT, sledovací systém, ESP32, LTE, Node.js, MySQL, Android, Kotlin, REST API
 	
 	\vspace{18pt}
 	
@@ -359,91 +368,137 @@ openright
 %* motivaci pro další čtení textu včetně stručného uvedení obsahu následujících kapitol 
 
 \chapter{Fyzické zařízení \uv{tracker}}
-\section{Úvod}
-\label{sec:uvod}
+\label{chap:hw_tracker}
 
-\section{Technologie}
-\label{sec:technologie}
+\section{Teoretická východiska a použité technologie}
+\label{sec:hw_teorie}
+\subsection{Mikrokontroléry a SoC (ESP32)}
+\subsection{Mobilní komunikace v IoT a AT příkazy}
+\subsection{Globální navigační systémy (GPS)}
+\subsection{Operační systémy reálného času (FreeRTOS)}
+\subsection{Principy řízení napájení (Power Latch)}
 
-\section{Hardware}
-\label{sec:hardware}
+\section{Návrh hardware}
+\label{sec:hw_navrh}
+\subsection{Výběr komponent (LilyGO, NEO-6M)}
+\subsection{Schéma zapojení a periferie}
 
-\subsection{Mikrokonrolér + Modem}
+\section{Implementace firmware}
+\label{sec:hw_firmware}
+\subsection{Architektura a použité knihovny}
+\subsection{Řízení spotřeby a pracovní cyklus}
+\subsection{Správa datového úložiště (LittleFS)}
 
-\subsection{GPS modul}
+\section{Komunikace a data}
+\label{sec:hw_komunikace}
+\subsection{Komunikační protokol a zabezpečení}
+\subsection{Struktura dat a handshake}
 
-\subsection{Napájení a baterie}
-
-\section{Firmware}
-\label{sec:firmware}
-\subsection{Knihovny}
-
-\subsection{Struktura kódu}
-
-\subsection{Funkce a logika}
-
-\section{Manuál a použití}
+\section{Konfigurace a servisní režim}
+\label{sec:hw_konfigurace}
+\subsection{OTA režim a webové rozhraní}
+\subsection{Parametrizace zařízení}
 
 %%
 \chapter{Serverová část}
 
-\section{Úvod}
-\label{sec:uvod}
+\section{Úvod a koncepce systému}
+\label{sec:server_uvod}
+\subsection{Role serveru v systému LOTR}
+\subsection{Monolitická architektura a MVC vzor}
 
-\section{Architektura a technologie}
-\label{sec:architektura_a_technologie}
+\section{Použité technologie}
+\label{sec:server_technologie}
+\subsection{Runtime prostředí Node.js a framework Express}
+\subsection{Relační databáze a ORM (MySQL + Sequelize)}
+\subsection{Principy autentizace a OAuth 2.0}
+\subsection{REST API architektura}
 
-\section{Backend}
-\label{sec:backend}
+\section{Návrh a architektura backendu}
+\label{sec:server_architektura}
+\subsection{Databázové schéma a modely}
+\subsection{Struktura API endpointů}
+\subsection{Bezpečnostní mechanismy}
 
-\section{Frontend}
-\label{sec:frontend}
+\section{Implementace klíčových funkcí}
+\label{sec:server_implementace}
+\subsection{Příjem a validace telemetrických dat}
+\subsection{Algoritmy pro zpracování polohy (Geofencing, Clustering)}
+\subsection{Správa uživatelů a oprávnění}
 
-\section{API}
-\label{sec:api}
+\section{Prezentační vrstva (Frontend)}
+\label{sec:server_frontend}
+\subsection{Šablonovací systém EJS}
+\subsection{Vizualizace dat a mapové podklady}
 
-\section{Manuál a použití}
-\subsection{}
 
 \chapter{Aplikace pro Android}
-\section{Architektura a implementace}
-\label{sec:architektura_a_implementace}
+
+\section{Koncept a cíle aplikace}
+\label{sec:apk_koncept}
+\subsection{Náhrada hardwarového trackeru}
+\subsection{Princip Offline-First a odolnost proti výpadkům}
+
+\section{Použité technologie a platforma}
+\label{sec:apk_technologie}
+\subsection{Jazyk Kotlin a asynchronní programování (Coroutines)}
+\subsection{Systémové komponenty (Foreground Service, WorkManager)}
+\subsection{Lokální persistence (Room Database)}
+\subsection{Zabezpečené úložiště (EncryptedSharedPreferences)}
+
+\section{Architektura aplikace}
+\label{sec:apk_architektura}
+\subsection{Vrstevnatá architektura a reaktivní model (StateFlow)}
+\subsection{Vlastní implementace HTTP klienta}
+
+\section{Implementace klíčových funkcí}
+\label{sec:apk_implementace}
+\subsection{Sběr polohy na pozadí (LocationService)}
+\subsection{Dávková synchronizace dat (SyncWorker)}
+\subsection{Řízení spotřeby a vzdálené vypínání (PowerController)}
+\subsection{Handshake protokol a konfigurace}
+
+\section{Uživatelské rozhraní}
+\label{sec:apk_ui}
+\subsection{Hlavní ovládací panel (Dashboard)}
+\subsection{Diagnostická konzole pro terénní testování}
 
 	
-\chapter{Když dokončuji práci}
-	
-	Každou práci je dobré zkontrolovat, aby v ní nebyly pravopisné chyby, nebyla těžkopádně napsaná -- byla čtivá -- a neobsahovala žádný typografický nedostatek. Proto, když práci sepíšeš, nech ji chvilku odležet, třeba týden. Pak si ji po sobě znovu přečti. Hned uvidíš, kolik věcí bys napsal jinak případně kde tě bije do očí jaká chyba. Dej práci přečíst také svému školiteli a případně češtináři. Zajistíš tak, že bude obsahovat méně chyb.
-	
-	Pak můžeš práci vytisknout a hurá do soutěže.
-	
 \chapter*{Závěr}
+\addcontentsline{toc}{chapter}{Závěr}
+
+\section*{Zhodnocení projektu}
+
+\section*{Možnosti budoucího vývoje}
+
 	
-	
+\chapter*{Seznam použitých informačních zdrojů}
+\addcontentsline{toc}{chapter}{Seznam použitých informačních zdrojů}
 	
 	%% literatura
 	\begin{thebibliography}{99}
 		\bibitem{sablonaSOC} DOKULIL Jakub. \textit{Šablona pro psaní SOČ v programu \LaTeX} [Online]. Brno, 2020 [cit. 2020-08-24]. Dostupné z: \url{https://github.com/Kubiczek36/SOC_sablona}
-		\bibitem{LaTeXprirucka}OETIKER, Tobias, Hubert PARTL, Irene HYNA, Elisabeth SCHEGL, Michal KOČER a Pavel SÝKORA. \textit{Ne příliš stručný úvod do systému LaTeX2e} [online]. 1998 [cit. 2020-08-24]. Dostupné z: \url{https://www.jaroska.cz/elearning/informatika/typografie/lshort2e-cz.pdf}
-		\bibitem{wikibooksLaTeX}\textit{Wikibooks: LaTeX} [online]. San Francisco (CA): Wikimedia Foundation, 2001- [cit. 2020-08-24]. Dostupné z: \url{https://en.wikibooks.org/wiki/LaTeX}
-		\bibitem{stackExchange} \textit{TeX - LaTeX Stack Exchange} [online]. Stack Exchange, 2020 [cit. 2020-09-01]. Dostupné z: \url{https://tex.stackexchange.com}
-		\bibitem{sspuLogo} \textit{Střední škola průmyslová a umělecká Opava} [online]. [cit. 2023-11-11]. Dostupné z: \url{https://www.sspu-opava.cz}
-		\bibitem{citacePRO}\textit{Citace PRO} [online]. Citace.com, 2020 [cit. 2020-08-31]. Dostupné z: \url{https://www.citacepro.com}
-		\bibitem{Born2019} BORN, Max a Emil WOLF. \textit{Principles of optics: electromagnetic theory of propagation, interference and diffraction of light}. 7th (expanded) edition. Reprinted wirth corrections 2002. 15th printing 2019. Cambridge: Cambridge University Press, 2019. ISBN 978-0-521-64222-4.
+		\bibitem{espressif_docs} ESPRESSIF SYSTEMS. \textit{ESP32 Technical Reference Manual} [Online]. 2024. Dostupné z: \url{https://www.espressif.com/en/support/documents/technical-documents}
+		\bibitem{simcom_at} SIMCOM. \textit{A7600 Series AT Command Manual} [Online]. 2021.
+		\bibitem{kotlin_docs} JETBRAINS. \textit{Kotlin Documentation} [Online]. Dostupné z: \url{https://kotlinlang.org/docs/home.html}
+		\bibitem{android_dev} GOOGLE. \textit{Android Developers Guides} [Online]. Dostupné z: \url{https://developer.android.com/guide}
 	\end{thebibliography}
 	
 	%% obrázky 
 	\listoffigures
+	\addcontentsline{toc}{chapter}{Seznam obrázků}
 	
 	%% tabulky
 	\listoftables
+	\addcontentsline{toc}{chapter}{Seznam tabulek}
 	
 	\appendix %% začínají přílohy
+	\addcontentsline{toc}{chapter}{Přílohy}
 	
 	\titleformat{\chapter}[block]{\scshape\bfseries\LARGE}{Příloha \thechapter}{10pt}{\vspace{0pt}}[\vspace{-22pt}] %% nastavení nadpisu u příloh
 	
-	
-	\chapter{%Příloha A 
-		Spot diagramy a další }
-	
+	\chapter{Schéma zapojení hardware}
+	\chapter{ER diagram databáze}
+	\chapter{Uživatelský manuál aplikace}
 	
 \end{document}

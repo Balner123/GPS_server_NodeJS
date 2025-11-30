@@ -1,11 +1,11 @@
 # Fdb version 4
-["pdflatex"] 1764325738.23372 "c:/Users/Repete/Desktop/PROJEKTGPS2025/GPS_server_NodeJS/docs&LaTex/FINAL_latex/Balner_LOTR_system.tex" "Balner_LOTR_system.pdf" "Balner_LOTR_system" 1764325740.25321 0
-  "Balner_LOTR_system.aux" 1764325739 4435 65bfbf7b20300df3cde0a239301d08ab "pdflatex"
-  "Balner_LOTR_system.lof" 1764325739 128 3192f72b68b21174e1158ed593eb82c8 "pdflatex"
-  "Balner_LOTR_system.lot" 1764325739 128 3192f72b68b21174e1158ed593eb82c8 "pdflatex"
-  "Balner_LOTR_system.out" 1764325739 2247 61cee949bd2ba07c18072b77c20c6239 "pdflatex"
-  "Balner_LOTR_system.tex" 1764325736 18399 3de6214f1f4dad180a58c5431a562b08 ""
-  "Balner_LOTR_system.toc" 1764325739 1921 bbddb9d9e422d3cb7594a46a4169fec0 "pdflatex"
+["pdflatex"] 1764505400.82623 "c:/Users/Repete/Desktop/PROJEKTGPS2025/GPS_server_NodeJS/docs&LaTex/FINAL_latex/Balner_LOTR_system.tex" "Balner_LOTR_system.pdf" "Balner_LOTR_system" 1764505409.59402 0
+  "Balner_LOTR_system.aux" 1764505408 11749 a3693ba3a53c719bf9b982672a16de34 "pdflatex"
+  "Balner_LOTR_system.lof" 1764505408 148 bf008caab0d3e301b499d38b42244b22 "pdflatex"
+  "Balner_LOTR_system.lot" 1764505408 148 bf008caab0d3e301b499d38b42244b22 "pdflatex"
+  "Balner_LOTR_system.out" 1764505408 15482 7bb91c1a9420f925c878056f99315bcd "pdflatex"
+  "Balner_LOTR_system.tex" 1764505398 20885 56905938e6ec78df9db4b87473a7d1b7 ""
+  "Balner_LOTR_system.toc" 1764505408 6712 9c4d74a9bbe537adb98014e7b5aa925c "pdflatex"
   "C:/Users/Repete/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1762882465 6799231 2a5aaede017adc6dc4c1fbc33dd7f754 ""
   "C:/Users/Repete/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs10.tfm" 1762889031 688 37338d6ab346c2f1466b29e195316aa4 ""
   "C:/Users/Repete/AppData/Local/MiKTeX/fonts/tfm/public/rsfs/rsfs7.tfm" 1762889033 692 1b6510779f0f05e9cbf03e0f6c8361e6 ""
@@ -46,6 +46,7 @@
   "C:/Users/Repete/AppData/Local/Programs/MiKTeX/fonts/vf/adobe/times/ptmb8t.vf" 1136768654 2340 df9c920cc5688ebbf16a93f45ce7bdd3 ""
   "C:/Users/Repete/AppData/Local/Programs/MiKTeX/fonts/vf/adobe/times/ptmbc8t.vf" 1136768654 3604 b996520a6e31a74c2f4ad8c7ea17c389 ""
   "C:/Users/Repete/AppData/Local/Programs/MiKTeX/fonts/vf/adobe/times/ptmr8t.vf" 1136768654 2348 91706c542228501c410c266421fbe30c ""
+  "C:/Users/Repete/AppData/Local/Programs/MiKTeX/fonts/vf/adobe/times/ptmrc8t.vf" 1136768654 3608 eb048a634708cbf5eda8def0ce93c7bb ""
   "C:/Users/Repete/AppData/Local/Programs/MiKTeX/fonts/vf/adobe/times/ptmri8t.vf" 1136768654 2328 6cd7df782b09b29cfc4d93e55b6b9a59 ""
   "C:/Users/Repete/AppData/Local/Programs/MiKTeX/tex/context/base/mkii/supp-pdf.mkii" 1580390158 71627 94eb9990bed73c364d7f53f960cc8c5b ""
   "C:/Users/Repete/AppData/Local/Programs/MiKTeX/tex/generic/babel/babel.sty" 1761147669 145885 784cdd1ebbc3dbacabd5ee30707617a3 ""
@@ -151,7 +152,7 @@
   "C:/Users/Repete/AppData/Local/Programs/MiKTeX/tex/latex/was/upgreek.sty" 1665850770 5794 9054e31be15d93f1e6bd28cca2b6643f ""
   "C:/Users/Repete/AppData/Local/Programs/MiKTeX/tex/latex/xcolor/xcolor.sty" 1729265222 55384 b454dec21c2d9f45ec0b793f0995b992 ""
   "C:/Users/Repete/AppData/Local/Programs/MiKTeX/tex/latex/xkeyval/xkeyval.sty" 1656236919 4937 4ce600ce9bd4ec84d0250eb6892fcf4f ""
-  "c:/Users/Repete/Desktop/PROJEKTGPS2025/GPS_server_NodeJS/docs&LaTex/FINAL_latex/Balner_LOTR_system.tex" 1764325736 18399 3de6214f1f4dad180a58c5431a562b08 ""
+  "c:/Users/Repete/Desktop/PROJEKTGPS2025/GPS_server_NodeJS/docs&LaTex/FINAL_latex/Balner_LOTR_system.tex" 1764505398 20885 56905938e6ec78df9db4b87473a7d1b7 ""
   "image/logo-skoly.png" 1698872160 32561 d34132b4dd859dfecbac02340053e1dc ""
   "image/logo_lotr.png" 1764002899 33108 2b7902f6811560eea865f4fd33c6f493 ""
   (generated)
