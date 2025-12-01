@@ -34,7 +34,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusTextView: TextView
     private lateinit var toggleButton: TextView
     private lateinit var serverInstructionBanner: TextView
-    private lateinit var lastConnectionStatusTextView: TextView
+    // private lateinit var lastConnectionStatusTextView: TextView // Removed
     private lateinit var countdownTextView: TextView
     private lateinit var lastLocationTextView: TextView
     private lateinit var cachedCountTextView: TextView
@@ -115,7 +115,7 @@ class MainActivity : AppCompatActivity() {
         serverInstructionBanner = findViewById(R.id.serverInstructionBanner)
         serverInstructionBanner.visibility = View.GONE
         serverInstructionBanner.text = ""
-        lastConnectionStatusTextView = findViewById(R.id.lastConnectionStatusTextView)
+        // lastConnectionStatusTextView = findViewById(R.id.lastConnectionStatusTextView) // Removed
         countdownTextView = findViewById(R.id.countdownTextView)
         lastLocationTextView = findViewById(R.id.lastLocationTextView)
         cachedCountTextView = findViewById(R.id.cachedCountTextView)
@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         ConsoleLogger.logs.observe(this) { logs ->
-            consoleTextView.text = logs.joinToString("")
+            consoleTextView.text = logs.joinToString("\n")
             consoleScrollView.post { consoleScrollView.fullScroll(View.FOCUS_DOWN) }
         }
 
@@ -170,7 +170,7 @@ class MainActivity : AppCompatActivity() {
                     updateUiState(isServiceRunning)
 
                     lastLocationTextView.text = serviceState.statusMessage
-                    lastConnectionStatusTextView.text = serviceState.connectionStatus
+                    // lastConnectionStatusTextView.text = serviceState.connectionStatus // Removed
                     cachedCountTextView.text = "Cached positions: ${serviceState.cachedCount}"
                     powerStatusTextView.text = "Power: ${serviceState.powerStatus}"
                     
@@ -276,9 +276,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateUiState(isServiceRunning: Boolean) {
+        val currentState = ServiceStateRepository.serviceState.value
         val ackPending = SharedPreferencesHelper.isTurnOffAckPending(this)
         serverInstructionBanner.visibility = View.GONE
         serverInstructionBanner.text = ""
+
+        if (currentState.statusMessage == StatusMessages.SERVICE_FINALIZING) {
+            statusTextView.text = "Stopping..."
+            toggleButton.text = "..."
+            toggleButton.isEnabled = false
+            // Keep the "ON" background to indicate activity, or use a neutral one if available.
+            // Using ON background to show it's still busy.
+            toggleButton.setBackgroundResource(R.drawable.button_bg_on)
+            return
+        }
+        
+        toggleButton.isEnabled = true
+
         if (ackPending) {
             statusTextView.text = "Service is stopped"
             toggleButton.text = "OFF"
@@ -364,7 +378,8 @@ class MainActivity : AppCompatActivity() {
     private fun stopLocationService() {
         stopService(Intent(this, LocationService::class.java))
         SharedPreferencesHelper.setPowerState(this, PowerState.OFF, pendingAck = false, reason = "manual_stop")
-        HandshakeManager.launchHandshake(this, reason = "manual_stop")
+        // Handshake is handled by LocationService.onDestroy -> SyncWorker flush
+        // HandshakeManager.launchHandshake(this, reason = "manual_stop")
     }
 
     private fun runPreFlightChecks() {

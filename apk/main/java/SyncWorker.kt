@@ -43,12 +43,20 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             ConsoleLogger.warn("Sync: No session cookie, falling back to device_id")
         }
 
+        // FIX: Reverted order based on user requirement: Input -> Handshake.
+        // We do NOT perform handshake here. We send data first.
+
+        // FIX: Removed blocking check for pending TURN_OFF ack.
+        // We MUST send data even if (and especially if) we are turning off,
+        // so the server receives the final location with power_status=OFF.
+        /*
         if (SharedPreferencesHelper.isTurnOffAckPending(applicationContext)) {
             ConsoleLogger.info("Sync: Upload paused, waiting for TURN_OFF confirmation")
             HandshakeManager.launchHandshake(applicationContext, reason = "sync_turn_off_ack")
             HandshakeManager.enqueueHandshakeWork(applicationContext)
             return Result.success()
         }
+        */
 
         val batchSize = 50
         var continueSync = true
@@ -116,6 +124,21 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 ConsoleLogger.error("Sync: Unauthorized access: ${e.message}")
                 handleUnauthorized()
                 return Result.failure()
+            } catch (e: ClientException) {
+                ConsoleLogger.error("Sync: Client error: ${e.message}")
+                val is404 = e.message?.contains("HTTP 404") == true
+                val is400 = e.message?.contains("HTTP 400") == true
+
+                if (is404 || is400) {
+                    ConsoleLogger.warn("Sync: Fatal error (404/400). Deleting batch to prevent loop.")
+                    dao.deleteLocationsByIds(idsToDelete)
+
+                    if (is404) {
+                        handleDeviceNotRegistered()
+                    }
+                    return Result.failure()
+                }
+                return Result.retry()
             } catch (e: ServerException) {
                 ConsoleLogger.warn("Sync: Server error: ${e.message}")
                 return Result.retry()
@@ -127,6 +150,11 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
         ConsoleLogger.debug("Sync: Triggering handshake after sync session completion")
         HandshakeManager.launchHandshake(applicationContext, reason = "sync_complete")
+
+        // Update status to indicate sync is done
+        val finalState = ServiceStateRepository.serviceState.value
+        val newStatus = if (finalState.isRunning) StatusMessages.TRACKING_ACTIVE else StatusMessages.SERVICE_STOPPED
+        ServiceStateRepository.updateState(finalState.copy(statusMessage = newStatus))
 
         return Result.success()
     }
@@ -211,6 +239,24 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             putExtra(
                 LocationService.EXTRA_LOGOUT_MESSAGE,
                 "Session is invalid. Please sign in again."
+            )
+        }
+        applicationContext.sendBroadcast(logoutIntent)
+    }
+
+    private fun handleDeviceNotRegistered() {
+        SharedPreferencesHelper.setPowerState(
+            applicationContext,
+            PowerState.OFF,
+            pendingAck = false,
+            reason = "not_registered"
+        )
+        applicationContext.stopService(Intent(applicationContext, LocationService::class.java))
+
+        val logoutIntent = Intent(LocationService.ACTION_FORCE_LOGOUT).apply {
+            putExtra(
+                LocationService.EXTRA_LOGOUT_MESSAGE,
+                "Device is not registered. Please log in again to re-register."
             )
         }
         applicationContext.sendBroadcast(logoutIntent)

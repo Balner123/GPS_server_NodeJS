@@ -1,0 +1,7 @@
+podivne choavni pri simple:1  => batch
+Po Turnoff => cache !=0 but data were sent
+Some actions are duplicate
+App from SYNC get more data then succes:true,,, it gets power-flag (it should only get success state , everything else is r3solved by handshakes).
+After Turn-off signal received => 2x same data sent (gatherend 2x ? Or only sentthesamedata twice)
+Freezed behaviour => delay before actions, (or other processes) , timer is allready running > but data werent sent (expected asynchronous  behaviour ?)
+Duplicate handshakes (triggered by differrnt components oncee or by one component twice)

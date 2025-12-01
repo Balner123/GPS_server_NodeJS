@@ -1,0 +1,114 @@
+===================================
+APK Communication Requirements
+===================================
+
+1) Identita a autentizace
+-------------------------
+- APK klient používá uživatelský účet. Přihlášení probíhá přes `POST /api/apk/login` s JSON payloadem:
+  {
+    "identifier": "username nebo email",
+    "password": "Secret123!",
+    "installationId": "apk-install-uuid-12345"
+  }
+- Při úspěchu server založí HTTP session (`connect.sid` cookie) a vrací:
+  {
+    "success": true,
+    "device_is_registered": false
+  }
+- Pokud účet není ověřen, server vrátí `403` a hlášku `Account not verified...`.
+- Chybějící pole ⇒ `400`, špatné přihlašovací údaje ⇒ `401`, neexistující uživatel ⇒ `401`.
+- Logout provádí `POST /api/apk/logout` (session zanikne, cookie se smaže).
+
+2) Registrace zařízení / instalace APK
+--------------------------------------
+- Každá instalace APK vystupuje jako zařízení s `device_id = installationId` a `device_type = APK`.
+- Varianty registrace:
+  a) Legacy endpoint `POST /api/apk/register-device` (vyžaduje aktivní session z kroku 1).
+     Payload:
+     {
+       "installationId": "apk-install-uuid-12345",
+       "deviceName": "Pixel 8 Pro"
+     }
+     Odezvy: `201` vytvořeno, `200` již registrováno, `409` konflikt (patří jinému uživateli), `401` bez session, `400` chybějící pole.
+  b) Unified endpoint `POST /api/devices/register`:
+     {
+       "client_type": "APK",
+       "device_id": "apk-install-uuid-12345",
+       "name": "Pixel 8 Pro"
+     }
+     Vyžaduje platnou session. Stejné návratové kódy jako výše.
+- Server ukládá zařízení do `devices` a přidělí jej aktuálně přihlášenému uživateli.
+
+3) Handshake (konfigurace + instrukce)
+--------------------------------------
+- Endpoint: `POST /api/devices/handshake`.
+- Request (odesílat po startu aplikace a periodicky):
+  {
+    "client_type": "APK",
+    "device_id": "apk-install-uuid-12345",
+    "power_status": "ON",
+  }
+- Server kroky:
+  • Pokud zařízení není registrováno ⇒ `registered=false` (HTTP 200). Aplikace má zařízení znovu zaregistrovat a pozastavit upload dat.
+  • Aktualizuje `device_type`, `power_status`, `last_seen`. Pokud `power_status` potvrzuje předchozí instrukci, nastaví `power_instruction='NONE'`.
+- Response při registrovaném zařízení:
+  {
+    "registered": true,
+    "config": {
+      "interval_gps": 15,
+      "interval_send": 1,
+      "satellites": 7,
+      "mode": "batch"
+    },
+    "power_instruction": "NONE" | "TURN_OFF"
+  }
+- Aplikace musí respektovat dodanou konfiguraci a připravit se na instrukce vypnutí.
+
+4) Odesílání telemetrie + potvrzení
+-----------------------------------
+- Endpoint: `POST /api/devices/input` (sdílený s HW). Middleware `authenticateDevice` ověřuje `device`/`device_id` proti DB – session není nutná, klíčem je registrované zařízení.
+- Payload může být jeden objekt nebo pole objektů; každý bod musí mít `device`, `latitude`, `longitude`:
+  {
+    "device": "apk-install-uuid-12345",
+    "client_type": "APK",
+    "latitude": 50.12345,
+    "longitude": 14.45678,
+    "speed": 36.2,
+    "accuracy": 5.1,
+    "satellites": 12,
+    "timestamp": "2025-12-01T10:15:00Z",
+    "power_status": "OFF"   // pokud došlo k vypnutí po instrukci
+  }
+- Batch varianta:
+  [ { ... }, { ... } ] – server uloží všechny body atomicky; prázdné pole ⇒ `400`.
+- Po uložení server zaktualizuje `last_seen`, případně převezme nový `power_status`. Pokud status splní instrukci `TURN_OFF`, instruktáž se v DB vynuluje.
+- Úspěšná odpověď: `{ "success": true }` (`200`).
+- Chyby:
+  • `400` – chybí `device`, `latitude`, `longitude` nebo některý bod je nekorektní.
+  • `404` – `device` není registrováno.
+  • `500` – interní chyba (klient opakuje s backoffem, nemazat uložená data).
+
+5) Power status & instrukce
+---------------------------
+- `power_status`: `ON` | `OFF` (lze rozšířit o `LOW_POWER`, `FAULT`, ale APK aktuálně posílá pouze ON/OFF).
+- `power_instruction`: `NONE` | `TURN_OFF` (nastavuje uživatel z UI přes `/api/devices/power-instruction`).
+- Acknowledgement probíhá implicitně:
+  • APK při dalším handshake nebo uploadu odešle `"power_status":"OFF"`.
+  • Server při shodě `power_instruction=TURN_OFF` a `power_status=OFF` instrukci zruší.
+- Aplikace musí zachovat konzistenci stavu: pokud obdrží `TURN_OFF`, přejde do OFF režimu, lokálně uloží data a potvrdí stav při nejbližším requestu.
+
+6) Chování při chybách
+----------------------
+- `POST /api/apk/login`: 400 (missing fields), 401 (invalid credentials/user not found), 403 (account not verified), 500 (internal).
+- `POST /api/apk/register-device` / `POST /api/devices/register`: 200/201 success, 400 invalid payload, 401 missing session, 409 conflict, 500 internal.
+- `POST /api/devices/handshake`: 200 + `registered=false` (není registrováno), 500 internal error.
+- `POST /api/devices/input`: 200 success, 400 invalid payload, 404 device unknown, 500 internal error.
+- Po obdržení 401/403 musí APK uživatele znovu přihlásit (session je neplatná) a požadavek neopakovat se stejnou cookie.
+- Při 409 (konflikt zařízení) je nutné uživateli nabídnout volbu změnit účet nebo zařízení přeregistrovat ručně.
+
+7) Síťové požadavky & retry logika
+----------------------------------
+- Komunikace probíhá výhradně přes HTTPS. Session cookie `connect.sid` musí být bezpečně uložena (HttpOnly, Secure) a přikládaná k routám, které vyžadují autentizaci uživatele (`/api/apk/*`, `/api/devices/register`).
+- Doporučený timeout požadavků < 10 s. Při selhání používat exponenciální backoff (start 5 s, max 60 s) a zachovat lokální buffer poloh.
+- Telemetrii cacheovat offline; frontu odeslat v původním pořadí, protože server ukládá timestampy tak, jak dorazí.
+- Po změně `installationId` (např. reinstall) je nutné znovu projít kroky 1–4.

@@ -189,9 +189,19 @@ class LocationService : Service() {
 
     private suspend fun initializeAndStart() {
         try {
-            // Step A: Fetch Configuration
-            updateAndBroadcastState(status = "Syncing configuration...", isRunning = true)
+            // Step A: Load Configuration (Defaults or Cached)
+            val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
+            gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
+            syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
+            sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
             
+            ConsoleLogger.info("LocationService: Config loaded (GPS=${gpsIntervalSeconds}s, Batch=${syncIntervalCount}). Starting tracking.")
+
+            // Step B: Start Tracking (First location)
+            startLocationUpdates()
+
+            // Step C: Fetch Configuration (Handshake) - AFTER starting tracking as requested
+            updateAndBroadcastState(status = "Syncing configuration...", isRunning = true)
             withContext(Dispatchers.IO) {
                 try {
                     HandshakeManager.performHandshake(applicationContext, reason = "service_start")
@@ -200,17 +210,9 @@ class LocationService : Service() {
                     ConsoleLogger.warn("LocationService: Initial handshake failed (${e.message}). Using cached config.")
                 }
             }
-
-            // Step B: Load Configuration
-            val sharedPrefs = SharedPreferencesHelper.getEncryptedSharedPreferences(this)
-            gpsIntervalSeconds = sharedPrefs.getInt("gps_interval_seconds", 60)
-            syncIntervalCount = sharedPrefs.getInt("sync_interval_count", 1)
-            sendIntervalMillis = TimeUnit.SECONDS.toMillis(gpsIntervalSeconds.toLong())
             
-            ConsoleLogger.info("LocationService: Config loaded (GPS=${gpsIntervalSeconds}s, Batch=${syncIntervalCount}). Starting tracking.")
-
-            // Step C: Start Tracking
-            startLocationUpdates()
+            // Restore status to Active after config sync
+            updateAndBroadcastState(status = StatusMessages.TRACKING_ACTIVE)
             
         } catch (e: Exception) {
             ConsoleLogger.error("LocationService: Fatal error during initialization: ${e.message}")
@@ -223,10 +225,26 @@ class LocationService : Service() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
         isFirstLocationAfterStart = true 
 
-        // We rely solely on periodic updates. The first one will come immediately upon fix.
-        // Removing explicit getCurrentLocation to prevent duplicate "first" points.
-        
-        // Start periodic updates
+        // 1. Force an IMMEDIATE active location update (don't wait for interval)
+        try {
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { location ->
+                    if (location != null) {
+                        ConsoleLogger.info("LocationService: Initial immediate location obtained.")
+                        // Process immediately
+                        sendLocationAndProcessResponse(location)
+                    } else {
+                        ConsoleLogger.warn("LocationService: Initial immediate location was null.")
+                    }
+                }
+                .addOnFailureListener { e ->
+                    ConsoleLogger.warn("LocationService: Failed to get initial location: ${e.message}")
+                }
+        } catch (e: SecurityException) {
+            ConsoleLogger.error("LocationService: Permission error on initial location.")
+        }
+
+        // 2. Start periodic updates
         val locationRequest = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
             sendIntervalMillis
@@ -234,7 +252,7 @@ class LocationService : Service() {
 
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
-            ConsoleLogger.info("LocationService: Location tracking started.")
+            ConsoleLogger.info("LocationService: Periodic tracking started (interval=${sendIntervalMillis}ms).")
             updateAndBroadcastState(
                 status = StatusMessages.TRACKING_ACTIVE,
                 connectionStatus = StatusMessages.WAITING_FOR_GPS,
@@ -350,6 +368,31 @@ class LocationService : Service() {
         }
     }
 
+    private fun saveAndFlush(location: Location) {
+        ConsoleLogger.debug("LocationService: Saving final location (t=${location.time})...")
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // We bypass the duplicate check in sendLocationAndProcessResponse by calling persist directly
+                // because we manually handled the timestamp update if needed.
+                persistLocationToDb(location)
+                ConsoleLogger.debug("LocationService: Final location saved. NOW flushing.")
+            } catch (e: Exception) {
+                ConsoleLogger.error("LocationService: Failed to save final location: ${e.message}")
+            } finally {
+                // Trigger flush inside the coroutine to ensure DB write is done first
+                val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+                val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+                    .setConstraints(constraints)
+                    .build()
+                WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                    "sync_locations_flush",
+                    ExistingWorkPolicy.REPLACE, // Changed to REPLACE
+                    syncWorkRequest
+                )
+            }
+        }
+    }
+
     private fun startForegroundService() {
         createNotificationChannel()
 
@@ -460,10 +503,21 @@ class LocationService : Service() {
         isStopping = true 
         super.onDestroy()
         ConsoleLogger.info("LocationService: Stopping.")
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        // fusedLocationClient.removeLocationUpdates(locationCallback) // Moved to completion listener
+
+        // Ensure PowerState is OFF so the final location is tagged correctly.
+        // This covers manual stops or system kills where we want the last point to say "OFF".
+        if (SharedPreferencesHelper.getPowerState(applicationContext) == PowerState.ON) {
+             SharedPreferencesHelper.setPowerState(
+                 applicationContext, 
+                 PowerState.OFF, 
+                 pendingAck = false, // Will be handled by sync if needed, or just simple stop
+                 reason = "service_destroy_force"
+             )
+        }
 
         fun triggerFinalFlush() {
-            if (!isNetworkAvailable) return
+            // Always enqueue flush, even if offline. WorkManager will handle connectivity.
             ConsoleLogger.debug("LocationService: Triggering final sync flush.")
             val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
             val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()
@@ -471,34 +525,54 @@ class LocationService : Service() {
                 .build()
             WorkManager.getInstance(applicationContext).enqueueUniqueWork(
                 "sync_locations_flush",
-                ExistingWorkPolicy.APPEND_OR_REPLACE,
+                ExistingWorkPolicy.REPLACE, // Changed from APPEND_OR_REPLACE to REPLACE for speed
                 syncWorkRequest
             )
         }
 
         try {
-            fusedLocationClient.lastLocation.addOnCompleteListener { task ->
-                val location = if (task.isSuccessful) task.result else null
-                
-                if (location != null) {
-                    ConsoleLogger.debug("LocationService: Captured final location. Saving...")
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            persistLocationToDb(location)
-                            ConsoleLogger.debug("LocationService: Final location saved. NOW flushing.")
-                        } catch (e: Exception) {
-                            ConsoleLogger.error("LocationService: Failed to save final location: ${e.message}")
-                        } finally {
-                            triggerFinalFlush()
+            // Use getCurrentLocation (Active) instead of lastLocation (Passive)
+            // to ensure we get a FRESH position for the shutdown event.
+            // Added CancellationTokenSource to prevent long hangs (timeout 2s)
+            val tokenSource = com.google.android.gms.tasks.CancellationTokenSource()
+            
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, tokenSource.token)
+                .addOnCompleteListener { task ->
+                    // Now it is safe to stop updates, as we have our result (or failure)
+                    fusedLocationClient.removeLocationUpdates(locationCallback)
+                    
+                    var location = if (task.isSuccessful) task.result else null
+                    
+                    // If we failed to get a fresh location (e.g. timeout or null),
+                    // we MUST still send the OFF flag. We will use the last processed location
+                    // but UPDATE THE TIMESTAMP to "now" to avoid it being discarded as a duplicate.
+                    if (location == null) {
+                        ConsoleLogger.warn("LocationService: Could not get fresh final location. Using last known.")
+                        // Try to get last known from cache (passive)
+                        fusedLocationClient.lastLocation.addOnSuccessListener { lastKnown ->
+                            if (lastKnown != null) {
+                                // Update time to NOW so it's not a duplicate
+                                lastKnown.time = System.currentTimeMillis()
+                                saveAndFlush(lastKnown)
+                            } else {
+                                // Worst case: no location at all. Just flush what we have.
+                                triggerFinalFlush()
+                            }
                         }
+                    } else {
+                        saveAndFlush(location)
                     }
-                } else {
-                    ConsoleLogger.debug("LocationService: No final location available. Flushing immediately.")
-                    triggerFinalFlush()
                 }
-            }
+                
+            // Cancel the request if it takes too long (e.g. 2 seconds)
+            // This prevents the "4x longer" delay if GPS is slow to fix.
+            android.os.Handler(Looper.getMainLooper()).postDelayed({
+                tokenSource.cancel()
+            }, 2000)
+            
         } catch (e: Exception) {
             ConsoleLogger.warn("LocationService: Error getting final location: ${e.message}")
+            fusedLocationClient.removeLocationUpdates(locationCallback)
             triggerFinalFlush()
         }
 
@@ -512,13 +586,15 @@ class LocationService : Service() {
             "service_destroy"
         }
         
-        if (!ackPending) {
-            HandshakeManager.launchHandshake(applicationContext, reason = "service_stop")
-        }
+        // Handshake is now handled by SyncWorker (flush) or enqueued by it.
+        // if (!ackPending) {
+        //    HandshakeManager.launchHandshake(applicationContext, reason = "service_stop")
+        // }
+        
         HandshakeManager.cancelPeriodicHandshake(applicationContext)
         updateAndBroadcastState(
-            status = StatusMessages.SERVICE_STOPPED,
-            connectionStatus = "Inactive",
+            status = StatusMessages.SERVICE_FINALIZING,
+            connectionStatus = "Uploading final data...",
             nextUpdate = 0,
             isRunning = false,
             powerStatus = PowerState.OFF,

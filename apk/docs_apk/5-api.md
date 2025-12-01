@@ -60,6 +60,7 @@ Základní URL je dáno `BuildConfig.API_BASE_URL` (výchozí z build.gradle) a 
 - **Odpověď (HTTP 200, JSON)**: `success` (bool) a volitelně `interval_gps`, `interval_send` nebo `power_instruction`.
 
 **Chování klienta při zpracování odpovědi**:
-- **Chyba autorizace (HTTP 401/403)**: Klient iniciuje bezpečné odhlášení (`FORCE_LOGOUT`).
+- **Chyba autorizace (HTTP 401/403) nebo nenalezení (HTTP 404)**: Klient iniciuje bezpečné odhlášení (`FORCE_LOGOUT`).
+- **Chyba požadavku (HTTP 400)**: Klient smaže odesílanou dávku (prevence zaseknutí cache).
 - **Změna konfigurace**: Aplikuje nové hodnoty a v případě potřeby restartuje `LocationService`.
 - **Instrukce `power_instruction`**: Zpracuje se identicky jako v případě `handshake` endpointu (viz výše), tj. řízení přebírá `PowerController`.

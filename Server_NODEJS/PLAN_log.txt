@@ -1,7 +1,0 @@
-PLAN FOR SERVER-WIDE FILE LOGGING
-
-1. Introduce a central logger utility that writes structured entries to log.txt with timestamps and context helpers (info/warn/error + SQL helper).
-2. Replace existing console logging in controllers, middleware, and scripts with calls to the logger so every "data accepted" and "data sent" event is captured.
-3. Instrument the database layer to log every SQL command and its outcome, including durations and errors.
-4. Add Express middleware hooks to log request/response metadata (method, path, status, request id/user) so flows stay traceable.
-5. Ensure log.txt rotates or truncates safely later; for now keep append-only access with file locking safeguards if concurrency becomes a concern.

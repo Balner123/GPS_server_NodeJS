@@ -16,4 +16,5 @@ object StatusMessages {
     const val DB_SAVE_ERROR = "Failed to save location"
     const val DEVICE_ID_ERROR = "Error: Device ID unavailable."
     const val NETWORK_UNAVAILABLE = "Data waiting for internet connection"
+    const val SERVICE_FINALIZING = "Finalizing..."
 }
