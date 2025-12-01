@@ -7,12 +7,12 @@ Tento dokument slouží jako roadmapa pro psaní kapitol 1–3. U každé sekce 
 ## Kapitola 1: Fyzické zařízení "tracker" (Hardware)
 
 ### 1.1 Teoretická východiska a použité technologie
-*   **Obsah:** Úvod do problematiky IoT, SoC ESP32 (výkon vs. spotřeba), principy GNSS/GPS (NMEA), mobilní sítě (LTE Cat-1, AT příkazy), RTOS (FreeRTOS úlohy), Power Latch obvod (teorie).
+*   **Obsah:** Úvod do problematiky, SoC ESP32, principy GNSS/GPS (NMEA), mobilní sítě (LTE Cat-1, AT příkazy), RTOS (FreeRTOS úlohy), Power Latch obvod (teorie).
 *   **Grafika:**
     *   *Volitelné:* Blokové schéma ESP32 (pokud bude místo).
 
 ### 1.2 Návrh hardware
-*   **Obsah:** Zdůvodnění volby LilyGO T-Call (A7670) + NEO-6M. Popis elektrického zapojení (UART, GPIO pro Power Latch, ADC pro baterii). Řešení napájení (LiPo baterie, nabíjení).
+*   **Obsah:** Zdůvodnění volby LilyGO T-Call (A7670) + NEO-6M. Popis elektrického zapojení (UART, GPIO pro Power Latch, ADC pro baterii). Řešení napájení (LiPo baterie, nabíječka, power modul).
 *   **Grafika:**
     *   **[IMG_HW_1] Blokové schéma zapojení:** (`docs_hw/schemas/schema_GENERAL.png` nebo `schema_POWER_modul.png`). Ukazuje propojení MCU, Modemu, GPS a Baterie.
     *   **[IMG_HW_2] Fotografie zařízení:** (`docs_hw/schemas/foto_progres#ACTUAL.jpg`). Reálná podoba trackeru (v krabičce nebo "střeva").
@@ -62,7 +62,7 @@ Tento dokument slouží jako roadmapa pro psaní kapitol 1–3. U každé sekce 
 ## Kapitola 3: Aplikace pro Android (Klient)
 
 ### 3.1 Koncept a cíle aplikace
-*   **Obsah:** Náhrada HW trackeru. Offline-first přístup. Spolehlivost na pozadí.
+*   **Obsah:** Náhrada HW trackeru. Offline-first přístup. Běh na pozadí.
 *   **Grafika:**
     *   **[IMG_APK_1] Use Case Diagram aplikace:** (`docs_apk/schemas/use_case_diagram.md` -> převést na obrázek). Co uživatel s aplikací dělá.
 
