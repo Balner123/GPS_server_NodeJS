@@ -53,7 +53,7 @@ Dokumentace fyzického zařízení GPS trackeru.
   - `6-setup.md`: Oživení a montáž.
   - `7-technologies.md`: Použité HW technologie.
 - **`reference/`**: Externí dokumentace (např. k modulům jako LilyGO).
-- **`schemas/`**: Schémata zapojení, diagramy stavů (Life Cycle), fotografie prototypů.
+- **`schemas/`**: Schémata zapojení, diagramy stavů (Life Cycle), fotografie prototypů a stavů zařízení.
 
 ## FINAL_latex/ (Text závěrečné práce)
 Zdrojové kódy pro sazbu finální textové části práce v systému LaTeX.
@@ -68,7 +68,7 @@ Zdrojové kódy pro sazbu finální textové části práce v systému LaTeX.
 
 ## requirements_examples/ (Zadání a vzory)
 Referenční materiály a vzorové práce.
-- Obsahuje PDF soubory vzorových prací (`lahodny...`, `lacheta...`) a pravidla pro psaní.
+- Obsahuje MarkDown soubory vzorových prací (`lahodny...`, `lacheta...`) a pravidla pro psaní.
 
 ## docs_general_deprecated/ (Archiv)
 Starší, již neaktuální dokumentace a harmonogramy. Uchováno pro historický kontext.

@@ -1,1 +1,0 @@
-[text](https://www.aeq-web.com/sim800-gprs-http-post-get-request-at-commands/?lang=en)

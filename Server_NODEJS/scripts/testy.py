@@ -7,8 +7,8 @@ from typing import Dict, Optional
 import requests
 
 # --- Configuration ---
-#BASE_URL = "https://lotr-system.xyz"
-BASE_URL = "http://localhost:5000"
+BASE_URL = "https://lotr-system.xyz"
+#BASE_URL = "http://localhost:5000"
 
 # Změňte tyto údaje, aby odpovídaly existujícímu uživateli na serveru
 TEST_USERNAME = "lotr"

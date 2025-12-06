@@ -1,0 +1,46 @@
+\chapter{Aplikace pro Android}
+
+\section{Koncept a cíle aplikace}
+\label{sec:apk_koncept}
+\subsection{Náhrada hardwarového trackeru}
+\subsection{Princip Offline-First a odolnost proti výpadkům}
+
+\section{TEORETICKÁ VÝCHODISKA A POUŽITÉ TECHNOLOGIE}
+\label{sec:apk_technologie}
+Vývoj pro mobilní platformu Android s sebou nese specifické výzvy, zejména v oblasti správy životního cyklu aplikací a úspory energie. Volba správných nástrojů je proto klíčová pro stabilitu výsledného řešení.
+
+\subsection{Jazyk Kotlin a asynchronní programování (Coroutines)}
+\textbf{Kotlin} je staticky typovaný programovací jazyk běžící na virtuálním stroji Java (JVM). Od roku 2019 je společností Google doporučován jako preferovaný jazyk pro vývoj Android aplikací. Oproti starší Javě přináší moderní prvky, jako je \textit{Null Safety} (typový systém odlišuje hodnoty, které mohou být null), což eliminuje časté pády aplikace na chybu \texttt{NullPointerException}.
+Pro řešení asynchronních operací (síťová volání, databázové dotazy) Kotlin využívá koncept \textbf{Coroutines}. Na rozdíl od klasických vláken (Threads), která jsou náročná na systémové zdroje, jsou korutiny "lehká vlákna". Umožňují psát asynchronní kód sekvenčním stylem (pomocí klíčového slova \texttt{suspend}), což výrazně zvyšuje čitelnost a usnadňuje správu chyb.
+
+\subsection{Systémové komponenty (Foreground Service, WorkManager)}
+Operační systém Android agresivně ukončuje aplikace běžící na pozadí, aby šetřil baterii. Pro aplikace typu tracker je však nutné běžet nepřetržitě.
+\begin{itemize}
+    \item \textbf{Foreground Service (Služba na popředí):} Jedná se o službu, která dává systému najevo, že vykonává pro uživatele důležitou činnost. Musí zobrazovat trvalou notifikaci ve stavovém řádku. Díky tomu ji systém neukončí ani při nedostatku paměti.
+    \item \textbf{WorkManager:} Pro úlohy, které nejsou okamžité, ale musí se zaručeně provést (např. odeslání dat na server, až bude dostupný internet), se využívá knihovna WorkManager. Ta inteligentně plánuje spuštění úloh s ohledem na stav baterie a sítě.
+\end{itemize}
+
+\subsection{Lokální persistence (Room Database)}
+Pro ukládání strukturovaných dat přímo v zařízení se využívá databáze \textbf{SQLite}, která je součástí Androidu. Práce s ní pomocí surových SQL dotazů je však náchylná k chybám.
+Proto byla zvolena knihovna \textbf{Room}, která slouží jako abstrakční vrstva (ORM) nad SQLite. Umožňuje definovat databázové tabulky jako datové třídy (Entity) a přístup k nim definovat pomocí rozhraní (DAO - Data Access Object). Room automaticky kontroluje správnost SQL dotazů již při kompilaci aplikace.
+
+\subsection{Zabezpečené úložiště (EncryptedSharedPreferences)}
+Ukládání citlivých dat (přihlašovací tokeny, API klíče) do běžných textových souborů (SharedPreferences) představuje bezpečnostní riziko, zejména na zařízeních s root oprávněním (tzv. rootnutých).
+Knihovna \textbf{EncryptedSharedPreferences} řeší tento problém tím, že data před uložením automaticky šifruje. Šifrovací klíče jsou uloženy v \textbf{Android Keystore System}, což je speciální hardwarově chráněné úložiště, ke kterému nemá přístup ani samotný operační systém, natož malware.
+
+\section{Architektura aplikace}
+\label{sec:apk_architektura}
+\subsection{Vrstevnatá architektura a reaktivní model (StateFlow)}
+\subsection{Vlastní implementace HTTP klienta}
+
+\section{Implementace klíčových funkcí}
+\label{sec:apk_implementace}
+\subsection{Sběr polohy na pozadí (LocationService)}
+\subsection{Dávková synchronizace dat (SyncWorker)}
+\subsection{Řízení spotřeby a vzdálené vypínání (PowerController)}
+\subsection{Handshake protokol a konfigurace}
+
+\section{Uživatelské rozhraní}
+\label{sec:apk_ui}
+\subsection{Hlavní ovládací panel (Dashboard)}
+\subsection{Diagnostická konzole pro terénní testování}

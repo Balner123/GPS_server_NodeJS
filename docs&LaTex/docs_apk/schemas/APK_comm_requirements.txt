@@ -6,89 +6,75 @@ APK Communication Requirements
 ------------------
 - APK klient využívá existující login endpoint (`POST /api/apk/login`).
 - Účet musí být ověřený (flag `user.is_verified=true`), jinak login vrací `403`.
-- Session cookie je potřeba pro všechny uživatelské akce (registrace zařízení, správa účtu). Handshake a telemetrie běží nezávisle na session – autentizují se pouze `device_id`.
-- Logout (`POST /api/apk/logout`) ruší session a musí být volán před odinstalací, aby nevisel záznam v DB.
-- Další komunikace napodobuje HW klienta; APK i HW sdílejí stejné endpointy a odpovědi.
+- Session cookie je potřeba pro uživatelské akce (registrace, logout). 
+- Telemetrie a Handshake primárně využívají `device_id`, ale pokud je session cookie dostupná, je odesílána také.
+- Logout (`POST /api/apk/logout`) ruší session.
 
 2) Registrace zařízení
 ----------------------
 - Endpoint: `POST /api/devices/register` (sjednocený).
-- Payload minimálně:
+- Payload:
   {
     "client_type": "APK",
-    "device_id": "installationId",
-    "name": "optional alias"
+    "device_id": "GUID/UUID",
+    "name": "Device Model Name"
   }
-- Server ověřuje session (uživatel přihlášen) a mapuje `installationId` na `device.device_id`.
-- Odpověď: `{ success: true, message?, already_registered? }`.
-- Při dvojité registraci musí server vrátit 200 se stavem `already_registered=true`.
+- Server ověřuje session a mapuje ID na zařízení.
 
-3) Handshake / konfigurace
+3) Handshake / Konfigurace
 --------------------------
 - Endpoint: `POST /api/devices/handshake`.
-- Request musí nést `device_id`, `client_type: APK` a aktuální `power_status` (`ON|OFF`). Doporučené doplňky: `app_version`, `battery`, `uptime`.
-- Server vždy vrací 200. Pokud zařízení neexistuje, payload má `registered=false` a klient by měl nabídnout registraci.
-- Standardní response:
+- Účel: Synchronizace konfigurace a správa stavu (Power State).
+- Spouštění:
+  1. Při startu služby (asynchronně).
+  2. Periodicky (např. každých 15 min).
+  3. Po dokončení odesílání dávky dat (pro okamžité potvrzení příkazů).
+- Payload:
+  {
+    "device_id": "...",
+    "client_type": "APK",
+    "power_status": "ON|OFF",
+    "reason": "service_start|periodic|sync_complete|manual"
+  }
+- Response:
   {
     "registered": true,
-    "config": {
-      "interval_gps": <int>,
-      "interval_send": <int>,
-      "satellites": <int>,
-      "mode": "simple|batch"
-    },
-    "power_instruction": "NONE" | "TURN_OFF"
+    "config": { "interval_gps": 60, "interval_send": 1 },
+    "power_instruction": "NONE|TURN_OFF"
   }
-- APK klient musí instrukci interpretovat stejně jako HW – po obdržení `TURN_OFF` přejít do režimu vypnutí/sleep a na další telemetrii hlásit `power_status="OFF"`.
-- `power_instruction` se automaticky resetuje na `NONE`, jakmile server obdrží telemetrii s odpovídajícím `power_status` (např. `TURN_OFF` + `power_status=OFF`).
+- Klient musí respektovat `power_instruction="TURN_OFF"` zastavením služby.
 
+4) Telemetrie (Data Input)
+--------------------------
 - Endpoint: `POST /api/devices/input`.
-- Payload formát identický s HW (podpora jednotlivého objektu i pole):
-  {
-    "device": "installationId",
-    "latitude": <float>,
-    "longitude": <float>,
-    "accuracy": <float>,
-    "speed": <float>,
-    "timestamp": <ISO string>,
-    "power_status": "ON|OFF",
-    "client_type": "APK"
-  }
-- Povinná pole: `device`, `latitude`, `longitude`.
-- Volitelná pole: `accuracy`, `speed`, `altitude`, `error`.
-- Pokud došlo k přepnutí do režimu vypnutí, `power_status` musí být `OFF`, aby server mohl instrukci nulovat.
-- Server odpovídá JSONem:
-  {
-    "success": true
-  }
+- Zpracování: SyncWorker čte data z SQLite DB.
+- Formát (Batch Array):
+  [
+    {
+      "device": "device_id",
+      "latitude": 50.123,
+      "longitude": 14.456,
+      "timestamp": "ISO8601",
+      "power_status": "ON",
+      "client_type": "APK",
+      "speed": 0.0,
+      "accuracy": 10.5
+    },
+    ...
+  ]
+- Odpověď serveru:
+  { "success": true, ... }
+  - Obsahuje-li odpověď novou konfiguraci, klient ji uloží (stejně jako u Handshake).
 
-4) Validace telemetrie (middleware/validators.js)
--------------------------------------------------
-`POST /api/devices/input` i HW logika sdílí stejný validátor. Požadavek je odmítnut (HTTP 400) s chybovou strukturou `{ error: 'Invalid device payload', details: [...] }`, pokud některá z hodnot nesplní následující podmínky:
-
-| Pole          | Povinnost | Přijatelný rozsah / formát                                   |
-| ------------- | --------- | ------------------------------------------------------------ |
-| `device`      | povinné   | Neprázdný řetězec (na prvním datovém bodě v payloadu).       |
-| `latitude`    | povinné   | Číslo od `-90.0` do `90.0`.                                   |
-| `longitude`   | povinné   | Číslo od `-180.0` do `180.0`.                                 |
-| `speed`       | volitelné | Číslo v km/h, `0` – `1000`.                                   |
-| `altitude`    | volitelné | Číslo v metrech, `-1000` – `10000`.                           |
-| `satellites`  | volitelné | Celé číslo `0` – `50`.                                        |
-| `accuracy`    | volitelné | Vstup se přijímá, doporučeno `0` – `100` (využito pro UI, kontrola je momentálně vypnutá). |
-
-- Payload může být jeden objekt **nebo** pole objektů. Validátor normalizuje tělo na pole a vyhodnotí každý bod.
-- Maximální délky surových těles zpráv jsou dále omezovány loggerem proměnnou `LOGGER_MAX_BODY_LENGTH` (výchozí 8192 B).
-
-5) Error handling
+5) Error Handling
 -----------------
-- 401 → session vypršela, APK musí uživatele přesměrovat na login.
-- 404 s `registered=false` → zařízení není registrováno, nabídnout registraci.
-- 500 → logovat a retry strategii s exponenciálním backoffem.
+- 401/403: Zneplatnění session -> Logout broadcast.
+- 404 (Not Registered): Zastavení služby, vyžaduje novou registraci.
+- 500+: Retry politika (Worker Manager exponential backoff).
 
-6) Telemetrie klienta
----------------------
-- Min. logování: počet uložených bodů před odesláním, důvody neodeslaných dat.
-
-7) Bezpečnostní poznámky
-------------------------
-- Přenášet pouze přes HTTPS.
+6) Lokální ukládání (Store-and-Forward)
+---------------------------------------
+- Data se ukládají do `LocationDao` (SQLite).
+- Limit dávky: Typicky 50 záznamů na jeden request.
+- Data se mažou až po potvrzení (200 OK) od serveru.
+- Při chybě (Network/Server) data zůstávají v DB pro další pokus.

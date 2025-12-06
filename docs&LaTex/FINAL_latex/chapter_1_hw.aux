@@ -1,0 +1,121 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\@writefile{toc}{\contentsline {chapter}{\numberline {1}Fyzické zařízení \uv  {tracker}}{5}{chapter.1}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\newlabel{chap:hw_tracker}{{1}{5}{Fyzické zařízení \uv {tracker}}{chapter.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {1.1}Úvod a koncepce}{5}{section.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1.2}POUŽITÉ TECHNOLOGIE}{5}{section.1.2}\protected@file@percent }
+\newlabel{sec:hw_teorie}{{1.2}{5}{POUŽITÉ TECHNOLOGIE}{section.1.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2.1}Mikrokontroléry a SoC (ESP32)}{5}{subsection.1.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2.2}Mobilní komunikace v IoT a AT příkazy}{5}{subsection.1.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2.3}Globální navigační systémy (GPS)}{5}{subsection.1.2.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.1}{\ignorespaces NMEA sentence}}{6}{figure.caption.5}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:NMEA_sentence}{{1.1}{6}{NMEA sentence}{figure.caption.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2.4}Operační systémy reálného času (FreeRTOS)}{6}{subsection.1.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2.5}Souborový systém LittleFS}{6}{subsection.1.2.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1.3}Návrh hardware - Výběr komponent}{7}{section.1.3}\protected@file@percent }
+\newlabel{sec:hw_navrh}{{1.3}{7}{Návrh hardware - Výběr komponent}{section.1.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.2}{\ignorespaces LilyGO T-Call V1.5 - integrované řešení ESP32 + LTE modem}}{7}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:LilyGO_T-Call}{{1.2}{7}{LilyGO T-Call V1.5 - integrované řešení ESP32 + LTE modem}{figure.caption.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3.1}LilyGO T-Call v1.5}{7}{subsection.1.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3.2} Multi-GNSS L76K modul}{8}{subsection.1.3.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.3}{\ignorespaces Modul GPS a zapojení pro řízení napájení}}{8}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:gps_module}{{1.3}{8}{Modul GPS a zapojení pro řízení napájení}{figure.caption.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3.3}Baterie, TP4056 + MT3608}{8}{subsection.1.3.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.4}{\ignorespaces Baterie + nabíjecí modul TP4056 a step-up měnič MT3608 již v pouzdře}}{9}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:battery_charging_module}{{1.4}{9}{Baterie + nabíjecí modul TP4056 a step-up měnič MT3608 již v pouzdře}{figure.caption.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3.4}Řízení napájení a Power Latch modul}{9}{subsection.1.3.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.5}{\ignorespaces Osazená deska}}{9}{figure.caption.9}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.6}{\ignorespaces Power Latch modul - Power Modul}}{9}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:power_latch_schema}{{1.6}{9}{Power Latch modul - Power Modul}{figure.caption.9}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.7}{\ignorespaces Blokové schéma zapojení hardwarového trackeru [easyEDA]}}{10}{figure.caption.10}\protected@file@percent }
+\newlabel{fig:hw_schema_general}{{1.7}{10}{Blokové schéma zapojení hardwarového trackeru [easyEDA]}{figure.caption.10}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.8}{\ignorespaces Schéma power-modul [easyEDA]}}{10}{figure.caption.11}\protected@file@percent }
+\newlabel{fig:hw_schema_power}{{1.8}{10}{Schéma power-modul [easyEDA]}{figure.caption.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {1.4}Implementace firmware}{11}{section.1.4}\protected@file@percent }
+\newlabel{sec:fw_implementace}{{1.4}{11}{Implementace firmware}{section.1.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4.1}Architektura a použité knihovny}{11}{subsection.1.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4.2}Pracovní cyklus}{12}{subsection.1.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4.3}Paralelní zpracování a obsluha přerušení (FreeRTOS)}{12}{subsection.1.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4.4}Řízení napájení a Power Latch modul}{12}{subsection.1.4.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.9}{\ignorespaces funkce \texttt  {power\_init()}}}{13}{figure.caption.12}\protected@file@percent }
+\newlabel{fig:power_init}{{1.9}{13}{funkce \texttt {power\_init()}}{figure.caption.12}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.4.4.1}Režim hlubokého spánku (Deep Sleep)}{13}{subsubsection.1.4.4.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.10}{\ignorespaces funkce \texttt  {graceful\_shutdown()}}}{14}{figure.caption.13}\protected@file@percent }
+\newlabel{fig:graceful_shutdown}{{1.10}{14}{funkce \texttt {graceful\_shutdown()}}{figure.caption.13}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.11}{\ignorespaces funkce \texttt  {enter\_deep\_sleep()}}}{14}{figure.caption.14}\protected@file@percent }
+\newlabel{fig:enter_deep_sleep}{{1.11}{14}{funkce \texttt {enter\_deep\_sleep()}}{figure.caption.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4.5}Zpracování GPS dat a parsování NMEA}{15}{subsection.1.4.5}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.12}{\ignorespaces funkce \texttt  {gps\_get\_fix()}}}{15}{figure.caption.15}\protected@file@percent }
+\newlabel{fig:gps_get_fix}{{1.12}{15}{funkce \texttt {gps\_get\_fix()}}{figure.caption.15}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4.6}Správa datového úložiště (LittleFS)}{15}{subsection.1.4.6}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.13}{\ignorespaces funkce \texttt  {fs\_init()}}}{16}{figure.caption.16}\protected@file@percent }
+\newlabel{fig:fs_init}{{1.13}{16}{funkce \texttt {fs\_init()}}{figure.caption.16}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {1.5}Komunikace a data}{16}{section.1.5}\protected@file@percent }
+\newlabel{sec:hw_komunikace}{{1.5}{16}{Komunikace a data}{section.1.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.5.1}Komunikační protokol a zabezpečení}{16}{subsection.1.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.5.2}Struktura dat a handshake}{16}{subsection.1.5.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.14}{\ignorespaces funkce \texttt  {modem\_send\_post\_request()}}}{17}{figure.caption.17}\protected@file@percent }
+\newlabel{fig:https_post_request}{{1.14}{17}{funkce \texttt {modem\_send\_post\_request()}}{figure.caption.17}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.15}{\ignorespaces funkce \texttt  {modem\_perform\_handshake()}}}{17}{figure.caption.18}\protected@file@percent }
+\newlabel{fig:handshake_json}{{1.15}{17}{funkce \texttt {modem\_perform\_handshake()}}{figure.caption.18}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.5.3}Práce s Modemem a AT příkazy}{18}{subsection.1.5.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.16}{\ignorespaces funkce \texttt  {modem\_initialize()}}}{18}{figure.caption.19}\protected@file@percent }
+\newlabel{fig:modem_initialize}{{1.16}{18}{funkce \texttt {modem\_initialize()}}{figure.caption.19}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {1.6}Konfigurace a servisní režim}{18}{section.1.6}\protected@file@percent }
+\newlabel{sec:hw_konfigurace}{{1.6}{18}{Konfigurace a servisní režim}{section.1.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.18}{\ignorespaces konfigurace Wifi APN pro OTA režim}}{19}{figure.caption.21}\protected@file@percent }
+\newlabel{fig:wifi_apn}{{1.18}{19}{konfigurace Wifi APN pro OTA režim}{figure.caption.21}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.6.1}OTA režim a webové rozhraní}{19}{subsection.1.6.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.17}{\ignorespaces wifi\_apn}}{19}{figure.caption.20}\protected@file@percent }
+\newlabel{fig:wifi_apn}{{1.17}{19}{wifi\_apn}{figure.caption.20}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.6.2}Manuální a Vzdálená konfigurace zařízení}{20}{subsection.1.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1.7}Seznam součástek + Obrázky}{20}{section.1.7}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1.19}{\ignorespaces log z OTA režimu}}{21}{figure.caption.22}\protected@file@percent }
+\newlabel{fig:ota_log}{{1.19}{21}{log z OTA režimu}{figure.caption.22}{}}
+\newlabel{fig:ota_Registration}{{1.20a}{21}{registrace}{figure.caption.23}{}}
+\newlabel{sub@fig:ota_Registration}{{a}{21}{registrace}{figure.caption.23}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.20}{\ignorespaces OTA režim - webové rozhraní}}{21}{figure.caption.23}\protected@file@percent }
+\newlabel{fig:ota_Settings}{{1.20}{21}{OTA režim - webové rozhraní}{figure.caption.23}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.21}{\ignorespaces Usecase diagram}}{22}{figure.caption.24}\protected@file@percent }
+\newlabel{fig:use_case_dia}{{1.21}{22}{Usecase diagram}{figure.caption.24}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.22}{\ignorespaces sekvenční diagram životního cyklu}}{23}{figure.caption.25}\protected@file@percent }
+\newlabel{fig:life_cycle_sequence_dia}{{1.22}{23}{sekvenční diagram životního cyklu}{figure.caption.25}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.23}{\ignorespaces "vnitřnosti" zařízení}}{24}{figure.caption.26}\protected@file@percent }
+\newlabel{fig:class_dia}{{1.23}{24}{"vnitřnosti" zařízení}{figure.caption.26}{}}
+\@setckpt{chapter_1_hw}{
+\setcounter{page}{25}
+\setcounter{equation}{0}
+\setcounter{enumi}{2}
+\setcounter{enumii}{0}
+\setcounter{enumiii}{0}
+\setcounter{enumiv}{0}
+\setcounter{footnote}{0}
+\setcounter{mpfootnote}{0}
+\setcounter{part}{0}
+\setcounter{chapter}{1}
+\setcounter{section}{7}
+\setcounter{subsection}{0}
+\setcounter{subsubsection}{0}
+\setcounter{paragraph}{0}
+\setcounter{subparagraph}{0}
+\setcounter{figure}{23}
+\setcounter{table}{0}
+\setcounter{caption@flags}{2}
+\setcounter{continuedfloat}{0}
+\setcounter{subfigure}{0}
+\setcounter{subtable}{0}
+\setcounter{float@type}{8}
+\setcounter{section@level}{0}
+\setcounter{Item}{11}
+\setcounter{Hfootnote}{0}
+\setcounter{bookmark@seq@number}{30}
+\setcounter{lofdepth}{1}
+\setcounter{lotdepth}{1}
+\setcounter{AM@survey}{0}
+\setcounter{parentequation}{0}
+\setcounter{lstnumber}{1}
+\setcounter{lstlisting}{0}
+}

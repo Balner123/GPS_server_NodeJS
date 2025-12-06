@@ -1,18 +1,20 @@
 ```mermaid
 flowchart TD
     %% --- DEFINICE STYLŮ ---
-    classDef actor fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef system fill:#fff,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;
-    classDef logic fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
-    classDef data fill:#fff3e0,stroke:#e65100,stroke-width:2px;
-    classDef ui fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
+    classDef actor fill:#7ce3ff;
+    classDef system fill:#a8a8a8,stroke-dasharray: 5 5;
+    classDef logic fill:#24ba49;
+    classDef data fill:#ff3e3e;
+    classDef ui fill:#f0f048;
+
+    classDef default color:#000000;
 
     %% --- 1. AKTÉŘI (Actors) ---
-    User((👤 Uživatel / Admin)):::actor
+    User((Uživatel / Admin)):::actor
     Device((GPS Klient<br>HW / APK)):::actor
 
     %% --- 2. SYSTÉM (Node.js Server) ---
-    subgraph System ["SERVEROVÁ APLIKACE"]
+    subgraph System ["SERVER"]
         direction TB
 
         %% Prezentační Vrstva (Vstup)

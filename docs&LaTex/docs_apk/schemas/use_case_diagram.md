@@ -1,58 +1,83 @@
-# Use Case Diagram - GPS Reporter APK
-
-Přehled aktérů a funkčních bloků aplikace.
-
 ```mermaid
 flowchart TD
-    %% --- Actors ---
-    Driver((👤 Řidič))
-    GPS((🛰️ GPS Satelity))
-    Server((☁️ API Server))
+    %% --- DEFINICE STYLŮ ---
+    classDef actor fill:#7ce3ff;
+    classDef system fill:#a8a8a8,stroke-dasharray: 5 5;
+    classDef logic fill:#24ba49;
+    classDef data fill:#ff3e3e;
+    classDef ui fill:#f0f048;
 
-    %% --- System Boundary ---
-    subgraph APK ["📱 Android Aplikace (GPS Reporter)"]
+    classDef default color:#000000;
+
+    %% --- 1. AKTÉŘI (Actors) ---
+    Driver((Řidič / Uživatel)):::actor
+    GPSProvider((Android<br>Location / GNSS)):::actor
+    APIServer((API Server)):::actor
+
+    %% --- 2. SYSTÉM (APK CLIENT) ---
+    subgraph APK ["APK KLIENT"]
         direction TB
 
-        subgraph Auth ["Autentizace"]
-            UC_Login["Přihlášení (Login)"]
-            UC_Register["Registrace zařízení"]
+        %% Uživatelské rozhraní
+        subgraph UI ["UI"]
+            Login["LoginActivity<br>(přihlášení / registrace)"]:::ui
+            Main["MainActivity<br>(ON/OFF, status, log)"]:::ui
         end
 
-        subgraph Tracking ["Sledování & Sběr"]
-            UC_Start["Spustit sledování"]
-            UC_Stop["Zastavit sledování"]
-            UC_Collect["Sběr polohy (Service)"]
-            UC_Cache["Ukládání do DB (Offline)"]
+        %% Řízení napájení a služby
+        subgraph Control ["Řízení služby"]
+            PowerCtl["PowerController<br>(ON/OFF, TURN_OFF ack)"]:::logic
+            LocSvc["LocationService<br>(foreground tracking)"]:::logic
         end
 
-        subgraph Comms ["Komunikace"]
-            UC_Sync["Synchronizace dat"]
-            UC_Handshake["Handshake (Config/Status)"]
+        %% Synchronizace a handshake
+        subgraph Sync ["Synchronizace"]
+            SyncW["SyncWorker<br>(POST /input)"]:::logic
+            HsW["HandshakeWorker<br>(POST /handshake)"]:::logic
+            ApiCli["ApiClient"]:::logic
         end
 
-        subgraph Settings ["Nastavení & UI"]
-            UC_Logs["Zobrazit logy"]
-            UC_Perms["Správa oprávnění"]
-            UC_Logout["Odhlásit se"]
+        %% Úložiště
+        subgraph Storage ["Úložiště"]
+            RoomDB["Room DB<br>(CachedLocation)"]:::data
+            Prefs["EncryptedSharedPrefs<br>(session, config)"]:::data
         end
     end
 
-    %% --- Relations ---
-    Driver --> UC_Login
-    Driver --> UC_Start
-    Driver --> UC_Stop
-    Driver --> UC_Logs
-    Driver --> UC_Perms
-    Driver --> UC_Logout
+    %% --- 3. TOKY ---
+    %% Uživatelské akce
+    Driver --> Login
+    Driver --> Main
+    Main --> PowerCtl
+    PowerCtl --> LocSvc
 
-    UC_Login -.-> UC_Register
-    UC_Start --> UC_Collect
-    
-    GPS --> UC_Collect
-    UC_Collect --> UC_Cache
-    UC_Collect --> UC_Sync
-    
-    UC_Sync <--> Server
-    UC_Handshake <--> Server
-    UC_Handshake -.-> UC_Stop
+    %% Sběr polohy
+    LocSvc --> GPSProvider
+    LocSvc --> RoomDB
+
+    %% Upload a handshake
+    SyncW --> ApiCli
+    HsW --> ApiCli
+    ApiCli --> APIServer
+    APIServer -- "config / TURN_OFF" --> HsW
+    SyncW -. "po uploadu" .-> HsW
+
+    %% Persistované údaje
+    LocSvc --> Prefs
+    SyncW --> Prefs
+    HsW --> Prefs
+
+    %% Přenos do serveru
+    RoomDB -. "dávka" .-> SyncW
+
+    %% Zpětná vazba do UI
+    LocSvc -. "stav, cache" .-> Main
+    SyncW -. "status" .-> Main
+    HsW -. "instrukce" .-> PowerCtl
+
+    %% Třídy
+    class Driver,GPSProvider,APIServer actor;
+    class Login,Main ui;
+    class PowerCtl,LocSvc,SyncW,HsW,ApiCli logic;
+    class RoomDB,Prefs data;
 ```

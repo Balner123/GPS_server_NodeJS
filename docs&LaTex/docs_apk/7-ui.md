@@ -14,8 +14,7 @@ Tato kapitola popisuje UI komponenty aplikace s důrazem na jasnou prezentaci st
 - **Hlavní ovládací prvek**: Přepínač (`ON`/`OFF`) pro spuštění/ukončení `LocationService`.
 - **Zobrazené hodnoty**:
   - Stav služby (aktivní / zastavená / pozastaveno serverem).
-  - Stav poslední synchronizace.
-  - Odpočet do další plánované aktualizace polohy.
+  - Odpočet do dalšího odeslání dat (Timer).
   - Počet záznamů v lokální cache.
   - Indikátor provozního stavu (`power_status`).
 - **Speciální UI stavy**:

@@ -1,58 +1,72 @@
 # State Diagram - GPS Reporter APK
 
-Tento diagram znázorňuje životní cyklus služby `LocationService` a správu stavů napájení.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> OFF: App Launch
+    direction TB
 
-    state OFF {
-        [*] --> Idle
-        Idle --> LoginCheck: User Action
-        LoginCheck --> Authorized: Session Valid
-        LoginCheck --> LoginScreen: No Session
-    }
+    OFF --> STARTING: Start (auto/manual)
 
-    state "Initialization Phase" as INIT {
-        Authorized --> PermissionsCheck: Start Button
-        PermissionsCheck --> RequestPermissions: Missing Perms
+    state "Starting / Init" as STARTING {
+        [*] --> PermissionsCheck
+        PermissionsCheck --> RequestPermissions: Missing perms
         PermissionsCheck --> ServiceStart: Perms OK
-        ServiceStart --> HandshakeInit: Download Config
-        HandshakeInit --> ConfigApplied: Config Updated
-        HandshakeInit --> ConfigCached: Network Error
+        RequestPermissions --> PermissionsCheck: Retry
+        ServiceStart --> [*]
     }
 
-    state "Tracking Phase (Foreground Service)" as TRACKING {
-        ConfigApplied --> WaitingForGPS
-        ConfigCached --> WaitingForGPS
-        
-        state "Data Loop" as DATA {
-            WaitingForGPS --> LocationObtained: onLocationResult
-            LocationObtained --> SaveToDB: SQLite Insert
-            SaveToDB --> BatchCheck: Count >= Limit?
+    STARTING --> SERVICE: Foreground service running
+    STARTING --> OFF: Cancel / Denied
+
+    state "Active Service (Foreground)" as SERVICE {
+        direction LR
+
+        state "Tracking" as TRACKING {
+            [*] --> StartUpdates
+            StartUpdates --> ImmediateLoc: Force first fix
+            ImmediateLoc --> PeriodicLoop
+
+            state PeriodicLoop {
+                WaitingForGPS --> LocationResult: onLocationResult
+                LocationResult --> SaveDB: SQLite insert
+                SaveDB --> CheckSync: Count >= BatchLimit?
+                CheckSync --> TriggerSync: Yes
+                CheckSync --> WaitingForGPS: No
+            }
         }
 
-        state "Sync Loop" as SYNC {
-            BatchCheck --> ScheduleSync: Yes
-            ScheduleSync --> UploadData: HTTP POST
-            UploadData --> Success: 200 OK
-            UploadData --> NetworkError: Fail (Retry Later)
+        state "Sync & Handshake" as SYNC {
+            direction TB
+            [*] --> LoadConfig: Cache/Prefs
+            LoadConfig --> Ready
+            LoadConfig --> Ready: Network fail (fallback)
+
+            state "Data Upload" as UPLOAD {
+                direction TB
+                TriggerSync --> SyncWorker
+                SyncWorker --> UploadBatch: POST /input
+                UploadBatch --> Success: OK
+                Success --> DeleteData
+                Success --> PostSyncHandshake: Notify/Config
+                UploadBatch --> Failure: retry/drop/logout
+            }
+
+            PostSyncHandshake --> Ready
         }
-        
-        BatchCheck --> WaitingForGPS: No
+
+        note right of TRACKING
+            Tracking běží nezávisle
+            na stavu sítě.
+        end note
     }
 
-    state "Stopping Phase" as STOPPING {
-        TRACKING --> CheckStopRules: Stop Button / Remote
-        CheckStopRules --> AckPending: Server Confirmation Req
-        CheckStopRules --> CleanShutdown: No Confirmation Req
-        
-        AckPending --> HandshakeStop: Send reason="manual"
-        HandshakeStop --> CleanShutdown: Server ACK
-        
-        CleanShutdown --> StopService: stopSelf()
-        StopService --> FinalFlush
-    }
+    SERVICE --> STOPPING: User stop / TURN_OFF
 
-    FinalFlush --> OFF
+    state "Stopping" as STOPPING {
+        direction TB
+        [*] --> FinalFix: getCurrentLocation (~2s)
+        FinalFix --> FlushData: Trigger SyncWorker (REPLACE)
+        FlushData --> FinalHandshake: power_status = OFF
+        FinalHandshake --> OFF
+    }
 ```

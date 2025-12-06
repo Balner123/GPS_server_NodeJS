@@ -1,0 +1,125 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\@writefile{toc}{\contentsline {chapter}{\numberline {2}Serverová část}{25}{chapter.2}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {2.1}Úvod a koncepce systému}{25}{section.2.1}\protected@file@percent }
+\newlabel{sec:server_uvod}{{2.1}{25}{Úvod a koncepce systému}{section.2.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1.1}Role serveru v systému LOTR}{25}{subsection.2.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1.2}Monolitická architektura a MVC vzor}{25}{subsection.2.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1.3}Relační databáze a ORM (MySQL + Sequelize)}{26}{subsection.2.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1.4}Principy autentizace a OAuth 2.0}{26}{subsection.2.1.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1.5}REST API architektura}{26}{subsection.2.1.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2.2}Návrh a implementace backendu}{26}{section.2.2}\protected@file@percent }
+\newlabel{sec:server_backend}{{2.2}{26}{Návrh a implementace backendu}{section.2.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2.1}Databázová vrstva (MySQL a Sequelize)}{26}{subsection.2.2.1}\protected@file@percent }
+\newlabel{subsec:server_db}{{2.2.1}{26}{Databázová vrstva (MySQL a Sequelize)}{subsection.2.2.1}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.1.1}ORM Sequelize a definice modelů}{27}{subsubsection.2.2.1.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2.1}{\ignorespaces ER diagram databázových modelů}}{28}{figure.caption.27}\protected@file@percent }
+\newlabel{fig:db_schema}{{2.1}{28}{ER diagram databázových modelů}{figure.caption.27}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.1.2}API pro HW tracker (ESP32)}{28}{subsubsection.2.2.1.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2.1}{\ignorespaces HW API endpointy}}{29}{table.caption.28}\protected@file@percent }
+\newlabel{tab:api_hw}{{2.1}{29}{HW API endpointy}{table.caption.28}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.1.3}API pro APK klient (Android)}{29}{subsubsection.2.2.1.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2.2}{\ignorespaces APK API endpointy}}{30}{table.caption.29}\protected@file@percent }
+\newlabel{tab:api_apk}{{2.2}{30}{APK API endpointy}{table.caption.29}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.1.4}Validace vstupních dat (Express Validator)}{30}{subsubsection.2.2.1.4}\protected@file@percent }
+\newlabel{fig:hw_handshake_flow}{{2.2a}{31}{HW Handshake tok}{figure.caption.30}{}}
+\newlabel{sub@fig:hw_handshake_flow}{{a}{31}{HW Handshake tok}{figure.caption.30}{}}
+\newlabel{fig:hw_apk_input_flow}{{2.2b}{31}{HW/APK Input tok}{figure.caption.30}{}}
+\newlabel{sub@fig:hw_apk_input_flow}{{b}{31}{HW/APK Input tok}{figure.caption.30}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.1.5}Dokumentace API (Swagger)}{31}{subsubsection.2.2.1.5}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2.3}{\ignorespaces Ukázka Swagger dokumentace API}}{31}{figure.caption.31}\protected@file@percent }
+\newlabel{fig:swagger_api}{{2.3}{31}{Ukázka Swagger dokumentace API}{figure.caption.31}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2.2}Správa uživatelů a Autorizace}{32}{subsection.2.2.2}\protected@file@percent }
+\newlabel{subsec:server_users}{{2.2.2}{32}{Správa uživatelů a Autorizace}{subsection.2.2.2}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.2.1}Autorizace a role (authorization.js)}{32}{subsubsection.2.2.2.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2.3}{\ignorespaces Rychlá orientace v rolích a middleware}}{32}{table.caption.32}\protected@file@percent }
+\newlabel{tab:auth_roles}{{2.3}{32}{Rychlá orientace v rolích a middleware}{table.caption.32}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.2.2}Session a cookie politika}{32}{subsubsection.2.2.2.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2.4}{\ignorespaces příklad jedné z funkcí v authorization.js}}{33}{figure.caption.33}\protected@file@percent }
+\newlabel{fig:auth_middleware}{{2.4}{33}{příklad jedné z funkcí v authorization.js}{figure.caption.33}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.2.3}Správa identit (Passport.js)}{33}{subsubsection.2.2.2.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2.5}{\ignorespaces Passport.js autentizační strategie}}{33}{figure.caption.34}\protected@file@percent }
+\newlabel{fig:passport_strategies}{{2.5}{33}{Passport.js autentizační strategie}{figure.caption.34}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.2.4}Hashování hesel (Bcrypt.js)}{33}{subsubsection.2.2.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.2.5}ROOT účet}{34}{subsubsection.2.2.2.5}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2.6}{\ignorespaces Administrátorský panel}}{34}{figure.caption.35}\protected@file@percent }
+\newlabel{fig:admin_panel}{{2.6}{34}{Administrátorský panel}{figure.caption.35}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.2.6}E-mailová komunikace (Nodemailer)}{34}{subsubsection.2.2.2.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2.3}Prezentační vrstva (Frontend)}{34}{section.2.3}\protected@file@percent }
+\newlabel{sec:server_frontend}{{2.3}{34}{Prezentační vrstva (Frontend)}{section.2.3}{}}
+\newlabel{fig:nodemailer_email}{{2.7a}{35}{Použití Nodemailer.js}{figure.caption.36}{}}
+\newlabel{sub@fig:nodemailer_email}{{a}{35}{Použití Nodemailer.js}{figure.caption.36}{}}
+\newlabel{fig:geofence_email}{{2.7b}{35}{Upozornění na opuštění geofence zóny}{figure.caption.36}{}}
+\newlabel{sub@fig:geofence_email}{{b}{35}{Upozornění na opuštění geofence zóny}{figure.caption.36}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2.7}{\ignorespaces E-mailové scénáře: transakční zprávy a bezpečnostní upozornění}}{35}{figure.caption.36}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3.1}Šablonovací systém EJS a struktura pohledů}{35}{subsection.2.3.1}\protected@file@percent }
+\newlabel{subsec:server_ejs}{{2.3.1}{35}{Šablonovací systém EJS a struktura pohledů}{subsection.2.3.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3.2}Vizualizace dat a mapové podklady}{35}{subsection.2.3.2}\protected@file@percent }
+\newlabel{subsec:server_maps}{{2.3.2}{35}{Vizualizace dat a mapové podklady}{subsection.2.3.2}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.2.1}Dynamická aktualizace polohy (AJAX)}{35}{subsubsection.2.3.2.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2.8}{\ignorespaces Webové rozhraní - Správa zařízení}}{36}{figure.caption.37}\protected@file@percent }
+\newlabel{fig:web_manage}{{2.8}{36}{Webové rozhraní - Správa zařízení}{figure.caption.37}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2.4}Nasazení a provoz (Deployment)}{36}{section.2.4}\protected@file@percent }
+\newlabel{sec:server_deployment}{{2.4}{36}{Nasazení a provoz (Deployment)}{section.2.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2.9}{\ignorespaces Webové rozhraní - Settings}}{37}{figure.caption.38}\protected@file@percent }
+\newlabel{fig:web_settings}{{2.9}{37}{Webové rozhraní - Settings}{figure.caption.38}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4.1}Docker a kontejnerizace}{37}{subsection.2.4.1}\protected@file@percent }
+\newlabel{subsec:server_docker}{{2.4.1}{37}{Docker a kontejnerizace}{subsection.2.4.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2.10}{\ignorespaces Ukázka Dockerfile pro serverovou aplikaci}}{37}{figure.caption.39}\protected@file@percent }
+\newlabel{fig:dockerfile_example}{{2.10}{37}{Ukázka Dockerfile pro serverovou aplikaci}{figure.caption.39}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4.2}Orchestrace kontejnerů (Docker Compose)}{38}{subsection.2.4.2}\protected@file@percent }
+\newlabel{subsec:server_compose}{{2.4.2}{38}{Orchestrace kontejnerů (Docker Compose)}{subsection.2.4.2}{}}
+\newlabel{fig:registration}{{2.11a}{38}{Registrace}{figure.caption.40}{}}
+\newlabel{sub@fig:registration}{{a}{38}{Registrace}{figure.caption.40}{}}
+\newlabel{fig:login}{{2.11b}{38}{Přihlášení}{figure.caption.40}{}}
+\newlabel{sub@fig:login}{{b}{38}{Přihlášení}{figure.caption.40}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2.11}{\ignorespaces Webové rozhraní: proces registrace a přihlášení}}{38}{figure.caption.40}\protected@file@percent }
+\newlabel{fig:email_ver}{{2.12a}{39}{Verifikace e-mailu}{figure.caption.41}{}}
+\newlabel{sub@fig:email_ver}{{a}{39}{Verifikace e-mailu}{figure.caption.41}{}}
+\newlabel{fig:alerts_modal}{{2.12b}{39}{Bezpečnostní upozornění (modal)}{figure.caption.41}{}}
+\newlabel{sub@fig:alerts_modal}{{b}{39}{Bezpečnostní upozornění (modal)}{figure.caption.41}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2.12}{\ignorespaces Webové rozhraní: verifikace e-mailu a bezpečnostní upozornění}}{39}{figure.caption.41}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2.13}{\ignorespaces Sekvenční diagram: tok sledování zařízení (handshake, input, aktualizace polohy)}}{40}{figure.caption.42}\protected@file@percent }
+\newlabel{fig:seq_tracking}{{2.13}{40}{Sekvenční diagram: tok sledování zařízení (handshake, input, aktualizace polohy)}{figure.caption.42}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2.14}{\ignorespaces Sekvenční diagram: registrace HW zařízení (ESP32) do systému}}{41}{figure.caption.43}\protected@file@percent }
+\newlabel{fig:seq_reg_hw}{{2.14}{41}{Sekvenční diagram: registrace HW zařízení (ESP32) do systému}{figure.caption.43}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2.15}{\ignorespaces Sekvenční diagram: registrace APK klienta (Android) a navázání session}}{42}{figure.caption.44}\protected@file@percent }
+\newlabel{fig:seq_reg_apk}{{2.15}{42}{Sekvenční diagram: registrace APK klienta (Android) a navázání session}{figure.caption.44}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2.16}{\ignorespaces Use-case diagram systému LOTR: aktéři a hlavní případy použití}}{43}{figure.caption.45}\protected@file@percent }
+\newlabel{fig:use_case}{{2.16}{43}{Use-case diagram systému LOTR: aktéři a hlavní případy použití}{figure.caption.45}{}}
+\@setckpt{chapter_2_server}{
+\setcounter{page}{44}
+\setcounter{equation}{0}
+\setcounter{enumi}{5}
+\setcounter{enumii}{0}
+\setcounter{enumiii}{0}
+\setcounter{enumiv}{0}
+\setcounter{footnote}{0}
+\setcounter{mpfootnote}{0}
+\setcounter{part}{0}
+\setcounter{chapter}{2}
+\setcounter{section}{4}
+\setcounter{subsection}{2}
+\setcounter{subsubsection}{0}
+\setcounter{paragraph}{0}
+\setcounter{subparagraph}{0}
+\setcounter{figure}{16}
+\setcounter{table}{3}
+\setcounter{caption@flags}{2}
+\setcounter{continuedfloat}{0}
+\setcounter{subfigure}{0}
+\setcounter{subtable}{0}
+\setcounter{float@type}{8}
+\setcounter{section@level}{0}
+\setcounter{Item}{23}
+\setcounter{Hfootnote}{0}
+\setcounter{bookmark@seq@number}{58}
+\setcounter{lofdepth}{1}
+\setcounter{lotdepth}{1}
+\setcounter{AM@survey}{0}
+\setcounter{parentequation}{0}
+\setcounter{lstnumber}{1}
+\setcounter{lstlisting}{0}
+}

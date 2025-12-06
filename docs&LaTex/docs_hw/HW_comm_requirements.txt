@@ -1,0 +1,87 @@
+===================================
+HW Communication Requirements
+===================================
+
+1) Identita a autentizace
+-------------------------
+- Každé HW zařízení používá pevné `device_id` (např. výrobní číslo).
+- Registrace přes `POST /api/devices/register` s payloadem:
+  {
+    "client_type": "HW",
+    "device_id": "ABC1234567",
+    "username": "owner",
+    "password": "secret",
+    "name": "optional alias"
+  }
+- Server ověří uživatelské přihlašovací údaje a při úspěchu přiřadí zařízení k účtu.
+- V případě konfliktní registrace (jiný uživatel) odpovědět 409.
+
+2) Handshake (status + konfigurace)
+-----------------------------------
+- Endpoint: `POST /api/devices/handshake`.
+- Příklad requestu:
+  {
+    "device_id": "ABC1234567",
+    "client_type": "HW",
+    "power_status": "ON",
+  }
+- Server provede:
+  • Kontrolu registrace (`registered=false` v payloadu, status 200, pokud zařízení neexistuje).
+  • Synchronizaci `power_status`, pokud na serveru není aktivní instrukce.
+  • Vytvoření odpovědi s konfigurací a případnou instrukcí.
+- Příklad response:
+  {
+    "registered": true,
+
+    # if registered true : 
+
+    "config": {
+      "interval_gps": 60,
+      "interval_send": 3,
+      "satellites": 7,
+      "mode": "batch",
+    },
+    "power_instruction": "TURN_OFF" | "NONE"
+  }
+
+3) Odesílání dat + ACK
+----------------------
+- Endpoint: `POST /api/devices/input` (stejný jako APK).
+- Payload (jedna dávka):
+  {
+    "device": "ABC1234567",
+    "latitude": 50.12345,
+    "longitude": 14.45678,
+    "speed": 35.6,
+    "satellites": 8,
+    "timestamp": "2025-11-07T10:20:00Z",
+    "power_status": "OFF", # pokud se změnil po instrukci
+  }
+- Payload může být i pole výše uvedených objektů.
+- Server kroky po přijetí:
+  • Ověří `device` existenci.
+  • Uloží lokace, aktualizuje `last_seen`.
+  • Pokud `power_status` změněn na `OFF`, persistovat do `Device.power_status`.
+  * pokud `power_status` sedí na aktuální instrukci, nulovat `power_instruction`.
+  • Odpověď:
+    {
+      "success": true
+    }
+
+4) Power status a instrukce
+---------------------------
+- Enum hodnoty:
+  • `power_status`: `ON`, `OFF` (lze rozšířit o `LOW_POWER`, `FAULT`).
+  • `power_instruction`: `NONE`, `TURN_OFF`, (eventuálně `TURN_ON`).
+
+5) Chování při chybách
+----------------------
+- 404 / `registered=false`: zařízením neprovádět další akce, přepnout do konfiguračního režimu.
+- 409: stejné `device_id` už patří jinému uživateli. neprovádět další akce.
+- 500: retry logika s backoffem; neztrácet data (uživatelské lokace).
+
+7) Síťové požadavky
+-------------------
+- Všechny requesty přes HTTPS.
+- Timeout doporučen < 10 s; při neúspěchu retry po 30 s.
+- Podpora batch uploadu (pole) pro offline buffering.

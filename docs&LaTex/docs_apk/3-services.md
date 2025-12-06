@@ -32,11 +32,12 @@ Tento dokument popisuje servisní komponenty aplikace, jejich odpovědnosti a o�
 - **Role**: Spolehlivé dávkové odesílání záznamů na server a aplikace serverových instrukcí.
 - **Podmínky**: Běží pouze s dostupným síťovým připojením (`NetworkType.CONNECTED`).
 - **Chování**:
-  1. Načte dávku (max. 50) záznamů z `location_cache`. Pokud `PowerController` hlásí `pending_turn_off_ack`, odesílání se přeruší a je upřednostněn `HandshakeManager`.
+  1. Načte dávku (max. 50) záznamů z `location_cache`. Odesílání probíhá i v případě, že `PowerController` hlásí `pending_turn_off_ack`, aby se zajistilo odeslání finálních dat před vypnutím.
   2. Odešle data na `/api/devices/input`.
   3. **Při úspěchu (HTTP 200)**:
      - Smaže odeslané záznamy z lokální databáze.
      - Zpracuje případné konfigurační změny nebo `power_instruction` stejným způsobem jako `HandshakeManager` (předává řízení `PowerController`).
      - Po dokončení dávky spustí `HandshakeManager`, aby se server dozvěděl o aktuálním stavu.
-  4. **Při chybě autorizace (HTTP 401/403)**: Vyšle broadcast `FORCE_LOGOUT`, který způsobí odhlášení uživatele a vyčištění session.
-  5. **Při ostatních serverových nebo síťových chybách**: Vrátí `Result.retry()`, aby `WorkManager` naplánoval opakování.
+  4. **Při chybě autorizace (HTTP 401/403) nebo nenalezení zařízení (HTTP 404)**: Vyšle broadcast `FORCE_LOGOUT`, který způsobí odhlášení uživatele a vyčištění session. Dávka je smazána.
+  5. **Při chybě požadavku (HTTP 400)**: Dávka je považována za vadnou a je smazána z databáze, aby neblokovala další synchronizaci.
+  6. **Při ostatních serverových nebo síťových chybách**: Vrátí `Result.retry()`, aby `WorkManager` naplánoval opakování.
