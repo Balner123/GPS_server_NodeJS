@@ -1,46 +1,265 @@
 \chapter{Aplikace pro Android}
 
-\section{Koncept a cíle aplikace}
+\section{Koncept a specifika mobilního klienta}
 \label{sec:apk_koncept}
-\subsection{Náhrada hardwarového trackeru}
-\subsection{Princip Offline-First a odolnost proti výpadkům}
+Mobilní aplikace v systému LOTR plní roli softwarového trackeru. Umožňuje uživatelům sledovat polohu jejich mobilního telefonu bez nutnosti pořizovat specializovaný hardware. Ačkoliv sdílí stejný backend a datové formáty jako hardwarové jednotky, její vnitřní logika je odlišná kvůli specifikům operačního systému Android.
 
-\section{TEORETICKÁ VÝCHODISKA A POUŽITÉ TECHNOLOGIE}
-\label{sec:apk_technologie}
-Vývoj pro mobilní platformu Android s sebou nese specifické výzvy, zejména v oblasti správy životního cyklu aplikací a úspory energie. Volba správných nástrojů je proto klíčová pro stabilitu výsledného řešení.
+\subsection{Role v systému a náhrada hardwarového trackeru}
+Aplikace transformuje běžný smartphone na plnohodnotné sledovací zařízení. Využívá integrovaný GPS/GNSS přijímač a mobilní datové připojení. Na rozdíl od jednoúčelového HW trackeru, který běží na "bare metal" firmware, musí aplikace koexistovat s operačním systémem a ostatními aplikacemi, což přináší nutnost řešit priority procesů a správu paměti.
+
+\subsection{Princip Offline-First a odolnost proti výpadkům}
+Mobilní zařízení se často pohybují v oblastech s nestabilním signálem (tunely, podzemní garáže, venkov). Aby nedošlo ke ztrátě cenných telemetrických dat, je aplikace navržena podle principu \textbf{Offline-First}.
+To znamená, že naměřená data nejsou nikdy odesílána přímo na server. Proces je následující:
+\begin{enumerate}
+      \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item Získání souřadnic z GPS modulu.
+    \item Okamžité uložení do lokální databáze (SQLite/Room).
+    \item Pokus o odeslání dávky dat na server (na pozadí).
+    \item Po úspěšném potvrzení serverem jsou data z lokální databáze smazána.
+\end{enumerate}
+Tento přístup garantuje, že i při dlouhodobém výpadku konektivity zůstanou data bezpečně uložena v telefonu a odešlou se automaticky po obnovení spojení.
+
+\subsection{Výzvy mobilního vývoje (Doze mode, Background limits)}
+Moderní verze systému Android obsahují agresivní mechanismy pro úsporu energie, jako je \textbf{Doze mode} a \textbf{App Standby buckets}. Tyto systémy omezují přístup aplikací k síti a CPU, pokud běží na pozadí a uživatel s nimi neinteraguje.
+Pro aplikaci typu tracker, která musí běžet nepřetržitě, to představuje zásadní problém. Řešením je využití tzv. \textbf{Foreground Service} (služby na popředí), která dává systému signál, že aplikace vykonává pro uživatele kritickou činnost, a nesmí být ukončena ani uspána (viz sekce \ref{sec:apk_background}).
+
+\section{Architektura a použité technologie}
+\label{sec:apk_architektura}
+Aplikace je navržena s důrazem na modularitu a oddělení odpovědností (Separation of Concerns). Architektura respektuje moderní doporučení pro vývoj Android aplikací, avšak s ohledem na specifické potřeby trackeru (běh na pozadí) využívá i některé nízkoúrovňové mechanismy.
 
 \subsection{Jazyk Kotlin a asynchronní programování (Coroutines)}
-\textbf{Kotlin} je staticky typovaný programovací jazyk běžící na virtuálním stroji Java (JVM). Od roku 2019 je společností Google doporučován jako preferovaný jazyk pro vývoj Android aplikací. Oproti starší Javě přináší moderní prvky, jako je \textit{Null Safety} (typový systém odlišuje hodnoty, které mohou být null), což eliminuje časté pády aplikace na chybu \texttt{NullPointerException}.
-Pro řešení asynchronních operací (síťová volání, databázové dotazy) Kotlin využívá koncept \textbf{Coroutines}. Na rozdíl od klasických vláken (Threads), která jsou náročná na systémové zdroje, jsou korutiny "lehká vlákna". Umožňují psát asynchronní kód sekvenčním stylem (pomocí klíčového slova \texttt{suspend}), což výrazně zvyšuje čitelnost a usnadňuje správu chyb.
+Jako primární jazyk byl zvolen \textbf{Kotlin}, který je od roku 2019 preferovaným jazykem pro Android. Jeho klíčovou vlastností je \textit{Null Safety}, která eliminuje celou třídu chyb typu \texttt{NullPointerException}.
+Pro asynchronní operace (síťová komunikace, přístup k databázi) jsou využívány \textbf{Kotlin Coroutines}. Ty umožňují psát asynchronní kód sekvenčním způsobem bez nutnosti vnořování callbacků ("callback hell"). Klíčové slovo \texttt{suspend} označuje funkce, které mohou pozastavit vykonávání korutiny bez blokování hlavního vlákna.
 
-\subsection{Systémové komponenty (Foreground Service, WorkManager)}
-Operační systém Android agresivně ukončuje aplikace běžící na pozadí, aby šetřil baterii. Pro aplikace typu tracker je však nutné běžet nepřetržitě.
+\subsection{Vrstevnatá architektura (UI, Service, Data)}
+Aplikace je rozdělena do tří logických vrstev:
 \begin{itemize}
-    \item \textbf{Foreground Service (Služba na popředí):} Jedná se o službu, která dává systému najevo, že vykonává pro uživatele důležitou činnost. Musí zobrazovat trvalou notifikaci ve stavovém řádku. Díky tomu ji systém neukončí ani při nedostatku paměti.
-    \item \textbf{WorkManager:} Pro úlohy, které nejsou okamžité, ale musí se zaručeně provést (např. odeslání dat na server, až bude dostupný internet), se využívá knihovna WorkManager. Ta inteligentně plánuje spuštění úloh s ohledem na stav baterie a sítě.
+      \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item \textbf{UI Vrstva (Activity):} Zodpovídá pouze za vykreslování dat a reakci na vstupy uživatele. Neobsahuje žádnou aplikační logiku.
+    \item \textbf{Service Vrstva (LocationService, SyncWorker):} Obsahuje "business logiku" aplikace. Běží nezávisle na UI a zajišťuje sběr dat a komunikaci se serverem.
+    \item \textbf{Data Vrstva (Repository, Database):} Zajišťuje jednotný přístup k datům. \texttt{ServiceStateRepository} drží aktuální stav aplikace, zatímco \texttt{AppDatabase} (Room) slouží pro trvalé uložení telemetrie.
 \end{itemize}
 
+\subsection{Reaktivní řízení stavu (StateFlow)}
+Pro komunikaci mezi službou běžící na pozadí a uživatelským rozhraním je využit reaktivní vzor pomocí \textbf{StateFlow}.
+Třída \texttt{ServiceStateRepository} funguje jako Singleton a drží aktuální stav služby (např. \texttt{isRunning}, \texttt{gpsCount}, \texttt{lastLocation}).
+\begin{itemize}
+      \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item Služba (\texttt{LocationService}) aktualizuje stav pomocí \texttt{MutableStateFlow}.
+    \item UI (\texttt{MainActivity}) odebírá (collect) změny stavu pomocí \texttt{asStateFlow()} a automaticky překresluje obrazovku při každé změně.
+\end{itemize}
+Tento přístup eliminuje potřebu zastaralých mechanismů jako \texttt{LocalBroadcastManager} a zajišťuje, že UI vždy zobrazuje aktuální data.
+
+\subsection{Vlastní implementace HTTP klienta}
+Na rozdíl od běžných aplikací, které využívají knihovny jako Retrofit, je v tomto projektu implementován vlastní HTTP klient (\texttt{ApiClient}) postavený přímo na třídě \texttt{HttpURLConnection}.
+Důvody pro toto rozhodnutí jsou:
+\begin{enumerate}
+    \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item \textbf{Plná kontrola:} Přímá manipulace s cookies (pro session management) a timeouty bez nutnosti konfigurace složitých wrapperů.
+    \item \textbf{Minimalismus:} Snížení velikosti výsledné aplikace odstraněním velkých externích závislostí.
+\end{enumerate}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../docs_apk/screenshots/api_client.png}
+    \caption{API client}
+    \label{fig:api_client}
+\end{figure}
+\section{Implementace služeb na pozadí (Background Processing)}
+\label{sec:apk_background}
+Jádrem aplikace je schopnost spolehlivě běžet na pozadí, sbírat data o poloze a odesílat je na server, i když je telefon uzamčený v kapse uživatele. Toho je dosaženo kombinací \texttt{Foreground Service} a \texttt{WorkManageru}.
+
+\subsection{Foreground Service (LocationService)}
+Operační systém Android agresivně ukončuje aplikace běžící na pozadí, aby šetřil baterii. Pro aplikace typu tracker je však nutné běžet nepřetržitě.
+Řešením je implementace tzv. \textbf{Foreground Service} (služba na popředí). Třída \texttt{LocationService} při svém startu vytvoří trvalou notifikaci v systémové liště (povinnost daná systémem Android 8.0+). Tím dává systému signál, že aplikace vykonává pro uživatele kritickou činnost a nesmí být ukončena ani při nedostatku paměti (OOM Killer).
+Služba také monitoruje stav systémových providerů (GPS) pomocí \texttt{BroadcastReceiver}. Pokud uživatel vypne GPS v nastavení telefonu, služba to detekuje, automaticky se ukončí a zaloguje důvod vypnutí.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../docs_apk/screenshots/foreground_service.png}
+    \caption{Foreground Service}
+    \label{fig:foreground_service}
+\end{figure}
+
+\subsection{Sběr a filtrace polohy (FusedLocationProvider)}
+Pro získávání souřadnic není využíváno surové GPS API, ale moderní \textbf{Fused Location Provider API} (součást Google Play Services). Toto API inteligentně kombinuje data z GPS, Wi-Fi, Bluetooth a mobilních vysílačů pro rychlejší a přesnější určení polohy s nižší spotřebou energie.
+Získaná poloha je v callbacku \texttt{onLocationResult} okamžitě uložena do lokální databáze Room. Aplikace nečeká na úspěšné odeslání dat (princip Fire-and-Forget směrem do DB), což zajišťuje, že sběr dat není blokován pomalým síťovým připojením.
+
+\subsection{Plánování úloh a synchronizace (WorkManager)}
+Zatímco \texttt{LocationService} běží neustále, odesílání dat je řešeno periodicky pomocí knihovny \textbf{WorkManager}. Třída \texttt{SyncWorker} je naplánována ke spuštění každých 15 minut (nebo častěji při detekci pohybu).
+Proces synchronizace:
+\begin{enumerate}
+        \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item Worker načte z databáze dávku (batch) 50 nejstarších neodeslaných záznamů.
+    \item Data jsou serializována do JSON formátu a odeslána na endpoint \texttt{/api/devices/input}.
+    \item Pokud server odpoví \texttt{200 OK} (nebo \texttt{201 Created}), worker smaže úspěšně odeslané záznamy z lokální databáze.
+    \item Pokud odeslání selže (např. není signál), data zůstávají v DB a WorkManager automaticky naplánuje opakování s exponenciálním odkladem (Exponential Backoff).
+\end{enumerate}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\textwidth]{../docs_apk/screenshots/json_payload.png}
+    \caption{sestavení JSON payload pro odeslání polohy}
+    \label{fig:json_payload}
+\end{figure}
+
+\subsection{Řízení spotřeby (PowerController)}
+Aplikace implementuje logiku pro vzdálené vypnutí trackeru ze strany serveru. Třída \texttt{PowerController} funguje jako stavový automat. Pokud server v odpovědi na handshake pošle instrukci \texttt{TURN\_OFF}, aplikace:
+\begin{enumerate}
+        \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item Zastaví sběr polohy (\texttt{LocationService}).
+    \item Uloží do preferencí příznak \texttt{isTurnOffAckPending}.
+    \item Při příštím pokusu o spuštění (např. po restartu telefonu) \texttt{PowerController} zablokuje start služby, dokud není serveru potvrzeno, že příkaz k vypnutí byl přijat.
+\end{enumerate}
+Tato logika brání "zombie" chování, kdy by se vypnutý tracker neustále sám zapínal. Uživatel má však možnost v UI vynutit manuální spuštění (Manual Override).
+
+\section{Správa dat a komunikace}
+\label{sec:apk_data}
 \subsection{Lokální persistence (Room Database)}
 Pro ukládání strukturovaných dat přímo v zařízení se využívá databáze \textbf{SQLite}, která je součástí Androidu. Práce s ní pomocí surových SQL dotazů je však náchylná k chybám.
 Proto byla zvolena knihovna \textbf{Room}, která slouží jako abstrakční vrstva (ORM) nad SQLite. Umožňuje definovat databázové tabulky jako datové třídy (Entity) a přístup k nim definovat pomocí rozhraní (DAO - Data Access Object). Room automaticky kontroluje správnost SQL dotazů již při kompilaci aplikace.
+Entita \texttt{CachedLocation} reprezentuje jeden záznam o poloze a obsahuje kromě souřadnic i metadata jako přesnost měření (\texttt{accuracy}), počet satelitů a stav baterie.
 
-\subsection{Zabezpečené úložiště (EncryptedSharedPreferences)}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../docs_apk/screenshots/db_room_entity.png}
+    \caption{Room Database - CachedLocation entity}
+    \label{fig:room_database}
+\end{figure}
+
+\subsection{Bezpečné úložiště (EncryptedSharedPreferences)}
 Ukládání citlivých dat (přihlašovací tokeny, API klíče) do běžných textových souborů (SharedPreferences) představuje bezpečnostní riziko, zejména na zařízeních s root oprávněním (tzv. rootnutých).
 Knihovna \textbf{EncryptedSharedPreferences} řeší tento problém tím, že data před uložením automaticky šifruje. Šifrovací klíče jsou uloženy v \textbf{Android Keystore System}, což je speciální hardwarově chráněné úložiště, ke kterému nemá přístup ani samotný operační systém, natož malware.
+V aplikaci jsou takto ukládány následující údaje:
+\begin{itemize}
+          \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item \texttt{session\_cookie}: Autentizační token pro komunikaci s API.
+    \item \texttt{installation\_id}: Unikátní identifikátor zařízení (generovaný jako hash z UUID).
+    \item \texttt{server\_url}: Adresa backendu (umožňuje dynamickou změnu prostředí).
+\end{itemize}
 
-\section{Architektura aplikace}
-\label{sec:apk_architektura}
-\subsection{Vrstevnatá architektura a reaktivní model (StateFlow)}
-\subsection{Vlastní implementace HTTP klienta}
+\subsection{HTTP Klient a komunikace s API}
+Komunikace se serverem probíhá výhradně přes zabezpečený protokol HTTPS. Vlastní implementace klienta (\texttt{ApiClient}) zajišťuje:
+\begin{itemize}
+          \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item Přidávání hlavičky \texttt{Content-Type: application/json}.
+    \item Správu cookies (odesílání session cookie s každým požadavkem).
+    \item Ošetření síťových chyb a timeoutů (nastaveno na 15 sekund).
+\end{itemize}
+V případě chyby 401 (Unauthorized) klient automaticky vymaže neplatnou session a přepne aplikaci do stavu "odhlášeno", což uživatele vyzve k novému přihlášení.
 
-\section{Implementace klíčových funkcí}
-\label{sec:apk_implementace}
-\subsection{Sběr polohy na pozadí (LocationService)}
-\subsection{Dávková synchronizace dat (SyncWorker)}
-\subsection{Řízení spotřeby a vzdálené vypínání (PowerController)}
-\subsection{Handshake protokol a konfigurace}
-
-\section{Uživatelské rozhraní}
+\section{Uživatelské rozhraní (UI)}
 \label{sec:apk_ui}
+Uživatelské rozhraní je navrženo jako minimalistické a funkční, s důrazem na přehlednost stavu služby.
+
+\subsection{Registrace a přihlášení (LoginActivity)}
+Tato obrazovka slouží k prvotnímu spárování zařízení s uživatelským účtem. Uživatel zadává své přihlašovací údaje (stejné jako do webové aplikace).
+Aplikace při prvním spuštění vygeneruje unikátní \texttt{installation\_id} (10 znaků), které se při přihlášení odešle na server. Tím dojde k vytvoření záznamu v tabulce \texttt{Devices}.
+\textbf{Developer Mode:} Dlouhým stiskem na nadpis aplikace se zobrazí skryté pole pro změnu URL adresy serveru. To umožňuje snadné přepínání mezi vývojovým (localhost) a produkčním prostředím bez nutnosti rekompilace aplikace.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{../docs_apk/screenshots/installationID.png}
+    \caption{\texttt{getInstallationId()}}
+    \label{fig:installation_id}
+\end{figure}
+
 \subsection{Hlavní ovládací panel (Dashboard)}
-\subsection{Diagnostická konzole pro terénní testování}
+Po přihlášení se zobrazí hlavní obrazovka (\texttt{MainActivity}), která poskytuje:
+\begin{itemize}
+          \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item \textbf{Indikátor stavu:} Velká ikona a text informující, zda služba běží, je zastavena, nebo čeká na GPS signál.
+    \item \textbf{Ovládací prvky:} Tlačítka START a STOP pro manuální řízení služby.
+    \item \textbf{Statistiky:} Počet nasbíraných bodů v lokální databázi a čas posledního úspěšného odeslání dat.
+\end{itemize}
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../docs_apk/screenshots/ONstate.png}
+        \caption*{Zapnuto}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../docs_apk/screenshots/offstate.png}
+        \caption*{Vypnuto}
+    \end{minipage}
+    \caption{Hlavní ovládací panel}
+    \label{fig:dashboard}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../docs_apk/screenshots/in_background_notification.png}
+        \caption*{Na pozadí}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../docs_apk/screenshots/Offline_pending_data_notification.png}
+        \caption*{Offline – čekající data}
+    \end{minipage}
+    \caption{Stav čekání na GPS signál}
+    \label{fig:nogps_state}
+\end{figure}
+
+\subsection{Diagnostická nástroje a konzole}
+Pro účely ladění v terénu obsahuje aplikace integrovanou konzoli (\texttt{ConsoleLogger}). Ta zobrazuje interní logy aplikace (např. "GPS fix acquired", "Upload failed: timeout") přímo na displeji telefonu.
+Rozlišujeme 4 úrovně logování:
+\begin{itemize}
+        \setlength\itemsep{0.2em}
+    \setlength\parskip{0pt}
+    \setlength\parsep{0pt}
+      \item \textbf{ERROR:} Kritické chyby, které vyžadují zásah uživatele.
+      \item \textbf{WARNING:} Varování o potenciálních problémech.
+      \item \textbf{INFO:} Obecné informace o běhu aplikace
+      \item \textbf{DEBUG:} Detailní informace.
+\end{itemize}
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[t]{0.48\textwidth}
+      \centering
+      \includegraphics[width=\linewidth]{../docs_apk/screenshots/console_debug.png}
+      \caption*{DEBUG konsola}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.48\textwidth}
+      \centering
+      \includegraphics[width=\linewidth]{../docs_apk/screenshots/4_state_Console_settings.png}
+      \caption*{Nastavení úrovní logování}
+    \end{minipage}
+    \caption{Diagnostická konzole}
+    \label{fig:console_logger}
+\end{figure}
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{../docs_apk/schemas/use_case_diagram.png}
+    \caption{Use Case diagram aplikace}
+    \label{fig:use_case_diagram}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{../docs_apk/schemas/state_diagram.png}
+    \caption{State diagram aplikace}
+    \label{fig:state_diagram}
+\end{figure}

@@ -5,7 +5,7 @@
 Serverová část systému LOTR představuje centrální bod celého systému. Zajišťuje komunikaci s hardwarovými jednotkami, trvalé ukládání telemetrických dat, správu uživatelských účtů a poskytování uživatelského rozhraní pro vizualizaci polohy a stavu zařízení.
 
 \subsection{Role serveru v systému LOTR}
-Hlavním úkolem serveru je agregace dat z jednotlivých GPS trackerů. Hardwarové jednotky odesílají data (poloha, stav baterie, síla signálu) prostřednictvím mobilní sítě na definované API endpointy. Server tato data validuje, zpracovává a ukládá do relační databáze.
+Hlavním úkolem serveru je agregace dat z jednotlivých GPS trackerů. Hardwarové jednotky odesílají data (poloha, síla signálu) prostřednictvím mobilní sítě na definované API endpointy. Server tato data validuje, zpracovává a ukládá do relační databáze.
 Druhým klíčovým úkolem je obsluha klientských požadavků. Uživatelé přistupují k systému prostřednictvím webového prohlížeče. Server zajišťuje autentizaci uživatelů a generuje dynamické HTML stránky zobrazující mapové podklady s aktuální polohou sledovaných objektů.
 
 \subsection{Monolitická architektura a MVC vzor}
@@ -20,13 +20,10 @@ Aplikace je navržena jako monolit, což znamená, že backendová logika i prez
 Tento přístup usnadňuje údržbu kódu a umožňuje paralelní vývoj jednotlivých částí aplikace.
 
 \subsection{Relační databáze a ORM (MySQL + Sequelize)}
-Pro ukládání strukturovaných dat s jasně definovanými vazbami jsou standardem relační databáze (RDBMS). Systém \textbf{MySQL} poskytuje transakční zpracování dat a dodržuje principy ACID (Atomicity, Consistency, Isolation, Durability), což je nezbytné pro zajištění integrity telemetrických dat.
-Pro interakci s databází se v moderním vývoji často využívá technika \textbf{ORM} (Object-Relational Mapping). Knihovna (zde Sequelize) mapuje databázové tabulky na třídy (objekty) v programovacím jazyce. Vývojář tak nemusí psát surové SQL dotazy, ale manipuluje s daty pomocí metod objektů (např. \texttt{User.findAll()}).
+Jako databázový systém bylo zvoleno relační \textbf{MySQL}. Pro interakci s databází je využita technika \textbf{ORM} (Object-Relational Mapping) prostřednictvím knihovny Sequelize. Ta mapuje databázové tabulky na JavaScriptové objekty, což zjednodušuje manipulaci s daty a zvyšuje bezpečnost proti SQL injection.
 
 \subsection{Principy autentizace a OAuth 2.0}
-Zabezpečení přístupu k API a webovému rozhraní vyžaduje robustní autentizační mechanismus. Kromě klasického ověření jménem a heslem se stále častěji využívá standard \textbf{OAuth 2.0}.
-Tento protokol umožňuje uživateli udělit aplikaci přístup ke svým údajům na jiné službě (např. Google, GitHub) bez nutnosti sdílet své heslo. Aplikace získá pouze tzv. \textit{Access Token}, který slouží k ověření identity.
-Implementováno pomocí knihovny \texttt{passport.js}.
+Pro zabezpečení přístupu je implementován robustní autentizační mechanismus využívající knihovnu \texttt{passport.js}. Kromě lokálního přihlášení (email/heslo) je podporován standard \textbf{OAuth 2.0} pro přihlášení přes externí poskytovatele (Google, GitHub).
 
 \subsection{REST API architektura}
 \textbf{REST} (Representational State Transfer) je architektonický styl pro návrh síťových aplikací. REST API definuje sadu pravidel pro komunikaci mezi klientem a serverem:
@@ -45,14 +42,17 @@ Databázová vrstva je postavena na relační databázi MySQL. Pro komunikaci s 
 \subsubsection{ORM Sequelize a definice modelů}
 Sequelize abstrahuje SQL dotazy do JavaScriptových objektů. V projektu jsou definovány následující klíčové modely:
 \begin{itemize}
+      \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
     \item \texttt{User}: Ukládá informace o uživatelích (jméno, email, hash hesla, OAuth ID).
     \item \texttt{Device}: Reprezentuje hardwarové jednotky (tracker). Obsahuje unikátní identifikátor, název a vazbu na vlastníka (\texttt{User}).
-    \item \texttt{Location}: Uchovává historická data o poloze (zeměpisná šířka, délka, čas, rychlost, stav baterie).
-    \item \texttt{Alert}: Záznamy o bezpečnostních událostech (např. opuštění geofence zóny).
+    \item \texttt{Location}: Uchovává historická data o poloze (zeměpisná šířka, délka, čas, rychlost).
+    \item \texttt{Alert}: Záznamy o bezpečnostních událostech (např. opuštění geofence zóny nebo nárvat do ní).
 \end{itemize}
 Vztahy mezi modely jsou definovány jako 1:N (jeden uživatel má více zařízení, jedno zařízení má více záznamů polohy).
 
-\begin{figure}[H]
+\begin{figure}[h]
     \centering
     \includegraphics[width=1\textwidth]{../docs_server/db_diagrams/DB_scheme.png} 
     \caption{ER diagram databázových modelů}
@@ -76,6 +76,9 @@ Endpoint & Metoda & Popis \\ \hline
 \end{table}
 
 \begin{enumerate}
+      \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
     \item Každý záznam musí obsahovat \texttt{device}, \texttt{latitude}, \texttt{longitude}, \texttt{timestamp}, může obsahovat \texttt{power\_status}.
     \item Server uloží lokace, aktualizuje \texttt{last\_seen}; pokud \texttt{power\_status} potvrzuje instrukci, vynuluje \texttt{power\_instruction}.
     \item Odezva \texttt{"success": true}; až poté klient smaže data z bufferu.
@@ -104,7 +107,6 @@ Endpoint & Metoda & Popis \\ \hline
 	\texttt{/api/devices/register} & POST & Registrace zařízení typu APK. Payload: \texttt{client\_type="APK"}, \texttt{device\_id} (UUID), \texttt{name}; vyžaduje platnou session. \\ \hline
 	\texttt{/api/devices/handshake} & POST & Synchronizace konfigurace a power instrukcí. Payload: \texttt{device\_id}, \texttt{client\_type="APK"}, \texttt{power\_status}, \texttt{reason}. \\ \hline
 	\texttt{/api/devices/input} & POST & Odeslání telemetrie z APK (batch array). Stejný formát jako HW, navíc může obsahovat \texttt{accuracy}. \\ \hline
-	\texttt{/api/devices/coordinates} & GET & Vrací poslední známé polohy všech zařízení přihlášeného uživatele (používá se pro mapu ve webu/APK). \\ \hline
 \end{tabular}
 \caption{APK API endpointy}
 \label{tab:api_apk}
@@ -338,6 +340,7 @@ Protože systém vyžaduje ke svému běhu nejen aplikační server, ale i datab
 
 Obě služby běží ve společné virtuální síti \texttt{gps-network}, což jim umožňuje vzájemnou komunikaci pomocí názvů služeb (hostname), aniž by musely být vystaveny do veřejného internetu (s výjimkou aplikačního portu 5000).
 
+\clearpage
 
 \begin{figure}[h]
     \centering
@@ -357,7 +360,7 @@ Obě služby běží ve společné virtuální síti \texttt{gps-network}, což 
     \caption{Webové rozhraní: proces registrace a přihlášení}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
     \begin{subfigure}{0.48\textwidth}
         \centering

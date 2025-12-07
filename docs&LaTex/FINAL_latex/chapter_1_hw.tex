@@ -7,33 +7,19 @@
 \label{sec:hw_teorie}
 
 \subsection{Mikrokontroléry a SoC (ESP32)}
-V oblasti vestavěných systémů (embedded systems) dnes dominují tzv. SoC (System on Chip) řešení, která integrují procesor, paměť a bezdrátová rozhraní do jediného pouzdra. Zástupcem této kategorie je čip \textbf{ESP32} od společnosti Espressif Systems.
-Jedná se o 32-bitový mikrokontrolér postavený na architektuře Xtensa LX6. Mezi jeho klíčové vlastnosti pro bateriově napájená zařízení patří pokročilá správa napájení. Čip disponuje několika režimy spánku, přičemž v tzv. \textit{Deep Sleep} režimu je spotřeba redukována na řádově desítky mikroampérů, zatímco RTC (Real Time Clock) časovač zůstává aktivní a dokáže čip probudit.
+Jako řídící jednotka byl zvolen čip \textbf{ESP32} od společnosti Espressif Systems. Jedná se o výkonný 32-bitový mikrokontrolér (architektura Xtensa LX6) s integrovanou Wi-Fi a Bluetooth konektivitou. Pro tento projekt je klíčová jeho pokročilá správa napájení, konkrétně režim \textit{Deep Sleep}, který redukuje spotřebu na desítky mikroampérů při zachování běhu RTC časovače pro probuzení.
 
 \subsection{Mobilní komunikace v IoT a AT příkazy}
-Pro přenos telemetrických dat na velké vzdálenosti se využívají celulární sítě. V kontextu IoT se často setkáváme s technologiemi jako LTE-M nebo NB-IoT, avšak pro univerzální použití je stále relevantní standardní LTE (Long Term Evolution).
-Komunikace mezi řídícím mikrokontrolérem a LTE modemem probíhá tradičně prostřednictvím sériové linky (UART) s využitím sady \textbf{AT příkazů} (Hayes command set). Jedná se o textový protokol, kde každý příkaz začíná prefixem "AT".
-
+Pro přenos dat je využita síť LTE (4G), která zajišťuje dostatečné pokrytí a rychlost. Komunikace mezi mikrokontrolérem a modemem probíhá po sériové lince (UART) pomocí standardizované sady \textbf{AT příkazů} (Hayes command set).
 
 \subsection{Globální navigační systémy (GPS)}
-Systém GPS (Global Positioning System) funguje na principu měření zpoždění signálu vysílaného družicemi na oběžné dráze. Přijímač musí mít přímou viditelnost na minimálně 4 družice, aby mohl vypočítat svou trojrozměrnou polohu (zeměpisná šířka, délka, nadmořská výška) a přesný čas.
-Data z GPS modulů jsou standardně poskytována v textovém formátu \textbf{NMEA 0183}. Tento protokol definuje různé typy vět (sentences), z nichž nejpoužívanější je \texttt{\$GPRMC} (Recommended Minimum Specific GPS/TRANSIT Data), obsahující klíčové navigační údaje.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.9\linewidth]{image/NMEA_sentence.png}
-    \caption{NMEA sentence}
-    \label{fig:NMEA_sentence}
-\end{figure}
+Pro získávání polohy je využit systém GPS. Modul komunikuje s mikrokontrolérem pomocí textového protokolu \textbf{NMEA 0183}. Z celého proudu dat jsou parsovány především věty \texttt{\$GPRMC} (Recommended Minimum Specific GPS/TRANSIT Data), které obsahují klíčové údaje o poloze, času a rychlosti.
 
 \subsection{Operační systémy reálného času (FreeRTOS)}
-S rostoucí složitostí firmware přestává být dostačující klasická smyčka \texttt{while(1)}. Pro zajištění deterministického chování se využívají operační systémy reálného času (RTOS). \textbf{FreeRTOS} je open-source jádro, které umožňuje rozdělit aplikaci do samostatných úloh (Tasks) s definovanou prioritou. Plánovač (Scheduler) pak zajišťuje přepínání mezi těmito úlohami, což umožňuje "souběžný" běh komunikace, sběru dat a správy napájení.
+Pro zajištění deterministického chování a správy souběžných procesů (komunikace, sběr dat) je využit operační systém reálného času \textbf{FreeRTOS}. Ten umožňuje rozdělit aplikaci do samostatných úloh (Tasks) s definovanou prioritou, které jsou spravovány plánovačem.
 
 \subsection{Souborový systém LittleFS}
-Pro ukládání konfiguračních dat a mezipaměti (cache) naměřených poloh přímo v paměti mikrokontroléru je využit souborový systém \textbf{LittleFS}.
-Jedná se o moderní souborový systém navržený speciálně pro mikrokontroléry s flash pamětí. Oproti staršímu SPIFFS (SPI Flash File System) přináší zásadní výhodu v podobě odolnosti vůči výpadkům napájení (power-loss resilience). LittleFS využívá techniku \textit{Copy-on-Write}, kdy se data při úpravě nejprve zapíší na nové místo a teprve po úspěšném zápisu se aktualizuje ukazatel. To zaručuje, že ani při náhlém vybití baterie nedojde k poškození souborového systému a ztrátě dat.
-
-\clearpage
+Pro ukládání konfigurace a offline dat (cache) je využit souborový systém \textbf{LittleFS}. Byl zvolen pro svou odolnost vůči výpadkům napájení (power-loss resilience), což je u bateriového zařízení kritické. Díky mechanismu \textit{Copy-on-Write} nedochází k poškození souborového systému ani při náhlém vypnutí.
 
 \section{Návrh hardware - Výběr komponent}
 \label{sec:hw_navrh}
@@ -42,7 +28,7 @@ Návrh hardwarové části systému vychází z požadavku na vytvoření energe
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{image/T-Call-A7670-3936760664.jpg} 
+    \includegraphics[width=0.7\linewidth]{image/T-Call-A7670-3936760664.jpg} 
     \caption{LilyGO T-Call V1.5 - integrované řešení ESP32 + LTE modem}
     \label{fig:LilyGO_T-Call}
 \end{figure}
@@ -322,8 +308,8 @@ V servisním režimu se ESP32 přepne do role Wi-Fi přístupového bodu (Access
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.5\linewidth]{../docs_hw/screenshots/apnwifi.png} 
-    \caption{wifi\_apn}
-    \label{fig:wifi_apn}
+    \caption{Ukázka Wi-Fi AP v telefonu}
+    \label{fig:wifi_apn_phone}
 \end{figure}
 
 Webové rozhraní nabízí následující funkce:
