@@ -1,34 +1,34 @@
 \babel@toc {czech}{}\relax 
-\contentsline {chapter}{Úvod}{3}{chapter*.4}%
+\contentsline {chapter}{Úvod}{3}{Item.3}%
 \contentsline {chapter}{\numberline {1}Fyzické zařízení \uv {tracker}}{5}{chapter.1}%
 \contentsline {section}{\numberline {1.1}Úvod a koncepce}{5}{section.1.1}%
 \contentsline {section}{\numberline {1.2}POUŽITÉ TECHNOLOGIE}{5}{section.1.2}%
 \contentsline {subsection}{\numberline {1.2.1}Mikrokontroléry a SoC (ESP32)}{5}{subsection.1.2.1}%
 \contentsline {subsection}{\numberline {1.2.2}Mobilní komunikace v IoT a AT příkazy}{5}{subsection.1.2.2}%
 \contentsline {subsection}{\numberline {1.2.3}Globální navigační systémy (GPS)}{5}{subsection.1.2.3}%
-\contentsline {subsection}{\numberline {1.2.4}Operační systémy reálného času (FreeRTOS)}{5}{subsection.1.2.4}%
+\contentsline {subsection}{\numberline {1.2.4}Operační systémy reálného času (FreeRTOS)}{6}{subsection.1.2.4}%
 \contentsline {subsection}{\numberline {1.2.5}Souborový systém LittleFS}{6}{subsection.1.2.5}%
 \contentsline {section}{\numberline {1.3}Návrh hardware - Výběr komponent}{6}{section.1.3}%
-\contentsline {subsection}{\numberline {1.3.1}LilyGO T-Call v1.5}{6}{subsection.1.3.1}%
+\contentsline {subsection}{\numberline {1.3.1}LilyGO T-Call v1.5}{7}{subsection.1.3.1}%
 \contentsline {subsection}{\numberline {1.3.2} Multi-GNSS L76K modul}{7}{subsection.1.3.2}%
-\contentsline {subsection}{\numberline {1.3.3}Baterie, TP4056 + MT3608}{7}{subsection.1.3.3}%
+\contentsline {subsection}{\numberline {1.3.3}Baterie, TP4056 + MT3608}{8}{subsection.1.3.3}%
 \contentsline {subsection}{\numberline {1.3.4}Řízení napájení a Power Latch modul}{8}{subsection.1.3.4}%
-\contentsline {section}{\numberline {1.4}Implementace firmware}{10}{section.1.4}%
-\contentsline {subsection}{\numberline {1.4.1}Architektura a použité knihovny}{10}{subsection.1.4.1}%
-\contentsline {subsection}{\numberline {1.4.2}Pracovní cyklus}{11}{subsection.1.4.2}%
-\contentsline {subsection}{\numberline {1.4.3}Paralelní zpracování a obsluha přerušení (FreeRTOS)}{11}{subsection.1.4.3}%
-\contentsline {subsection}{\numberline {1.4.4}Řízení napájení a Power Latch modul}{11}{subsection.1.4.4}%
-\contentsline {subsubsection}{Režim hlubokého spánku (Deep Sleep)}{12}{figure.caption.12}%
-\contentsline {subsection}{\numberline {1.4.5}Zpracování GPS dat a parsování NMEA}{14}{subsection.1.4.5}%
-\contentsline {subsection}{\numberline {1.4.6}Správa datového úložiště (LittleFS)}{14}{subsection.1.4.6}%
-\contentsline {section}{\numberline {1.5}Komunikace a data}{15}{section.1.5}%
-\contentsline {subsection}{\numberline {1.5.1}Komunikační protokol a zabezpečení}{15}{subsection.1.5.1}%
-\contentsline {subsection}{\numberline {1.5.2}Struktura dat a handshake}{15}{subsection.1.5.2}%
-\contentsline {subsection}{\numberline {1.5.3}Práce s Modemem a AT příkazy}{17}{subsection.1.5.3}%
-\contentsline {section}{\numberline {1.6}Konfigurace a servisní režim}{17}{section.1.6}%
-\contentsline {subsection}{\numberline {1.6.1}OTA režim a webové rozhraní}{18}{subsection.1.6.1}%
-\contentsline {subsection}{\numberline {1.6.2}Manuální a Vzdálená konfigurace zařízení}{19}{subsection.1.6.2}%
-\contentsline {section}{\numberline {1.7}Seznam součástek + Obrázky}{19}{section.1.7}%
+\contentsline {section}{\numberline {1.4}Implementace firmware}{11}{section.1.4}%
+\contentsline {subsection}{\numberline {1.4.1}Architektura a použité knihovny}{11}{subsection.1.4.1}%
+\contentsline {subsection}{\numberline {1.4.2}Pracovní cyklus}{12}{subsection.1.4.2}%
+\contentsline {subsection}{\numberline {1.4.3}Paralelní zpracování a obsluha přerušení (FreeRTOS)}{12}{subsection.1.4.3}%
+\contentsline {subsection}{\numberline {1.4.4}Řízení napájení a Power Latch modul}{12}{subsection.1.4.4}%
+\contentsline {subsubsection}{Režim hlubokého spánku (Deep Sleep)}{13}{figure.caption.12}%
+\contentsline {subsection}{\numberline {1.4.5}Zpracování GPS dat a parsování NMEA}{15}{subsection.1.4.5}%
+\contentsline {subsection}{\numberline {1.4.6}Správa datového úložiště (LittleFS)}{15}{subsection.1.4.6}%
+\contentsline {section}{\numberline {1.5}Komunikace a data}{16}{section.1.5}%
+\contentsline {subsection}{\numberline {1.5.1}Komunikační protokol a zabezpečení}{16}{subsection.1.5.1}%
+\contentsline {subsection}{\numberline {1.5.2}Struktura dat a handshake}{16}{subsection.1.5.2}%
+\contentsline {subsection}{\numberline {1.5.3}Práce s Modemem a AT příkazy}{18}{subsection.1.5.3}%
+\contentsline {section}{\numberline {1.6}Konfigurace a servisní režim}{18}{section.1.6}%
+\contentsline {subsection}{\numberline {1.6.1}OTA režim a webové rozhraní}{19}{subsection.1.6.1}%
+\contentsline {subsection}{\numberline {1.6.2}Manuální a Vzdálená konfigurace zařízení}{20}{subsection.1.6.2}%
+\contentsline {section}{\numberline {1.7}Seznam součástek + Obrázky}{20}{section.1.7}%
 \contentsline {chapter}{\numberline {2}Serverová část}{25}{chapter.2}%
 \contentsline {section}{\numberline {2.1}Úvod a koncepce systému}{25}{section.2.1}%
 \contentsline {subsection}{\numberline {2.1.1}Role serveru v systému LOTR}{25}{subsection.2.1.1}%
@@ -40,7 +40,7 @@
 \contentsline {subsection}{\numberline {2.2.1}Databázová vrstva (MySQL a Sequelize)}{26}{subsection.2.2.1}%
 \contentsline {subsubsection}{ORM Sequelize a definice modelů}{26}{subsection.2.2.1}%
 \contentsline {subsubsection}{API pro HW tracker (ESP32)}{28}{figure.caption.26}%
-\contentsline {subsubsection}{API pro APK klient (Android)}{28}{Item.14}%
+\contentsline {subsubsection}{API pro APK klient (Android)}{28}{Item.17}%
 \contentsline {subsubsection}{Validace vstupních dat (Express Validator)}{29}{table.caption.28}%
 \contentsline {subsubsection}{Dokumentace API (Swagger)}{30}{figure.caption.29}%
 \contentsline {subsection}{\numberline {2.2.2}Správa uživatelů a Autorizace}{31}{subsection.2.2.2}%
@@ -58,16 +58,15 @@
 \contentsline {subsection}{\numberline {2.4.1}Docker a kontejnerizace}{36}{subsection.2.4.1}%
 \contentsline {subsection}{\numberline {2.4.2}Orchestrace kontejnerů (Docker Compose)}{37}{subsection.2.4.2}%
 \contentsline {chapter}{\numberline {3}Aplikace pro Android}{43}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Koncept a specifika mobilního klienta}{43}{section.3.1}%
-\contentsline {subsection}{\numberline {3.1.1}Role v systému a náhrada hardwarového trackeru}{43}{subsection.3.1.1}%
-\contentsline {subsection}{\numberline {3.1.2}Princip Offline-First a odolnost proti výpadkům}{43}{subsection.3.1.2}%
-\contentsline {subsection}{\numberline {3.1.3}Výzvy mobilního vývoje (Doze mode, Background limits)}{44}{subsection.3.1.3}%
+\contentsline {section}{\numberline {3.1}Úvod a Koncept}{43}{section.3.1}%
+\contentsline {subsection}{\numberline {3.1.1}Princip Offline-First a odolnost proti výpadkům}{43}{subsection.3.1.1}%
+\contentsline {subsection}{\numberline {3.1.2}Komplikace způsobené Androidem(Doze mode, Background limits)}{43}{subsection.3.1.2}%
 \contentsline {section}{\numberline {3.2}Architektura a použité technologie}{44}{section.3.2}%
 \contentsline {subsection}{\numberline {3.2.1}Jazyk Kotlin a asynchronní programování (Coroutines)}{44}{subsection.3.2.1}%
 \contentsline {subsection}{\numberline {3.2.2}Vrstevnatá architektura (UI, Service, Data)}{44}{subsection.3.2.2}%
-\contentsline {subsection}{\numberline {3.2.3}Reaktivní řízení stavu (StateFlow)}{45}{subsection.3.2.3}%
+\contentsline {subsection}{\numberline {3.2.3}Reaktivní řízení stavu (StateFlow)}{44}{subsection.3.2.3}%
 \contentsline {subsection}{\numberline {3.2.4}Vlastní implementace HTTP klienta}{45}{subsection.3.2.4}%
-\contentsline {section}{\numberline {3.3}Implementace služeb na pozadí (Background Processing)}{46}{section.3.3}%
+\contentsline {section}{\numberline {3.3}Implementace služeb na pozadí (Background Processing)}{45}{section.3.3}%
 \contentsline {subsection}{\numberline {3.3.1}Foreground Service (LocationService)}{46}{subsection.3.3.1}%
 \contentsline {subsection}{\numberline {3.3.2}Sběr a filtrace polohy (FusedLocationProvider)}{46}{subsection.3.3.2}%
 \contentsline {subsection}{\numberline {3.3.3}Plánování úloh a synchronizace (WorkManager)}{47}{subsection.3.3.3}%

@@ -1,11 +1,11 @@
 \chapter{Aplikace pro Android}
 
-\section{Koncept a specifika mobilního klienta}
+\section{Úvod a Koncept}
 \label{sec:apk_koncept}
-Mobilní aplikace v systému LOTR plní roli softwarového trackeru. Umožňuje uživatelům sledovat polohu jejich mobilního telefonu bez nutnosti pořizovat specializovaný hardware. Ačkoliv sdílí stejný backend a datové formáty jako hardwarové jednotky, její vnitřní logika je odlišná kvůli specifikům operačního systému Android.
-
-\subsection{Role v systému a náhrada hardwarového trackeru}
-Aplikace transformuje běžný smartphone na plnohodnotné sledovací zařízení. Využívá integrovaný GPS/GNSS přijímač a mobilní datové připojení. Na rozdíl od jednoúčelového HW trackeru, který běží na "bare metal" firmware, musí aplikace koexistovat s operačním systémem a ostatními aplikacemi, což přináší nutnost řešit priority procesů a správu paměti.
+"Mobilní aplikace v systému LOTR plní roli softwarového trackeru". Avšak jak již bylo zmíněno v úvodu, tak aplikace plní roli doplňkovou a testovací, a popis jejího kodu je vytvořen polo-reverzním inženýsrtvím. 
+Tedy: aplikace, ačkoliv sdílí stejný backend a datové formáty jako hardwarové jednotky, její vnitřní logika je odlišná kvůli specifikům operačního systému Android a jeho omezením.
+Aplikace transformuje běžný smartphone na plnohodnotné sledovací zařízení. Využívá integrovaný GPS/GNSS přijímač a mobilní datové připojení. 
+Na rozdíl od jednoúčelového HW trackeru, který běží na "bare metal" firmware, musí aplikace koexistovat s operačním systémem a ostatními aplikacemi, což přináší nutnost řešit priority procesů a správu paměti.
 
 \subsection{Princip Offline-First a odolnost proti výpadkům}
 Mobilní zařízení se často pohybují v oblastech s nestabilním signálem (tunely, podzemní garáže, venkov). Aby nedošlo ke ztrátě cenných telemetrických dat, je aplikace navržena podle principu \textbf{Offline-First}.
@@ -21,13 +21,13 @@ To znamená, že naměřená data nejsou nikdy odesílána přímo na server. Pr
 \end{enumerate}
 Tento přístup garantuje, že i při dlouhodobém výpadku konektivity zůstanou data bezpečně uložena v telefonu a odešlou se automaticky po obnovení spojení.
 
-\subsection{Výzvy mobilního vývoje (Doze mode, Background limits)}
+\subsection{Komplikace způsobené Androidem(Doze mode, Background limits)}
 Moderní verze systému Android obsahují agresivní mechanismy pro úsporu energie, jako je \textbf{Doze mode} a \textbf{App Standby buckets}. Tyto systémy omezují přístup aplikací k síti a CPU, pokud běží na pozadí a uživatel s nimi neinteraguje.
 Pro aplikaci typu tracker, která musí běžet nepřetržitě, to představuje zásadní problém. Řešením je využití tzv. \textbf{Foreground Service} (služby na popředí), která dává systému signál, že aplikace vykonává pro uživatele kritickou činnost, a nesmí být ukončena ani uspána (viz sekce \ref{sec:apk_background}).
 
 \section{Architektura a použité technologie}
 \label{sec:apk_architektura}
-Aplikace je navržena s důrazem na modularitu a oddělení odpovědností (Separation of Concerns). Architektura respektuje moderní doporučení pro vývoj Android aplikací, avšak s ohledem na specifické potřeby trackeru (běh na pozadí) využívá i některé nízkoúrovňové mechanismy.
+Aplikace je navržena modulárně s principem oddělení odpovědností ("Separation of Concerns"). Architektura respektuje moderní doporučení pro vývoj Android aplikací, avšak s ohledem na specifické potřeby trackeru (běh na pozadí) využívá i některé nízkoúrovňové mechanismy.
 
 \subsection{Jazyk Kotlin a asynchronní programování (Coroutines)}
 Jako primární jazyk byl zvolen \textbf{Kotlin}, který je od roku 2019 preferovaným jazykem pro Android. Jeho klíčovou vlastností je \textit{Null Safety}, která eliminuje celou třídu chyb typu \texttt{NullPointerException}.

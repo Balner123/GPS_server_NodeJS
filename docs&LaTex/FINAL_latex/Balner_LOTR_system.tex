@@ -218,7 +218,7 @@ openright
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
 	\noindent{\large{\bfseries{Poděkování}\\}}
-	\noindent Děkuji těm, jimž poděkováno zatím nebylo. Také děkuji Současné době za to, že jsou již LLM na takové urovni, že vytvoření tohoto projektu bylo možné i za sníženého pracovního nasazení.\\
+	\noindent Děkuji těm, jimž poděkováno zatím nebylo. Také děkuji Současné době za to, že jsou již LLM na takové urovni, díky čemuž kódování tohoto projektu bylo možné i za sníženého pracovního nasazení a kognitivního vypětí.\\
 	
 	\vspace*{0.5\textheight} %% Vertikální mezeru je možné upravit
 
@@ -263,6 +263,24 @@ openright
 	
 	\vspace{18pt}
 	
+	%% Abstract in English
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\noindent{\Large{\bfseries{Abstract}\\}}
+\noindent This work presents the design and implementation of the LOTR (LOcation TRacking System), consisting of a physical hardware tracker, a server infrastructure, and (optionally) a client mobile application.
+
+The hardware component is built on the ESP32 platform, using the SIMCOM A7670 modem for LTE connectivity and a GPS module for location acquisition. The firmware employs an interrupt-driven approach and writes telemetry to flash memory. The server component, implemented in Node.js with a MySQL database, collects telemetry data, manages users, and exposes a REST API for communication with devices. An additional native Android application written in Kotlin serves as a software (and testing) substitute for the hardware tracker.
+
+The outcome is an IoT prototype enabling location tracking, movement history, and remote configuration of connected devices.
+
+\vspace{18pt}
+
+\noindent{\large{\bfseries{Keywords}}}
+
+\noindent GPS, IoT, tracking system, ESP32, LTE, Node.js, MySQL, Android, Kotlin, REST API
+
+\vspace{18pt}
+
+\clearpage %% Page break
 	\clearpage %% Zalomení stránky
 
 %% Stránka s generovaným obsahem
@@ -284,18 +302,20 @@ openright
 	Bylo jasné, že již existují řešení a "GPS-trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem dumal nad tématem pro zavěrečný projekt, výroba a řešení konstrukce vlastního, sic nízkokvalitního a nutně dosti poruchového, zařízení se ukázal jako vhodný nápad.
 	Existovala možnost vytvořit opravdu pouze "krabici" trackeru s ukládáním dat n apevné úložiště , avšak rozhodl jsem se to spojit s vývojem serveru jež by umožňoval sledování v reálném čase. Na tomto "webovém" serveru by tak šlo zobrazovat a spravovat data posílaná  zařízením přes mobilní síť.
 	To se pak přirozeně rozvinulo do plného systému s uživatelskými účty a možností spravovat více zařízení na jednom z nich. 
-	Již z počátků pak bylo také na výledni ,že pokud by server měl fungovat a přijímat data spolehlivě, tak jeho jádrem by muselo být responzivní a hlavně "robustní" API. Jeho struktura se však, hlavně kvůli postupnému přehodnocuvání principu komunikace mezi serverem a zařízeními, dosti drasticky měnila.
-	Fyzické zařízení totiž bylo hlavním pilířem celého systému a jeho kontrukce, složení, a hlavně samotný kod, udávaly směr vývoje všeho ostatního. 
 
 	Jako méně důležitou, spíše doplňkovou, ale přesto užitečnou součást systému jsem pak viděl výtvoření mobilní aplikace pro systém Android. Tato aplikace však nemá takové důležitosti jako ostatní komponenty, jelikož byla koncipována jako testování API a pro neznalost Kotlinu většina jejího kódu byla generována LLM (chcete-li "AI", konkrétně Gemini).
 	Tato dokumentace ji, ale i přesto popisuje a rozvádí i její kód, protože vygenerovaný kód je kvalitní alespoň co do úrovně využitých principů a zásad. 
 
 	Proto je tento Dokument rozdělen do tří hlavních kapitol. 
 
-	1. popisuje samotné zařízení, jeho návrh a kontrukci i příkladné použití
-	2. popisuje kód serveru, jeho návrh, API a většinu možností uživatelského rozhraní
-
-	3. pak již postup vývoje aplikace a její architekturu, avšak jak zmíněno výše, musí to být bráno jako jen jako analýza vzniklá reverzním inženýrstvím, ne přímou tvorbou.
+\begin{enumerate}
+	  \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+	\item Popisuje samotné zařízení, jeho návrh a konstrukci i příkladné použití.
+	\item Popisuje kód serveru, jeho návrh, API a většinu možností uživatelského rozhraní.
+	\item Popisuje postup vývoje aplikace a její architekturu; jak zmíněno výše, jde o analýzu vzniklou reverzním inženýrstvím, ne přímou tvorbou.
+\end{enumerate}
 
 %Příkaz \chapter*{Úvod}	
 %Tento příkaz vytvoří novou kapitolu s názvem "Úvod" ve vašem dokumentu.
