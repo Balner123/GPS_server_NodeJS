@@ -247,11 +247,12 @@ openright
 %% Abstrakt v češtině
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	\noindent{\Large{\bfseries{Anotace}\\}}
-	\noindent Cílem této práce je návrh a realizace sledovacího systému LOTR (LOcation TRacking System), který se skládá z fyzického hardwarového zařízení, serverové infrastruktury a klientské mobilní aplikace.
+	\noindent Tato práce obsahuje návrh a realizaci sledovacího systému LOTR (LOcation TRacking System), který se skládá z fyzického hardwarového zařízení, serverové infrastruktury a (doplňkově) klientské mobilní aplikace.
 	
-	Hardwarová část je postavena na platformě ESP32 s využitím modemu SIMCOM A7670 pro komunikaci přes sítě LTE a modulu GPS pro získávání polohy. Firmware je optimalizován pro nízkou spotřebu energie a spolehlivý přenos dat. Serverová část, realizovaná v prostředí Node.js s databází MySQL, zajišťuje sběr telemetrických dat, správu uživatelů a poskytuje REST API pro komunikaci s koncovými zařízeními. Součástí systému je také nativní aplikace pro OS Android vyvinutá v jazyce Kotlin, která slouží jako plnohodnotná softwarová náhrada hardwarového trackeru.
+	Hardwarová část je postavena na platformě ESP32 s využitím modemu SIMCOM A7670 pro komunikaci přes sítě LTE a modulu GPS pro získávání polohy. Firmware využívá přerušovacího systému a zápisu dat do flash paměti. Serverová část, realizovaná v prostředí Node.js s databází MySQL, 
+	zajišťuje sběr telemetrických dat, správu uživatelů a poskytuje REST API pro komunikaci s koncovými zařízeními. Doplňkovou součástí systému je také nativní aplikace pro OS Android vyvinutá v jazyce Kotlin, která slouží jako softwarová (a testovací) náhrada hardwarového trackeru.
 	
-	Výsledkem projektu je prototyp IoT řešení umožňující sledování polohy v reálném čase, historii pohybu a vzdálenou konfiguraci připojených zařízení.
+	Výsledkem projektu je prototyp IoT řešení umožňující sledování polohy, historii pohybu a vzdálenou konfiguraci připojených zařízení.
 	
 	
 	\vspace{18pt}
@@ -278,15 +279,23 @@ openright
 	Můžeme říci, že již od začátku cílem projektu bylo vytvořit kompletní a hlavně uzavřený systém, co by mohl žít svým vlastním životem a jehož použití by bylo možné nasadit v reálných podmínkách.
 	
 	Již kdysi jsem se zabýval "sběrnými" nebo "sledovacími" systémy. Poohlížel jsem se z variabilních důvodů po možnostech jak by šlo sestrojit zařízení schopné nahrávat video a ukládat na SD kartu nebo jiné uložiště.
-	Sledování polohy je jenom dalším krokem v tomto směru. Možnost že bych měl krabičku jež bych mohl dát někomu do auta, nebo jej připnout k nápravě kamionu a sledoval jeho pohyb do doby vybití baterie byla, a stále je, velmi přitažlivá.
+	Sledování polohy je jenom dalším krokem v tomto směru. Možnost že bych měl krabičku jež bych mohl dát někomu do auta, nebo jej připnout k nápravě kamionu (naivní to myšlenka) nebo dát pouze do zásilky a sledoval jeho pohyb do doby vybití baterie byla, a stále je, velmi přitažlivá.
 	
-	Bylo jasné, že již existují řešení a "GPS-trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem dumal nad tématem pro zavěrečný projekt, výroba a řešení konstrukce vlastního, sic nízkokvalitního a dosti poruchového, zařízení se ukázal jako vhodný nápad.
+	Bylo jasné, že již existují řešení a "GPS-trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem dumal nad tématem pro zavěrečný projekt, výroba a řešení konstrukce vlastního, sic nízkokvalitního a nutně dosti poruchového, zařízení se ukázal jako vhodný nápad.
 	Existovala možnost vytvořit opravdu pouze "krabici" trackeru s ukládáním dat n apevné úložiště , avšak rozhodl jsem se to spojit s vývojem serveru jež by umožňoval sledování v reálném čase. Na tomto "webovém" serveru by tak šlo zobrazovat a spravovat data posílaná  zařízením přes mobilní síť.
 	To se pak přirozeně rozvinulo do plného systému s uživatelskými účty a možností spravovat více zařízení na jednom z nich. 
 	Již z počátků pak bylo také na výledni ,že pokud by server měl fungovat a přijímat data spolehlivě, tak jeho jádrem by muselo být responzivní a hlavně "robustní" API. Jeho struktura se však, hlavně kvůli postupnému přehodnocuvání principu komunikace mezi serverem a zařízeními, dosti drasticky měnila.
 	Fyzické zařízení totiž bylo hlavním pilířem celého systému a jeho kontrukce, složení, a hlavně samotný kod, udávaly směr vývoje všeho ostatního. 
 
-	Jako méně důležitou, spíše doplňkovou, ale přesto užitečnou součást systému jsem pak viděl souběžný vývoj mobilní aplikace pro systém Android. Ta měla sloužit jako plnohodnotná náhrada hardwarového zařízení a možná jako náhrada více schopná.
+	Jako méně důležitou, spíše doplňkovou, ale přesto užitečnou součást systému jsem pak viděl výtvoření mobilní aplikace pro systém Android. Tato aplikace však nemá takové důležitosti jako ostatní komponenty, jelikož byla koncipována jako testování API a pro neznalost Kotlinu většina jejího kódu byla generována LLM (chcete-li "AI", konkrétně Gemini).
+	Tato dokumentace ji, ale i přesto popisuje a rozvádí i její kód, protože vygenerovaný kód je kvalitní alespoň co do úrovně využitých principů a zásad. 
+
+	Proto je tento Dokument rozdělen do tří hlavních kapitol. 
+
+	1. popisuje samotné zařízení, jeho návrh a kontrukci i příkladné použití
+	2. popisuje kód serveru, jeho návrh, API a většinu možností uživatelského rozhraní
+
+	3. pak již postup vývoje aplikace a její architekturu, avšak jak zmíněno výše, musí to být bráno jako jen jako analýza vzniklá reverzním inženýrstvím, ne přímou tvorbou.
 
 %Příkaz \chapter*{Úvod}	
 %Tento příkaz vytvoří novou kapitolu s názvem "Úvod" ve vašem dokumentu.
@@ -310,11 +319,13 @@ openright
 \include{chapter_3_apk}
 	
 \chapter*{Závěr a zhodnocení}
-\noindent Seznam nedokonalostí či nedodělků je docela dlouhý. Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro HW tracker. V počátcích vývoje jsem sice vymodeloval prototyp, ale ukázalo se, že s tím jak byly postupně přidávány prvky nebo měněny stávající, nestačil model udržovat krok, jediná použitelná část zůstal držák na baterii + její nabíječku, ten se ukázal jako užitečný.
-Dále celý základní princip API a identifikace mezi zařízeními a serverem je dosti primitivní a náchylný k chybám. V budoucnu by bylo vhodné přejít na nějaký propracovanější systém autentizace a autorizace zařízení, místo pouhého ID a uživatelských údajů ( je to takto dosti jednoduché na falšování požadavků).
-Také možnosti řazení nebo třídění dat v uživatelském rozhraní chybí, a tak bych mohl pokračovat\dots
+\noindent Seznam nedokonalostí či nedodělků může být dosti dlouhý. Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro HW tracker. V počátcích vývoje jsem sice vymodeloval prototyp (viz. příloha modelu), ale ukázalo se, že s tím jak byly postupně přidávány prvky nebo měněny stávající, nestačil model udržovat krok,
+jediná použitelná část z tohoto modelu zůstal držák na : baterii a její nabíječku, ten se ukázal jako užitečný pro jednoduší manipulací s celou kontrukcí.
+Dále také celý základní princip API a identifikace mezi zařízeními a serverem je dosti primitivní a náchylný k chybám. V budoucnu by bylo vhodné přejít na nějaký propracovanější systém autentizace a autorizace zařízení (moožná MQTT mezi-server obstarávající autentifikaci ?), místo pouhého ID a uživatelských údajů ( je to takto dosti jednoduché na falšování požadavků).
+Také nějaké více komplikované možnosti výpisu či třídění dat v uživatelském rozhraní chybí, a tak bych mohl pokračovat\dots
 
-\noindent Co však dokončeno bylo, alespoň základně či přízemně, je samotné jadro systému. I když bez pokročilého zabezpečení tak API funguje a zařízení dokáží se serverem komunikovat a mají schopnosti se tak či onak vypořádat s vypadky sítě (cachování) a HW-tracker přestože s obtížemi by přece jenom šlo naložit do auta a sledovat jeho pohyb do doby vybití baterie (přes snahy o nízkou spotřeby však výdrž není úplně optimální). Nejlépe asi použít jako GPS alarm, kdy by se tracker hlasil s periodou cca. 1 dne a v případě změny by uivatel dostal hlášení. 
+\noindent Co však dokončeno bylo, alespoň základně či přízemně, je samotné jadro systému. I když bez pokročilého zabezpečení tak API funguje a zařízení dokáží se serverem komunikovat a mají schopnosti se tak či onak vypořádat s vypadky sítě (cachování)
+ a HW-tracker přestože s obtížemi by přece jenom šlo do doby vybití baterie používat v rámci možnstí (přes snahy o nízkou spotřeby však výdrž není úplně optimální). Nejlépe asi použít jako GPS alarm, kdy by se tracker hlasil s periodou cca. 1 dne a v případě změny by uivatel dostal hlášení. 
 \noindent Celkově tedy systém funguje v urovni možností a schopností prototypu, ale pro reálné nasazení by bylo potřeba ještě hodně práce a vylepšení.
 \addcontentsline{toc}{chapter}{Závěr}
 
