@@ -37,7 +37,6 @@ const isUser = (req, res, next) => {
     return res.redirect('/administration');
   }
   
-  // Don't show an error message if the user simply visits the landing page
   if (req.path === '/') {
     return res.redirect('/login');
   }
@@ -86,7 +85,7 @@ const authenticateDevice = async (req, res, next) => {
     const clientTypeFromRequest = req.body.client_type || req.body.clientType || (Array.isArray(req.body) && req.body[0] ? req.body[0].client_type || req.body[0].clientType : null);
 
     req.device = device;
-    req.user = user; // Attach the user object associated with the device
+    req.user = user;
     req.clientType = device.device_type || (clientTypeFromRequest ? String(clientTypeFromRequest).trim().toUpperCase() : null);
     log.info('Device authenticated', { userId: user.id, clientType: req.clientType });
     next();

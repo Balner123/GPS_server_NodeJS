@@ -2,50 +2,41 @@
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {1.1}{\ignorespaces LilyGO T-Call V1.5 - integrované řešení ESP32 + LTE modem}}{6}{figure.caption.5}%
 \contentsline {figure}{\numberline {1.2}{\ignorespaces Modul GPS a zapojení pro řízení napájení}}{7}{figure.caption.6}%
-\contentsline {figure}{\numberline {1.3}{\ignorespaces Baterie + nabíjecí modul TP4056 a step-up měnič MT3608 již v pouzdře}}{8}{figure.caption.7}%
-\contentsline {figure}{\numberline {1.4}{\ignorespaces Osazená deska}}{9}{figure.caption.8}%
-\contentsline {figure}{\numberline {1.5}{\ignorespaces Power Latch modul - Power Modul}}{9}{figure.caption.8}%
-\contentsline {figure}{\numberline {1.6}{\ignorespaces Blokové schéma zapojení hardwarového trackeru [easyEDA]}}{10}{figure.caption.9}%
-\contentsline {figure}{\numberline {1.7}{\ignorespaces Schéma power-modul [easyEDA]}}{10}{figure.caption.10}%
-\contentsline {figure}{\numberline {1.8}{\ignorespaces funkce \texttt {power\_init()}}}{13}{figure.caption.11}%
-\contentsline {figure}{\numberline {1.9}{\ignorespaces funkce \texttt {graceful\_shutdown()}}}{14}{figure.caption.12}%
-\contentsline {figure}{\numberline {1.10}{\ignorespaces funkce \texttt {enter\_deep\_sleep()}}}{14}{figure.caption.13}%
-\contentsline {figure}{\numberline {1.11}{\ignorespaces funkce \texttt {gps\_get\_fix()}}}{15}{figure.caption.14}%
-\contentsline {figure}{\numberline {1.12}{\ignorespaces funkce \texttt {fs\_init()}}}{16}{figure.caption.15}%
-\contentsline {figure}{\numberline {1.13}{\ignorespaces funkce \texttt {modem\_send\_post\_request()}}}{17}{figure.caption.16}%
-\contentsline {figure}{\numberline {1.14}{\ignorespaces funkce \texttt {modem\_perform\_handshake()}}}{17}{figure.caption.17}%
-\contentsline {figure}{\numberline {1.15}{\ignorespaces funkce \texttt {modem\_initialize()}}}{18}{figure.caption.18}%
-\contentsline {figure}{\numberline {1.17}{\ignorespaces konfigurace Wifi APN pro OTA režim}}{19}{figure.caption.20}%
-\contentsline {figure}{\numberline {1.16}{\ignorespaces Ukázka Wi-Fi AP v telefonu}}{19}{figure.caption.19}%
-\contentsline {figure}{\numberline {1.18}{\ignorespaces log z OTA režimu}}{21}{figure.caption.21}%
-\contentsline {figure}{\numberline {1.19}{\ignorespaces OTA režim - webové rozhraní}}{21}{figure.caption.22}%
-\contentsline {figure}{\numberline {1.20}{\ignorespaces Usecase diagram}}{22}{figure.caption.23}%
-\contentsline {figure}{\numberline {1.21}{\ignorespaces sekvenční diagram životního cyklu}}{23}{figure.caption.24}%
-\contentsline {figure}{\numberline {1.22}{\ignorespaces "vnitřnosti" zařízení}}{24}{figure.caption.25}%
+\contentsline {figure}{\numberline {1.3}{\ignorespaces Baterie a nabíjecí/step-up modul – dva pohledy}}{8}{figure.caption.7}%
+\contentsline {figure}{\numberline {1.4}{\ignorespaces Blokové schéma zapojení hardwarového trackeru [easyEDA]}}{9}{figure.caption.8}%
+\contentsline {figure}{\numberline {1.5}{\ignorespaces Schéma power-modul [easyEDA]}}{9}{figure.caption.9}%
+\contentsline {figure}{\numberline {1.6}{\ignorespaces funkce \texttt {power\_init()}}}{12}{figure.caption.10}%
+\contentsline {figure}{\numberline {1.7}{\ignorespaces funkce \texttt {graceful\_shutdown()}}}{13}{figure.caption.11}%
+\contentsline {figure}{\numberline {1.8}{\ignorespaces funkce \texttt {enter\_deep\_sleep()}}}{13}{figure.caption.12}%
+\contentsline {figure}{\numberline {1.9}{\ignorespaces funkce \texttt {gps\_get\_fix()}}}{14}{figure.caption.13}%
+\contentsline {figure}{\numberline {1.10}{\ignorespaces funkce \texttt {fs\_init()}}}{15}{figure.caption.14}%
+\contentsline {figure}{\numberline {1.11}{\ignorespaces funkce \texttt {modem\_send\_post\_request()}}}{16}{figure.caption.15}%
+\contentsline {figure}{\numberline {1.12}{\ignorespaces funkce \texttt {modem\_perform\_handshake()}}}{16}{figure.caption.16}%
+\contentsline {figure}{\numberline {1.13}{\ignorespaces funkce \texttt {modem\_initialize()}}}{17}{figure.caption.17}%
+\contentsline {figure}{\numberline {1.15}{\ignorespaces konfigurace Wifi APN pro OTA režim}}{18}{figure.caption.19}%
+\contentsline {figure}{\numberline {1.14}{\ignorespaces Ukázka Wi-Fi}}{18}{figure.caption.18}%
+\contentsline {figure}{\numberline {1.16}{\ignorespaces log z OTA režimu}}{20}{figure.caption.20}%
+\contentsline {figure}{\numberline {1.17}{\ignorespaces OTA režim - webové rozhraní}}{20}{figure.caption.21}%
+\contentsline {figure}{\numberline {1.18}{\ignorespaces Usecase diagram}}{21}{figure.caption.22}%
+\contentsline {figure}{\numberline {1.19}{\ignorespaces "vnitřnosti" zařízení}}{21}{figure.caption.23}%
+\contentsline {figure}{\numberline {1.20}{\ignorespaces sekvenční diagram životního cyklu}}{22}{figure.caption.24}%
+\contentsline {figure}{\numberline {1.21}{\ignorespaces prototyp krabičky - průhled}}{22}{figure.caption.25}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {2.1}{\ignorespaces ER diagram databázových modelů}}{27}{figure.caption.26}%
-\contentsline {figure}{\numberline {2.3}{\ignorespaces Ukázka Swagger dokumentace API}}{30}{figure.caption.30}%
-\contentsline {figure}{\numberline {2.4}{\ignorespaces příklad jedné z funkcí v authorization.js}}{32}{figure.caption.32}%
-\contentsline {figure}{\numberline {2.5}{\ignorespaces Passport.js autentizační strategie}}{32}{figure.caption.33}%
-\contentsline {figure}{\numberline {2.6}{\ignorespaces Administrátorský panel}}{33}{figure.caption.34}%
-\contentsline {figure}{\numberline {2.7}{\ignorespaces E-mailové scénáře: transakční zprávy a bezpečnostní upozornění}}{34}{figure.caption.35}%
-\contentsline {figure}{\numberline {2.8}{\ignorespaces Webové rozhraní - Správa zařízení}}{35}{figure.caption.36}%
-\contentsline {figure}{\numberline {2.9}{\ignorespaces Webové rozhraní - Settings}}{36}{figure.caption.37}%
-\contentsline {figure}{\numberline {2.10}{\ignorespaces Ukázka Dockerfile pro serverovou aplikaci}}{36}{figure.caption.38}%
-\contentsline {figure}{\numberline {2.11}{\ignorespaces Webové rozhraní: proces registrace a přihlášení}}{38}{figure.caption.39}%
-\contentsline {figure}{\numberline {2.12}{\ignorespaces Webové rozhraní: verifikace e-mailu a bezpečnostní upozornění}}{38}{figure.caption.40}%
-\contentsline {figure}{\numberline {2.13}{\ignorespaces Sekvenční diagram: tok sledování zařízení (handshake, input, aktualizace polohy)}}{39}{figure.caption.41}%
-\contentsline {figure}{\numberline {2.14}{\ignorespaces Sekvenční diagram: registrace HW zařízení (ESP32) do systému}}{40}{figure.caption.42}%
-\contentsline {figure}{\numberline {2.15}{\ignorespaces Sekvenční diagram: registrace APK klienta (Android) a navázání session}}{41}{figure.caption.43}%
-\contentsline {figure}{\numberline {2.16}{\ignorespaces Use-case diagram systému LOTR: aktéři a hlavní případy použití}}{42}{figure.caption.44}%
+\contentsline {figure}{\numberline {2.1}{\ignorespaces ER diagram databázových modelů}}{25}{figure.caption.26}%
+\contentsline {figure}{\numberline {2.3}{\ignorespaces Ukázka Swagger dokumentace API}}{28}{figure.caption.30}%
+\contentsline {figure}{\numberline {2.4}{\ignorespaces příklad jedné z funkcí v authorization.js}}{30}{figure.caption.32}%
+\contentsline {figure}{\numberline {2.5}{\ignorespaces Passport.js autentizační strategie}}{30}{figure.caption.33}%
+\contentsline {figure}{\numberline {2.6}{\ignorespaces Administrátorský panel}}{31}{figure.caption.34}%
+\contentsline {figure}{\numberline {2.7}{\ignorespaces E-mailové scénáře: transakční zprávy a bezpečnostní upozornění}}{32}{figure.caption.35}%
+\contentsline {figure}{\numberline {2.8}{\ignorespaces Webové rozhraní - Správa zařízení}}{33}{figure.caption.36}%
+\contentsline {figure}{\numberline {2.9}{\ignorespaces Webové rozhraní - Settings}}{34}{figure.caption.37}%
+\contentsline {figure}{\numberline {2.10}{\ignorespaces Ukázka Dockerfile pro serverovou aplikaci}}{34}{figure.caption.38}%
+\contentsline {figure}{\numberline {2.11}{\ignorespaces Webové rozhraní: registrace, přihlášení, verifikace e-mailu a bezpečnostní upozornění}}{35}{figure.caption.39}%
+\contentsline {figure}{\numberline {2.12}{\ignorespaces Use-case diagram systému LOTR: aktéři a hlavní případy použití}}{36}{figure.caption.40}%
+\contentsline {figure}{\numberline {2.13}{\ignorespaces Sekvenční diagram: tok sledování zařízení (handshake, input, aktualizace polohy)}}{36}{figure.caption.41}%
+\contentsline {figure}{\numberline {2.14}{\ignorespaces Sekvenční diagram: registrace HW zařízení (ESP32) do systému}}{37}{figure.caption.42}%
+\contentsline {figure}{\numberline {2.15}{\ignorespaces Sekvenční diagram: registrace APK klienta (Android) a navázání session}}{37}{figure.caption.43}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {3.1}{\ignorespaces API client}}{45}{figure.caption.45}%
-\contentsline {figure}{\numberline {3.2}{\ignorespaces Foreground Service}}{46}{figure.caption.46}%
-\contentsline {figure}{\numberline {3.3}{\ignorespaces sestavení JSON payload pro odeslání polohy}}{47}{figure.caption.47}%
-\contentsline {figure}{\numberline {3.4}{\ignorespaces Room Database - CachedLocation entity}}{48}{figure.caption.48}%
-\contentsline {figure}{\numberline {3.5}{\ignorespaces \texttt {getInstallationId()}}}{50}{figure.caption.49}%
-\contentsline {figure}{\numberline {3.6}{\ignorespaces Hlavní ovládací panel}}{51}{figure.caption.50}%
-\contentsline {figure}{\numberline {3.7}{\ignorespaces Stav čekání na GPS signál}}{51}{figure.caption.51}%
-\contentsline {figure}{\numberline {3.8}{\ignorespaces Diagnostická konzole}}{52}{figure.caption.52}%
-\contentsline {figure}{\numberline {3.9}{\ignorespaces Use Case diagram aplikace}}{53}{figure.caption.53}%
-\contentsline {figure}{\numberline {3.10}{\ignorespaces State diagram aplikace}}{54}{figure.caption.54}%
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Hlavní ovládací panel}}{40}{figure.caption.44}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Stav čekání na GPS signál}}{40}{figure.caption.45}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Diagnostická konzole}}{40}{figure.caption.46}%

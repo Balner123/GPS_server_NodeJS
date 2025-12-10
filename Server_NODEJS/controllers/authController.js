@@ -4,6 +4,13 @@ const db = require('../database');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailSender');
 const { getRequestLogger } = require('../utils/requestLogger');
 
+const passwordRequirements = [
+            { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
+            { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
+            { regex: /[0-9]/, message: 'Password must contain at least one number.' },
+            { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
+        ];
+
 const getLoginPage = (req, res) => {
   if (req.session.isAuthenticated) {
     return res.redirect('/');
@@ -12,8 +19,6 @@ const getLoginPage = (req, res) => {
   let successMessage = req.flash('success'); // Retrieve existing flash messages
   
   if (req.query.message === 'account_deleted') {
-      // If manual query param exists, append/set it
-      // Note: req.flash() returns an array.
       if (successMessage.length === 0) {
           successMessage = ['Your account has been successfully deleted.'];
       } else {
@@ -132,20 +137,14 @@ const registerUser = async (req, res) => {
 
   // --- Password Validation ---
   if (!use_weak_password) {
-    // Strict password requirements
-    const passwordRequirements = [
-      { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
-      { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
-      { regex: /[0-9]/, message: 'Password must contain at least one number.' },
-      { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
-    ];
+    // password requirements
     for (const req of passwordRequirements) {
       if (!req.regex.test(password)) {
         return res.status(400).render('register', { error: req.message, currentPage: 'register', input });
       }
     }
   } else {
-    // Weak password requirement
+    // weak password allowed
     if (password.length < 3) {
       return res.status(400).render('register', { error: 'Weak password must be at least 3 characters long.', currentPage: 'register', input });
     }
@@ -438,12 +437,6 @@ const setInitialPassword = async (req, res) => {
 
         // --- Password Validation ---
         if (!use_weak_password) {
-            const passwordRequirements = [
-                { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
-                { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
-                { regex: /[0-9]/, message: 'Password must contain at least one number.' },
-                { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
-            ];
             for (const requirement of passwordRequirements) {
                 if (!requirement.regex.test(newPassword)) {
                     req.flash('error', requirement.message);
@@ -522,7 +515,6 @@ const sendPasswordResetLink = async (req, res) => {
   try {
     const user = await db.User.findOne({ where: { email } });
     if (!user) {
-      // Security: Don't reveal if user exists or not, but log it
       log.info('Password reset requested for non-existent email');
       req.flash('success', 'If an account with that email exists, a reset link has been sent.');
       return res.redirect('/forgot-password');
@@ -608,12 +600,6 @@ const resetPassword = async (req, res) => {
 
     // Password complexity check
     if (!use_weak_password) {
-        const passwordRequirements = [
-            { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
-            { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
-            { regex: /[0-9]/, message: 'Password must contain at least one number.' },
-            { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
-        ];
         for (const requirement of passwordRequirements) {
             if (!requirement.regex.test(password)) {
                 req.flash('error', requirement.message);

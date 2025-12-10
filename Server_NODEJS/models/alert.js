@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     user_id: {
       type: DataTypes.INTEGER,
-      allowNull: true, // Can be null if the alert is system-wide
+      allowNull: true, // Can be null if the alert is system-wide. For what case ? I do not know.
       references: {
         model: 'users',
         key: 'id'

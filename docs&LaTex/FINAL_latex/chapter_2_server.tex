@@ -2,33 +2,32 @@
 
 \section{Úvod a koncepce systému}
 \label{sec:server_uvod}
-Serverová část systému LOTR představuje centrální bod celého systému. Zajišťuje komunikaci s hardwarovými jednotkami, trvalé ukládání telemetrických dat, správu uživatelských účtů a poskytování uživatelského rozhraní pro vizualizaci polohy a stavu zařízení.
+Server zastává centrální roli v projektu. Zajišťuje komunikaci s hardwarovými jednotkami, trvalé ukládání telemetrických dat, správu uživatelských účtů a poskytování uživatelského rozhraní pro vizualizaci polohy a stavu zařízení, i jejich konfiguraci.
 
-\subsection{Role serveru v systému LOTR}
-Hlavním úkolem serveru je agregace dat z jednotlivých GPS trackerů. Hardwarové jednotky odesílají data (poloha, síla signálu) prostřednictvím mobilní sítě na definované API endpointy. Server tato data validuje, zpracovává a ukládá do relační databáze.
+\noindent Hlavním úkolem serveru je agregace dat z jednotlivých GPS trackerů. Hardwarové jednotky odesílají data (poloha, síla signálu) prostřednictvím mobilní sítě na definované API endpointy. Server tato data validuje, zpracovává a ukládá do relační databáze.
 Druhým klíčovým úkolem je obsluha klientských požadavků. Uživatelé přistupují k systému prostřednictvím webového prohlížeče. Server zajišťuje autentizaci uživatelů a generuje dynamické HTML stránky zobrazující mapové podklady s aktuální polohou sledovaných objektů.
 
 \subsection{Monolitická architektura a MVC vzor}
 Aplikace je navržena jako monolit, což znamená, že backendová logika i prezentační vrstva (frontend) jsou součástí jednoho projektu a běží v rámci jednoho procesu. Pro organizaci kódu byl zvolen architektonický vzor \textbf{MVC (Model-View-Controller)}, který odděluje data, logiku a zobrazení:
 
 \begin{itemize}
-    \item \textbf{Model (Model):} Definuje strukturu dat a logiku pro přístup k databázi. V našem případě je tato vrstva realizována pomocí ORM knihovny Sequelize (viz sekce \ref{subsec:server_db}). Modely odpovídají tabulkám v databázi (např. \texttt{User}, \texttt{Device}, \texttt{Telemetry}).
-    \item \textbf{View (Pohled):} Stará se o prezentaci dat uživateli. Využíváme šablonovací systém EJS, který umožňuje vkládat data z backendu přímo do HTML struktury.
-    \item \textbf{Controller (Řadič):} Přijímá požadavky od uživatele (nebo API), zpracovává je s využitím Modelů a rozhoduje, jaký Pohled se má zobrazit, nebo jaká data se mají vrátit (v případě JSON API).
+    \item \textbf{Model (models/):} Definuje strukturu dat a logiku pro přístup k databázi. V našem případě je tato vrstva realizována pomocí ORM knihovny Sequelize (viz sekce \ref{subsec:server_db}). Modely odpovídají tabulkám v databázi (např. \texttt{User}, \texttt{Device}, \texttt{Telemetry}).
+    \item \textbf{View (views/):} Stará se o prezentaci dat uživateli. Využíváme šablonovací systém EJS, který umožňuje vkládat data z backendu přímo do HTML struktury.
+    \item \textbf{Controller (controllers/):} Přijímá požadavky od uživatele (nebo API), zpracovává je s využitím Modelů a rozhoduje, jaký Pohled se má zobrazit, nebo jaká data se mají vrátit (v případě JSON API).
 \end{itemize}
 
-Tento přístup usnadňuje údržbu kódu a umožňuje paralelní vývoj jednotlivých částí aplikace.
+Tento přístup umožnuje lepší organizaci kódu a rozšiřování o nové funkce.
 
 \subsection{Relační databáze a ORM (MySQL + Sequelize)}
-Jako databázový systém bylo zvoleno relační \textbf{MySQL}. Pro interakci s databází je využita technika \textbf{ORM} (Object-Relational Mapping) prostřednictvím knihovny Sequelize. Ta mapuje databázové tabulky na JavaScriptové objekty, což zjednodušuje manipulaci s daty a zvyšuje bezpečnost proti SQL injection.
+Jako databázový systém bylo zvoleno relační \textbf{MySQL}. Pro interakci s databází je využita technika \textbf{ORM} (Object-Relational Mapping) prostřednictvím knihovny Sequelize. Ta mapuje databázové tabulky na JavaScriptové objekty, což zjednodušuje manipulaci s daty.
 
 \subsection{Principy autentizace a OAuth 2.0}
-Pro zabezpečení přístupu je implementován robustní autentizační mechanismus využívající knihovnu \texttt{passport.js}. Kromě lokálního přihlášení (email/heslo) je podporován standard \textbf{OAuth 2.0} pro přihlášení přes externí poskytovatele (Google, GitHub).
+Pro zabezpečení přístupu a možností third-party-autentizace je implementován mechanismus využívající knihovnu \texttt{passport.js}. Kromě lokálního přihlášení (email/heslo) je tak podporován i standard \textbf{OAuth 2.0} pro přihlášení přes externí poskytovatele (v našem případě: Google, GitHub).
 
 \subsection{REST API architektura}
 \textbf{REST} (Representational State Transfer) je architektonický styl pro návrh síťových aplikací. REST API definuje sadu pravidel pro komunikaci mezi klientem a serverem:
 \begin{itemize}
-    \item \textbf{Bezstavovost (Stateless):} Server neuchovává stav klienta mezi požadavky. Každý požadavek musí obsahovat všechny potřebné informace (např. autorizační token).
+    \item \textbf{Bezstavovost (Stateless):} Server neuchovává stav klienta mezi požadavky. Každý požadavek musí obsahovat všechny potřebné informace, ale v našem případě je toto použito pouze pro komunikaci s HW. Web a APK klienti využívají \textbf{sessions}.
     \item \textbf{Jednotné rozhraní:} Zdroje (data) jsou identifikovány pomocí URL a manipuluje se s nimi pomocí standardních HTTP metod (GET pro čtení, POST pro vytvoření, PUT pro úpravu, DELETE pro smazání).
 \end{itemize}
 
@@ -38,6 +37,7 @@ Pro zabezpečení přístupu je implementován robustní autentizační mechanis
 \subsection{Databázová vrstva (MySQL a Sequelize)}
 \label{subsec:server_db}
 Databázová vrstva je postavena na relační databázi MySQL. Pro komunikaci s databází je využita knihovna \texttt{mysql2} ve spojení s ORM frameworkem Sequelize.
+pro iniciální konfiguraci databáze používáme soubor \textbf{init-db.sql}, který vytvoří potřebné tabulky a indexy.
 
 \subsubsection{ORM Sequelize a definice modelů}
 Sequelize abstrahuje SQL dotazy do JavaScriptových objektů. V projektu jsou definovány následující klíčové modely:
@@ -50,8 +50,7 @@ Sequelize abstrahuje SQL dotazy do JavaScriptových objektů. V projektu jsou de
     \item \texttt{Location}: Uchovává historická data o poloze (zeměpisná šířka, délka, čas, rychlost).
     \item \texttt{Alert}: Záznamy o bezpečnostních událostech (např. opuštění geofence zóny nebo nárvat do ní).
 \end{itemize}
-Vztahy mezi modely jsou definovány jako 1:N (jeden uživatel má více zařízení, jedno zařízení má více záznamů polohy).
-
+Vztahy mezi modely jsou definovány pouze jako 1:N (jeden uživatel má více zařízení, jedno zařízení má více záznamů polohy).
 \begin{figure}[h]
     \centering
     \includegraphics[width=1\textwidth]{../docs_server/db_diagrams/DB_scheme.png} 
@@ -59,8 +58,9 @@ Vztahy mezi modely jsou definovány jako 1:N (jeden uživatel má více zaříze
     \label{fig:db_schema}
 \end{figure}
 
-\subsubsection{API pro HW tracker (ESP32)}
-HW klient se autentizuje pouze pomocí \texttt{device\_id} registrovaného u uživatele. Nevyužívá session/cookie, neodesílá uživatelská hesla.
+\subsubsection{API - HW tracker (ESP32)}
+\label{sec:server_api}
+HW klient se při komunikaci autentizuje pouze pomocí \texttt{device\_id} (získaného z MAC adresy) které je zaregistrováno pokud uživatel vloží správné uživatelské údaje v registrační části OTA režimu. Nevyužívá session/cookie.
 
 \begin{table}[H]
 \centering
@@ -94,7 +94,7 @@ Chybové stavy (HW):
     \item \texttt{500+}: klient retry s backoff; data v bufferu se nemažou.
 \end{itemize}
 
-\subsubsection{API pro APK klient (Android)}
+\subsubsection{API - APK klient (Android)}
 APK klient používá uživatelské přihlášení (session cookie) a odděleně identifikuje zařízení pomocí \texttt{device\_id = installationId}. Telemetrie i handshake sdílí endpointy s HW, ale autentizační vrstva je odlišná.
 
 \begin{table}[H]
@@ -151,7 +151,7 @@ Swagger (\texttt{swagger-jsdoc} + \texttt{swagger-ui-express}) generuje strojov�
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\textwidth]{../docs_server/screenshots/swagger_docs.png} 
+    \includegraphics[width=0.8\textwidth]{../docs_server/screenshots/swagger_docs.png} 
     \caption{Ukázka Swagger dokumentace API}
     \label{fig:swagger_api}
 \end{figure}
@@ -192,7 +192,7 @@ Role / middleware & Webové routy & API routy \\ \hline
     \label{fig:auth_middleware}
 \end{figure}
 
-\subsubsection{Session a cookie politika}
+\subsubsection{Sessions}
 Session jsou spravovány pomocí \texttt{express-session}. Klíč \texttt{SESSION\_SECRET} se načítá z prostředí, cookie je \texttt{httpOnly} s \texttt{maxAge} 6 hodin. Flag \texttt{secure} se zapíná, pokud je \texttt{NODE\_ENV=using\_ssl}, aby se cookie přenášela jen přes HTTPS. Webové routy používají \texttt{isAuthenticated} a případně přesměrování, API vrací JSON přes \texttt{isApiAuthenticated}.
 
 \subsubsection{Správa identit (Passport.js)}
@@ -217,7 +217,7 @@ Po úspěšném přihlášení je uživatelská relace (session) uložena a iden
 Hesla uživatelů nejsou nikdy ukládána v otevřené podobě. Při registraci je heslo prohnáno hashovací funkcí \texttt{bcrypt} se solí (salt). Při přihlášení se zadané heslo zahashuje a porovná s uloženým hashem. To chrání uživatele i v případě úniku databáze.
 
 
-\subsubsection{ROOT účet} Z bezpečnostních i provozních důvodů systém startuje s hardcoded administrátorským účtem \texttt{ROOT}. Tento účet má vlástní administraci, která umožnuje přímí přístup do DB a manipulaci s jejími daty.
+\subsubsection{ROOT účet} Z provozních důvodů systém startuje s hardcoded administrátorským účtem \texttt{ROOT}. Tento účet má vlástní administraci, která umožnuje přímí přístup do DB a manipulaci s jejími daty.
 
 \begin{figure}[h]
     \centering
@@ -257,11 +257,11 @@ Pro interakci s uživatelem mimo webové rozhraní slouží knihovna \texttt{nod
 
 \section{Prezentační vrstva (Frontend)}
 \label{sec:server_frontend}
-Frontendová část aplikace je navržena s důrazem na jednoduchost a rychlou odezvu. Kombinuje server-side rendering (SSR) pro základní strukturu stránky a klientský JavaScript pro dynamické aktualizace dat v reálném čase.
+Frontendová část aplikace je dělaná s myšlenko ujednoduchosti. Kombinuje "server-side rendering" (EJS) pro základní strukturu stránky a klientský JavaScript pro dynamické aktualizace dat v reálném čase.
 
 \subsection{Šablonovací systém EJS a struktura pohledů}
 \label{subsec:server_ejs}
-Pro generování HTML stránek na straně serveru je použit šablonovací systém **EJS (Embedded JavaScript)**. Ten umožňuje vkládat JavaScriptovou logiku přímo do HTML kódu.
+Pro generování HTML stránek na straně serveru je použit šablonovací systém \textbf{EJS (Embedded JavaScript)}. Ten umožňuje vkládat JavaScriptovou logiku přímo do HTML kódu.
 Struktura pohledů je modularizována pomocí tzv. \textit{partials} (dílčích šablon), což zabraňuje duplicitě kódu. Typická stránka se skládá z:
 \begin{itemize}
   \setlength\itemsep{0.2em}
@@ -276,11 +276,11 @@ Data z backendu (např. seznam zařízení, chybové hlášky) jsou do šablon p
 
 \subsection{Vizualizace dat a mapové podklady}
 \label{subsec:server_maps}
-Klíčovou funkcí frontendu je vizualizace polohy trackerů na mapě. Pro tento účel byla zvolena open-source knihovna **Leaflet.js**, která je lehká a flexibilní.
-Jako zdroj mapových podkladů (dlaždic) slouží služba **OpenStreetMap**.
+Klíčovou funkcí frontendu je vizualizace polohy trackerů na mapě. Pro tento účel byla zvolena open-source knihovna \textbf{Leaflet.js}, která je lehká a flexibilní.
+Jako zdroj mapových podkladů (dlaždic) slouží služba \textbf{OpenStreetMap}.
 
-\subsubsection{Dynamická aktualizace polohy (AJAX)}
-Aby uživatel viděl aktuální polohu zařízení bez nutnosti obnovovat celou stránku, využívá aplikace technologii **AJAX** (Asynchronous JavaScript and XML) prostřednictvím moderního Fetch API.
+\subsubsection{Dynamická aktualizace (AJAX)}
+Aby uživatel viděl aktuální polohu zařízení bez nutnosti obnovovat celou stránku, využívá aplikace technologii \textbf{AJAX} (Asynchronous JavaScript and XML) prostřednictvím moderního Fetch.
 
 \begin{enumerate}
     \item Při načtení stránky se inicializuje mapa a vykreslí se poslední známé polohy.
@@ -303,12 +303,9 @@ Aby uživatel viděl aktuální polohu zařízení bez nutnosti obnovovat celou 
     \label{fig:web_settings}
 \end{figure}
 
-\section{Nasazení a provoz (Deployment)}
-\label{sec:server_deployment}
-Pro zajištění konzistentního běhového prostředí a snadného nasazení na různé servery (vývojový, produkční) je celý systém kontejnerizován pomocí technologie **Docker**. Kontejnerizace eliminuje problémy typu "u mě to funguje", protože aplikace si nese veškeré své závislosti (Node.js runtime, knihovny) s sebou.
-
-\subsection{Docker a kontejnerizace}
+\section{Nasazení - Docker}
 \label{subsec:server_docker}
+Pro zajištění snadného nasazení na různé servery je celý systém kontejnerizován pomocí technologie \textbf{Docker}. 
 Obraz (image) serverové aplikace je definován v souboru \texttt{Dockerfile}. Jako základ je použit oficiální odlehčený obraz \texttt{node:24-slim}, který minimalizuje velikost výsledného kontejneru.
 Proces sestavení obrazu zahrnuje:
 \begin{enumerate}
@@ -329,79 +326,86 @@ Proces sestavení obrazu zahrnuje:
     \label{fig:dockerfile_example}
 \end{figure}
 
-\subsection{Orchestrace kontejnerů (Docker Compose)}
+\subsection{Orchestrace - Docker Compose}
 \label{subsec:server_compose}
-Protože systém vyžaduje ke svému běhu nejen aplikační server, ale i databázi, využíváme nástroj Docker Compose pro definici a spouštění více kontejnerů současně. Konfigurace je uložena v souboru \texttt{docker-compose.yml}, který definuje dvě hlavní služby:
+Protože systém vyžaduje ke svému běhu nejen aplikační server, ale i databázi, využíváme \textbf{Docker Compose} pro definici a spouštění více kontejnerů současně. 
+Konfigurace je uložena v souboru \texttt{docker-compose.yml}, který definuje dvě hlavní služby:
 
 \begin{itemize}
-    \item \textbf{app:} Samotná Node.js aplikace. Služba je nakonfigurována tak, aby čekala na plné spuštění databáze (\texttt{depends\_on}). Skrze proměnné prostředí (environment variables) jsou předány konfigurační údaje jako přístup k DB, tajné klíče pro sessions a nastavení CORS.
-    \item \textbf{mysql:} Databázový server MySQL verze 8.0. Data jsou ukládána do trvalého svazku (volume) \texttt{mysql-data}, což zajišťuje, že data přežijí i restart nebo smazání kontejneru. Při prvním spuštění se automaticky provede inicializační skript \texttt{init-db.sql}.
+    \item \textbf{app:} Samotná Node.js aplikace. Služba je nakonfigurována tak, aby čekala na plné spuštění databáze (\texttt{depends\_on}).
+    \item \textbf{mysql:} Databázový server MySQL verze 8.0. Data jsou ukládána do trvalého svazku (volume) \texttt{mysql-data}, což zajišťuje, 
+    že data přežijí i restart nebo smazání kontejneru. Při prvním spuštění se automaticky provede inicializační skript \texttt{init-db.sql}.
 \end{itemize}
 
-Obě služby běží ve společné virtuální síti \texttt{gps-network}, což jim umožňuje vzájemnou komunikaci pomocí názvů služeb (hostname), aniž by musely být vystaveny do veřejného internetu (s výjimkou aplikačního portu 5000).
+Obě služby běží ve společné virtuální síti \texttt{gps-network}, což jim umožňuje vzájemnou komunikaci pomocí názvů služeb (hostname).
 
-\clearpage
 
-\begin{figure}[h]
+
+\begin{figure}[H]
     \centering
-    \begin{subfigure}{0.48\textwidth}
+    % Row 1
+    \begin{subfigure}{0.3\textwidth}
         \centering
         \includegraphics[width=\linewidth]{../docs_server/screenshots/registration.png}
         \caption{Registrace}
         \label{fig:registration}
     \end{subfigure}
     \hfill
-    \begin{subfigure}{0.48\textwidth}
+    \begin{subfigure}{0.3\textwidth}
         \centering
         \includegraphics[width=\linewidth]{../docs_server/screenshots/login.png}
         \caption{Přihlášení}
         \label{fig:login}
     \end{subfigure}
-    \caption{Webové rozhraní: proces registrace a přihlášení}
-\end{figure}
 
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}{0.48\textwidth}
+    \vspace{0.8em}
+
+    % Row 2
+    \begin{subfigure}{0.3\textwidth}
         \centering
         \includegraphics[width=\linewidth]{../docs_server/screenshots/email_ver.png}
         \caption{Verifikace e-mailu}
         \label{fig:email_ver}
     \end{subfigure}
     \hfill
-    \begin{subfigure}{0.48\textwidth}
+    \begin{subfigure}{0.3\textwidth}
         \centering
         \includegraphics[width=\linewidth]{../docs_server/screenshots/alerts_modal.png}
         \caption{Bezpečnostní upozornění (modal)}
         \label{fig:alerts_modal}
     \end{subfigure}
-    \caption{Webové rozhraní: verifikace e-mailu a bezpečnostní upozornění}
+
+    \caption{Webové rozhraní: registrace, přihlášení, verifikace e-mailu a bezpečnostní upozornění}
 \end{figure}
+
+
+\clearpage
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\textwidth]{../docs_server/schemas/sequence_diagram_tracking.png}
+    \includegraphics[width=0.7\textwidth]{../docs_server/schemas/Use_case_diagram.png}
+    \caption{Use-case diagram systému LOTR: aktéři a hlavní případy použití}
+    \label{fig:use_case}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{../docs_server/schemas/sequence_diagram_tracking.png}
     \caption{Sekvenční diagram: tok sledování zařízení (handshake, input, aktualizace polohy)}
     \label{fig:seq_tracking}
 \end{figure}
 
+
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\textwidth]{../docs_server/schemas/sequence_dia_registration_hw.png}
+    \includegraphics[width=0.7\textwidth]{../docs_server/schemas/sequence_dia_registration_hw.png}
     \caption{Sekvenční diagram: registrace HW zařízení (ESP32) do systému}
     \label{fig:seq_reg_hw}
 \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\textwidth]{../docs_server/schemas/sequence_dia_registration_apk.png}
+    \includegraphics[width=0.7\textwidth]{../docs_server/schemas/sequence_dia_registration_apk.png}
     \caption{Sekvenční diagram: registrace APK klienta (Android) a navázání session}
     \label{fig:seq_reg_apk}
-\end{figure}
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=1\textwidth]{../docs_server/schemas/Use_case_diagram.png}
-    \caption{Use-case diagram systému LOTR: aktéři a hlavní případy použití}
-    \label{fig:use_case}
 \end{figure}

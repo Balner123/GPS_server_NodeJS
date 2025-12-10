@@ -1,8 +1,14 @@
 const { sendVerificationEmail } = require('../utils/emailSender');
 const bcrypt = require('bcryptjs');
 const db = require('../database');
-const { body, validationResult } = require('express-validator');
 const { getRequestLogger } = require('../utils/requestLogger');
+
+const passwordRequirements = [
+                { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
+                { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
+                { regex: /[0-9]/, message: 'Password must contain at least one number.' },
+                { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
+            ];
 
 const getSettingsPage = async (req, res) => {
     try {
@@ -80,13 +86,6 @@ const updatePassword = async (req, res) => {
 
         // --- Password Validation (copied from registerUser) ---
         if (!use_weak_password) {
-            // Strict password requirements
-            const passwordRequirements = [
-                { regex: /.{6,}/, message: 'New password must be at least 6 characters long.' },
-                { regex: /[A-Z]/, message: 'New password must contain at least one uppercase letter.' },
-                { regex: /[0-9]/, message: 'New password must contain at least one number.' },
-                { regex: /[^A-Za-z0-9]/, message: 'New password must contain at least one special character.' }
-            ];
             for (const requirement of passwordRequirements) {
                 if (!requirement.regex.test(newPassword)) {
                     req.flash('error', requirement.message);
@@ -238,12 +237,6 @@ const setPassword = async (req, res) => {
 
         // --- Password Validation ---
         if (!use_weak_password) {
-            const passwordRequirements = [
-                { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
-                { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
-                { regex: /[0-9]/, message: 'Password must contain at least one number.' },
-                { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
-            ];
             for (const requirement of passwordRequirements) {
                 if (!requirement.regex.test(newPassword)) {
                     req.flash('error', requirement.message);

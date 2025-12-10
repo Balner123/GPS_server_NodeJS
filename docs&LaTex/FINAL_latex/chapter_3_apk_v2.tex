@@ -1,0 +1,70 @@
+\chapter{Aplikace pro Android}
+
+\section{Úvod a Koncept}
+\label{sec:apk_koncept}
+Aplikace pro Android je brána jko aplikace testovací (hlavně pro testování API), ale zárověň ji lze použít jako plnohodnotného klienta pro sběr a odesílání GPS dat na server.
+Je však skutečností, že kód byl vytvořen pomocí LLM tudíž neručíme za jeho kvalitu a bezpečnost.
+Byla sice zamýšlena jako plnohodnotná součást projektu, ale kvůli prioritám na Server a HW části ( rozprostření zájmů by bylo veliké) byla odsunutá a její vývoj nechán na LLM "Agentu".
+
+\noindent Proto také dokumentace nezmiňuje detaily implementace, a omezuje se pouze na ukázku uživatelského rozhraní a jeho mžností.
+
+\subsection{Hlavní ovládací panel (Dashboard)}
+Po přihlášení se zobrazí hlavní obrazovka (\texttt{MainActivity}), která poskytuje:
+\begin{itemize}
+          \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item \textbf{Indikátor stavu:} Velká ikona a text informující, zda služba běží, je zastavena, nebo čeká na GPS signál.
+    \item \textbf{Ovládací prvky:} Tlačítka START a STOP pro manuální řízení služby.
+    \item \textbf{Statistiky:} Počet nasbíraných bodů v lokální databázi a čas posledního úspěšného odeslání dat.
+\end{itemize}
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[t]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../docs_apk/screenshots/ONstate.png}
+        \caption*{Zapnuto}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../docs_apk/screenshots/offstate.png}
+        \caption*{Vypnuto}
+    \end{minipage}
+        \begin{minipage}[t]{0.3\textwidth}
+      \centering
+      \includegraphics[width=\linewidth]{../docs_apk/screenshots/loginscreen.png}
+      \caption*{login}
+    \end{minipage}\hfill
+    \caption{Hlavní ovládací panel}
+    \label{fig:dashboard}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[t]{0.30\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../docs_apk/screenshots/in_background_notification.png}
+        \caption*{Na pozadí}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.30\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../docs_apk/screenshots/Offline_pending_data_notification.png}
+        \caption*{Offline – čekající data}
+    \end{minipage}
+    \caption{Stav čekání na GPS signál}
+    \label{fig:nogps_state}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[t]{0.30\textwidth}
+      \centering
+      \includegraphics[width=\linewidth]{../docs_apk/screenshots/console_debug.png}
+      \caption*{DEBUG konzole}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.30\textwidth}
+      \centering
+      \includegraphics[width=\linewidth]{../docs_apk/screenshots/4_state_Console_settings.png}
+      \caption*{Nastavení úrovní logování}
+    \end{minipage}
+    \caption{Diagnostická konzole}
+    \label{fig:console_logger}
+\end{figure}

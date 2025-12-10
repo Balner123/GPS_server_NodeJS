@@ -10,20 +10,13 @@ import requests
 BASE_URL = "https://lotr-system.xyz"
 #BASE_URL = "http://localhost:5000"
 
-# Změňte tyto údaje, aby odpovídaly existujícímu uživateli na serveru
 TEST_USERNAME = "lotr"
 TEST_PASSWORD = "lotr"
-
-# Unikátní ID pro naše testovací zařízení (10 znaků dle HW specifikace)
 DEVICE_ID = "3333337789"
-
-# Default power status reported by this test device
 DEFAULT_POWER_STATUS = "ON"
 
 # --- Headers ---
 HEADERS = {"Content-Type": "application/json"}
-
-
 @dataclass
 class DeviceState:
     power_status: str = DEFAULT_POWER_STATUS
@@ -168,7 +161,6 @@ def main() -> int:
 
     state = DeviceState()
 
-    # Handshake #1 – zjistíme aktuální instrukci
     handshake = perform_handshake(state)
     if not handshake:
         print("Handshake se nezdařil, končím.")
@@ -178,7 +170,6 @@ def main() -> int:
     print(f"Instrukce ze serveru: {instruction}")
     state.apply_instruction(instruction)
 
-    # Po aplikaci instrukce odešleme aktuální data
     if not send_clustered_location_data(state):
         print("Odeslání dat se nezdařilo.")
         return 1

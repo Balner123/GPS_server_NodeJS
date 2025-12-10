@@ -996,8 +996,6 @@ const updateGeofence = async (req, res) => {
     log.info('Geofence updated');
     res.json({ success: true, message: 'Geofence updated successfully.' });
     } else {
-    // Pokud byla geofence null a snažíme se ji znovu nastavit na null, není to chyba.
-    // Záznam se neaktualizoval, ale stav je správný.
     if (geofence === null) {
         log.info('Geofence removed');
         res.json({ success: true, message: 'Geofence removed.' });
@@ -1100,8 +1098,6 @@ const markDeviceAlertsAsRead = async (req, res) => {
         is_read: false
       }
     });
-
-    // Bulk update to mark unread alerts as read for the device (single query)
     if (unreadAlerts && unreadAlerts.length > 0) {
       const alertIdsToUpdate = unreadAlerts.map(a => a.id);
       await db.Alert.update(
