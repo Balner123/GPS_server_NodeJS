@@ -42,9 +42,9 @@ Návrh hardwarové části systému vychází z požadavku na vytvoření nezáv
 
 \clearpage
 \subsection{LilyGO T-Call v1.5}
-Srdcem celého zařízení je vývojová deska \textbf{LilyGO T-Call} (verze V1.5), která v sobě integruje výkonný mikrokontrolér ESP32 a komunikační modem. Tato volba byla učiněna kvůli následujících kritérií:
+Základem celého zařízení je vývojová deska \textbf{LilyGO T-Call} (verze V1.5), která v sobě integruje výkonný mikrokontrolér ESP32 a komunikační modem. Tato volba byla učiněna kvůli následujících kritérií:
 \begin{itemize}
-    \item \textbf{Integrace:} Spojení MCU a modemu na jedné desce eliminuje nutnost složitého propojování a snižuje riziko chyb v zapojení.
+    \item \textbf{Integrace:} Spojení MCU a modemu na jedné desce eliminuje nutnost složitého propojování (bylo možné použít oddělene desku ESP32 a modem SIM800L, avšak zde by vznikly problémy s napájením. Modem totiž ve špičkách odebírá až 2A.)
     \item \textbf{Konektivita:} Použitý modem SIMCOM A7670 podporuje moderní sítě LTE (4G), což zajišťuje lepší pokrytí a nižší latenci než zastaralé 2G moduly (např. SIM800L).
 \end{itemize}
 
@@ -97,7 +97,7 @@ Napájení zajišťuje Li-Ion článek typu 18650 (kapacita 3200 mAh zvolena kv�
         \caption{Osazená deska - Power Latch modul}
         \label{fig:battery_charging_module_b}
     \end{subfigure}
-    \caption{Baterie a nabíjecí/step-up modul – dva pohledy}
+    \caption{Baterie a nabíjecí modul / power latch modul - osazená deska}
     \label{fig:battery_charging_module}
 \end{figure}
 
@@ -390,10 +390,17 @@ Konfigurace, ať již nastavena v \texttt{/settings} (OTA režim) nebo samotné 
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\linewidth]{../docs_hw/screenshots/OTA_log_1.png}
-    \caption{log z OTA režimu}
-    \label{fig:ota_log}
+    \includegraphics[width=0.55\linewidth]{../docs_hw/screenshots/box_prototyp.png} 
+    \caption{prototyp krabičky - průhled}
+    \label{fig:box_prototyp}
 \end{figure}
+
+%\begin{figure}[h]
+%    \centering
+%    \includegraphics[width=0.8\linewidth]{../docs_hw/screenshots/OTA_log_1.png}
+%    \caption{log z OTA režimu}
+%    \label{fig:ota_log}
+%\end{figure}
 
 \begin{figure}[h]
   \centering
@@ -437,15 +444,9 @@ Konfigurace, ať již nastavena v \texttt{/settings} (OTA režim) nebo samotné 
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1.1\linewidth]{../docs_hw/schemas/life_cycle_sequence_dia.png} 
+    \includegraphics[width=1\linewidth]{../docs_hw/schemas/life_cycle_sequence_dia.png} 
     \caption{sekvenční diagram životního cyklu}
     \label{fig:life_cycle_sequence_dia}
-\end{figure}
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.55\linewidth]{../docs_hw/screenshots/box_prototyp.png} 
-    \caption{prototyp krabičky - průhled}
-    \label{fig:box_prototyp}
 \end{figure}
 
 

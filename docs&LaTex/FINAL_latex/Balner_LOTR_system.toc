@@ -37,17 +37,17 @@
 \contentsline {section}{\numberline {2.2}Návrh a implementace backendu}{24}{section.2.2}%
 \contentsline {subsection}{\numberline {2.2.1}Databázová vrstva (MySQL a Sequelize)}{24}{subsection.2.2.1}%
 \contentsline {subsubsection}{ORM Sequelize a definice modelů}{24}{subsection.2.2.1}%
-\contentsline {subsubsection}{API - HW tracker (ESP32)}{26}{figure.caption.26}%
+\contentsline {subsubsection}{API - HW tracker (ESP32)}{26}{figure.caption.25}%
 \contentsline {subsubsection}{API - APK klient (Android)}{26}{Item.17}%
-\contentsline {subsubsection}{Validace vstupních dat (Express Validator)}{27}{table.caption.28}%
-\contentsline {subsubsection}{Dokumentace API (Swagger)}{28}{figure.caption.29}%
+\contentsline {subsubsection}{Validace vstupních dat (Express Validator)}{27}{table.caption.27}%
+\contentsline {subsubsection}{Dokumentace API (Swagger)}{28}{figure.caption.28}%
 \contentsline {subsection}{\numberline {2.2.2}Správa uživatelů a Autorizace}{29}{subsection.2.2.2}%
 \contentsline {subsubsection}{Autorizace a role (authorization.js)}{29}{subsection.2.2.2}%
-\contentsline {subsubsection}{Sessions}{29}{figure.caption.32}%
-\contentsline {subsubsection}{Správa identit (Passport.js)}{30}{figure.caption.32}%
-\contentsline {subsubsection}{Hashování hesel (Bcrypt.js)}{30}{figure.caption.33}%
-\contentsline {subsubsection}{ROOT účet}{31}{figure.caption.33}%
-\contentsline {subsubsection}{E-mailová komunikace (Nodemailer)}{31}{figure.caption.34}%
+\contentsline {subsubsection}{Sessions}{29}{figure.caption.31}%
+\contentsline {subsubsection}{Správa identit (Passport.js)}{30}{figure.caption.31}%
+\contentsline {subsubsection}{Hashování hesel (Bcrypt.js)}{30}{figure.caption.32}%
+\contentsline {subsubsection}{ROOT účet}{31}{figure.caption.32}%
+\contentsline {subsubsection}{E-mailová komunikace (Nodemailer)}{31}{figure.caption.33}%
 \contentsline {section}{\numberline {2.3}Prezentační vrstva (Frontend)}{31}{section.2.3}%
 \contentsline {subsection}{\numberline {2.3.1}Šablonovací systém EJS a struktura pohledů}{32}{subsection.2.3.1}%
 \contentsline {subsection}{\numberline {2.3.2}Vizualizace dat a mapové podklady}{32}{subsection.2.3.2}%
@@ -57,7 +57,7 @@
 \contentsline {chapter}{\numberline {3}Aplikace pro Android}{39}{chapter.3}%
 \contentsline {section}{\numberline {3.1}Úvod a Koncept}{39}{section.3.1}%
 \contentsline {subsection}{\numberline {3.1.1}Hlavní ovládací panel (Dashboard)}{39}{subsection.3.1.1}%
-\contentsline {chapter}{Závěr}{41}{chapter*.47}%
-\contentsline {chapter}{Seznam použitých informačních zdrojů}{43}{chapter*.48}%
-\contentsline {chapter}{Seznam obrázků}{48}{chapter*.49}%
-\contentsline {chapter}{Seznam tabulek}{48}{chapter*.49}%
+\contentsline {chapter}{Závěr}{41}{chapter*.44}%
+\contentsline {chapter}{Seznam použitých informačních zdrojů}{43}{chapter*.45}%
+\contentsline {chapter}{Seznam obrázků}{48}{chapter*.46}%
+\contentsline {chapter}{Seznam tabulek}{48}{chapter*.46}%
