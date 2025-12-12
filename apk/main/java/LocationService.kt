@@ -333,25 +333,57 @@ class LocationService : Service() {
                 if (cachedCount >= syncIntervalCount || isFirstLocationAfterStart) {
                     var isExpedited = false
                     if (isFirstLocationAfterStart) {
-                         ConsoleLogger.debug("LocationService: FIRST LOCATION - Forcing immediate expedited sync.")
+                         ConsoleLogger.debug("LocationService: FIRST LOCATION - Triggering sync.")
                          isFirstLocationAfterStart = false
                          isExpedited = true
                     } else {
                          ConsoleLogger.debug("LocationService: Batch full ($cachedCount >= $syncIntervalCount) - Triggering sync.")
                     }
-                    enqueueSyncWorker(expedited = isExpedited)
+                    
                     syncTriggered = true
+                    
+                    // DIRECT SYNC ATTEMPT
+                    var syncSuccess = false
+                    if (isNetworkAvailable) {
+                        ConsoleLogger.debug("LocationService: Network available. Attempting direct sync...")
+                        updateAndBroadcastState(connectionStatus = StatusMessages.SYNC_IN_PROGRESS)
+                        syncSuccess = SyncHelper.performSync(applicationContext)
+                        if (syncSuccess) {
+                            ConsoleLogger.debug("LocationService: Direct sync successful.")
+                        } else {
+                            ConsoleLogger.warn("LocationService: Direct sync failed. Falling back to WorkManager.")
+                        }
+                    }
+
+                    // Fallback to WorkManager if offline or direct sync failed
+                    if (!syncSuccess) {
+                        enqueueSyncWorker(expedited = isExpedited)
+                    }
                 }
 
                 if (!isStopping) {
                     val nextUpdate = System.currentTimeMillis() + sendIntervalMillis
                     val powerState = SharedPreferencesHelper.getPowerState(applicationContext)
                     
-                    val statusMsg = if (syncTriggered) StatusMessages.SYNC_IN_PROGRESS else StatusMessages.LOCATION_CACHED
+                    // If sync succeeded, cachedCount is now 0 (or low). We should fetch it again or let SyncHelper update it.
+                    // SyncHelper updates the Repo, but we want the local variable for this specific update call if needed.
+                    // However, updateAndBroadcastState pulls fresh state if we don't override it, 
+                    // BUT here we are overriding 'status'.
+                    
+                    // If we just synced, status is TRACKING_ACTIVE (idle), not SYNC_IN_PROGRESS anymore.
+                    // If we failed/queued, it might be SYNC_IN_PROGRESS (via enqueueSyncWorker) or NETWORK_UNAVAILABLE.
+                    
+                    val statusMsg = if (syncTriggered && !isNetworkAvailable) StatusMessages.NETWORK_UNAVAILABLE 
+                                    else StatusMessages.LOCATION_CACHED
+                                    
+                    // If direct sync worked, we are "done" with sync for now.
+                    
+                    // Refetch count to be sure what to display
+                    val currentCount = AppDatabase.getDatabase(applicationContext).locationDao().getCachedCount()
                     
                     updateAndBroadcastState(
                         status = statusMsg,
-                        cachedCount = cachedCount,
+                        cachedCount = currentCount,
                         powerStatus = powerState,
                         nextUpdate = nextUpdate
                     )
@@ -374,12 +406,29 @@ class LocationService : Service() {
             try {
                 // We bypass the duplicate check in sendLocationAndProcessResponse by calling persist directly
                 // because we manually handled the timestamp update if needed.
-                persistLocationToDb(location)
+                val newCount = persistLocationToDb(location)
                 ConsoleLogger.debug("LocationService: Final location saved. NOW flushing.")
+                
+                // Update UI with the new count immediately so user sees the save happened
+                updateAndBroadcastState(cachedCount = newCount)
+
+                // Try immediate flush if network is available
+                if (isNetworkAvailable) {
+                     ConsoleLogger.debug("LocationService: Network available. Attempting immediate final flush.")
+                     updateAndBroadcastState(connectionStatus = "Uploading final data...")
+                     val success = SyncHelper.performSync(applicationContext)
+                     if (success) {
+                         ConsoleLogger.debug("LocationService: Final flush successful.")
+                     } else {
+                         ConsoleLogger.warn("LocationService: Final flush failed. Worker will handle it.")
+                     }
+                }
+                
             } catch (e: Exception) {
                 ConsoleLogger.error("LocationService: Failed to save final location: ${e.message}")
             } finally {
                 // Trigger flush inside the coroutine to ensure DB write is done first
+                // We always enqueue the worker as a safety net (it will just do nothing if DB is empty)
                 val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
                 val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()
                     .setConstraints(constraints)
@@ -592,9 +641,13 @@ class LocationService : Service() {
         // }
         
         HandshakeManager.cancelPeriodicHandshake(applicationContext)
+
+        val finalStatus = if (isNetworkAvailable) StatusMessages.SERVICE_FINALIZING else StatusMessages.SERVICE_STOPPED
+        val finalConnectionStatus = if (isNetworkAvailable) "Uploading final data..." else "Data saved locally (Offline)"
+
         updateAndBroadcastState(
-            status = StatusMessages.SERVICE_FINALIZING,
-            connectionStatus = "Uploading final data...",
+            status = finalStatus,
+            connectionStatus = finalConnectionStatus,
             nextUpdate = 0,
             isRunning = false,
             powerStatus = PowerState.OFF,
