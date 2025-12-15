@@ -1,25 +1,80 @@
-- představení + obecný úvod
-LOTR System -> "location tracking system with options of malice use"
+--- představení + obecný úvod
+LOTR System -> "location tracking system with options of malice use" [10 sekund]
 
-- Cíle projektu
+Dobrý den, jmenuji se Štěpán Balner a představuji vám můj zavěrečný projekt : systém lotr alias {strojově čten Anglicky}"location tracking system with options of malice use" ,,, pro správu zarízení poskytujících polohová data.
 
-    cílem projektu bylo vytvořit fyzické zařízení které by:
+--- Cíle projektu  [2,5 minuty]
+
+Již kdysi jsem se zabýval "sběrnými" nebo "sledovacími" systémy. Poohlížel jsem se z variabilních důvodů po možnostech jak by šlo sestrojit zařízení schopné nahrávat video a ukládat na SD kartu nebo jiné uložiště.
+Sledování polohy je jenom dalším krokem v tomto směru. Možnost že bych měl krabičku jež bych mohl dát někomu do auta, nebo jej připnout k nápravě kamionu (naivní to myšlenka) nebo dát pouze do zásilky a sledoval jeho pohyb do doby vybití baterie byla
+a stále je, velmi přitažlivá.
+
+Je jasné, že již existují řešení a "GPS-trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem volil téma pro zavěrečný projekt, výroba a řešení, konstrukce vlastního, sic nízkokvalitního a nutně dosti poruchového,
+zařízení (prototypu) se zdál jako vhodný nápad.
+Existovala možnost vytvořit opravdu pouze "krabici" trackeru s ukládáním dat n apevné úložiště , avšak rozhodl jsem se to spojit s vývojem serveru, na kterém by pak šlo zobrazovat a spravovat data posílaná  zařízením přes mobilní síť.
+
+To se pak přirozeně rozvinulo do plného systému s uživatelskými účty a možností spravovat více zařízení na jednom z nich.
+
+cílem projektu tedy bylo vytvořit funkční uzavřený systém pro sběr GPS dat pomocí fyzických zarízení(bud krabičky nebeo případně i mobilní aplikace) -> (sledování, trackování) a jejich příjem a další správu na vzdáleném serveru.
+
+1. HW
+    bylo nutno vytvořit fyzické zařízení které by:
         1. získávalo polohu (z GPS či jiných)
-        2. tato data odesílal na server který by :
+        2. tato data odesílal na server dle aktuální konfigurace
+2.Server - server by pak:
             1. ukládal dat do db
             2. umožnoval jejich zobrazení ve webovém prostředí.
-            
+            3. umožnoval by vzálenou konfiguraci zařízení (intervaly a režimy funkce, příkaz k vypnutí etc.)
+	
+Jako méně důležitou, spíše doplňkovou, ale přesto užitečnou součást systému jsem pak viděl výtvoření mobilní aplikace pro systém Android. Avšak z důvodu, že by pak byl projekt roztřepen na až mnoho frontách věnoval jsem ji menší pozornost.
+Tato aplikace nemá důležitosti jako ostatní komponenty, jelikož byla koncipována jako testování API a pro neznalost Kotlinu většina (přes 90\%)jejího kódu byla generována LLM (chcete-li "AI", konkrétně Gemini).
+Tato dokumentace ji proto nezmiňuje, pouze popisuje uivatelské prostředí.
 
---- HW ---
-technologie
-Zpracování
-Úžití
+--- HW ---           [2,5 minuty]
+1. technologie+Zpracování
+2. Úžití
 
---- Server ---
-technologie
-zpracování
-užití
+--- Server ---       [2.5 minuty]
+1. technologie+zpracování
+2. užití
 
-- Zhodnocení, splnění cílů
+--- Zhodnocení, splnění cílů + Závěr [2 minuty]
 
-- Zdroje
+1. Cíle. zhodnocení
+
+{uvodni slide}
+Seznam nedokonalostí či nedodělků může být dosti dlouhý. Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro HW tracker.
+{foto_cizího trackeru}
+V počátcích vývoje jsem sice vymodeloval prototyp (viz. příloha modelu), ale ukázalo se, že s tím jak byly postupně přidávány prvky nebo měněny stávající, nestačil model udržovat krok,
+{screenshot_modelu}
+jediná použitelná část z tohoto modelu zůstal držák na : baterii a její nabíječku, ten se ukázal jako užitečný pro jednoduší manipulací s celou kontrukcí.
+{foto_baterie_konstrukce}
+
+Dále také celý základní princip API a identifikace mezi zařízeními a serverem je dosti primitivní a náchylný k chybám. 
+{foto_chyb_konzole (sekvence?)}
+V budoucnu by bylo vhodné přejít na nějaký propracovanější systém autentizace a autorizace zařízení (moožná MQTT mezi-server obstarávající autentifikaci ?),
+{logo_mqqt a příklad možnosti}
+místo pouhého ID a uživatelských údajů ( je to takto dosti jednoduché na falšování požadavků).
+{pirates?}
+Také nějaké více komplikované možnosti výpisu či třídění dat v uživatelském rozhraní chybí, 
+{příklady razení}
+a tak bych mohl pokračovat\dots
+
+Co však dokončeno bylo, alespoň základně či přízemně, je samotné jadro systému. I když bez pokročilého zabezpečení tak API funguje a zařízení dokáží se serverem komunikovat 
+{sekvence_příkladu SUCCES , sent etc. -> zobrazení konektivity serveru a zarízení(fotos+cable abstract animation)} 
+a mají schopnosti se tak či onak vypořádat s vypadky sítě (cachování)
+{zobrazení zaplněné cache (OTA režim výpis)}
+
+a HW-tracker přestože s obtížemi by přece jenom šlo do doby vybití baterie používat v rámci možnstí (přes snahy o nízkou spotřeby však výdrž není úplně optimální, ani "power mangment"). 
+{případ zkoušení zapnutí při vybité baterii - frustrace}
+
+Nejlépe asi použít jako GPS alarm, kdy by se tracker hlasil s periodou cca. 1 dne a v případě změny polohy by uivatel dostal hlášení.
+{chata v pustině + tracker -> peeping_animation}
+
+Celkově tedy systém funguje v urovni možností a schopností prototypu, ale je zde mnoho místo pro zlepšení a rozšíření.
+{checked_OK - animation_abstract}
+
+2. Závěr+rozloučení [10 sekund]
+
+To je ode mě zřejmě vše, a tak vám nyní děkuji za pozornost a prosím nezkoušejte server na svou vlastní pěst neboť se mi nechce neustále rebootovat shozenou instanci serveru...
+{oracle_error_shutdown}
