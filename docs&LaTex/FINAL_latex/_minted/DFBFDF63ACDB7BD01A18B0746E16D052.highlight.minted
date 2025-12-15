@@ -1,0 +1,20 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kt}{void}\PYG{+w}{ }\PYG{n+nf}{graceful\PYGZus{}shutdown}\PYG{p}{()}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s}{[POWER] Shutdown requested \PYGZhy{} starting graceful power\PYGZhy{}off...\PYGZdq{}}\PYG{p}{));}
+\PYG{+w}{  }\PYG{c+c1}{// Detach interrupt to prevent any further triggers during shutdown}
+\PYG{+w}{  }\PYG{n}{detachInterrupt}\PYG{p}{(}\PYG{n}{digitalPinToInterrupt}\PYG{p}{(}\PYG{n}{PIN\PYGZus{}BTN}\PYG{p}{));}
+\PYG{+w}{  }\PYG{n}{g\PYGZus{}shutdown\PYGZus{}requested}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nb}{true}\PYG{p}{;}
+\PYG{+w}{  }\PYG{n}{power\PYGZus{}status\PYGZus{}mark\PYGZus{}off}\PYG{p}{();}
+\PYG{+w}{  }\PYG{n}{status\PYGZus{}led\PYGZus{}set}\PYG{p}{(}\PYG{n+nb}{false}\PYG{p}{);}
+\PYG{+w}{  }\PYG{c+c1}{// Ask long\PYGZhy{}running tasks to abort before we tear down shared resources}
+\PYG{+w}{  }\PYG{n}{gps\PYGZus{}request\PYGZus{}abort}\PYG{p}{();}
+\PYG{+w}{  }\PYG{n}{modem\PYGZus{}disconnect\PYGZus{}gprs}\PYG{p}{();}\PYG{+w}{ }\PYG{n}{modem\PYGZus{}power\PYGZus{}off}\PYG{p}{();}\PYG{+w}{ }\PYG{c+c1}{// powering down modem...}
+\PYG{+w}{  }\PYG{c+c1}{// Wait briefly for GPS loops to notice the abort request}
+\PYG{+w}{  }\PYG{k}{for}\PYG{+w}{ }\PYG{p}{(}\PYG{k+kt}{int}\PYG{+w}{ }\PYG{n}{i}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{;}\PYG{+w}{ }\PYG{n}{i}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{l+m+mi}{50}\PYG{+w}{ }\PYG{o}{\PYGZam{}\PYGZam{}}\PYG{+w}{ }\PYG{n}{gps\PYGZus{}is\PYGZus{}active}\PYG{p}{();}\PYG{+w}{ }\PYG{o}{++}\PYG{n}{i}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n}{vTaskDelay}\PYG{p}{(}\PYG{n}{pdMS\PYGZus{}TO\PYGZus{}TICKS}\PYG{p}{(}\PYG{l+m+mi}{10}\PYG{p}{));}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{  }\PYG{n}{gps\PYGZus{}close\PYGZus{}serial}\PYG{p}{();}\PYG{+w}{ }\PYG{n}{gps\PYGZus{}power\PYGZus{}down}\PYG{p}{();}\PYG{+w}{ }\PYG{n}{fs\PYGZus{}end}\PYG{p}{();}\PYG{+w}{ }\PYG{c+c1}{// ending other modules...}
+\PYG{+w}{  }\PYG{c+c1}{// Finally, cut power to the ESP32}
+\PYG{+w}{  }\PYG{n}{digitalWrite}\PYG{p}{(}\PYG{n}{PIN\PYGZus{}EN}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{LOW}\PYG{p}{);}
+\PYG{p}{\PYGZcb{}}
+\end{MintedVerbatim}

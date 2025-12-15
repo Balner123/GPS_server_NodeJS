@@ -1,0 +1,9 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{l+s}{node:24\PYGZhy{}slim}
+\PYG{k}{WORKDIR}\PYG{+w}{ }\PYG{l+s}{/app}
+\PYG{k}{COPY}\PYG{+w}{ }package*.json\PYG{+w}{ }./
+\PYG{k}{RUN}\PYG{+w}{ }npm\PYG{+w}{ }install
+\PYG{k}{COPY}\PYG{+w}{ }.\PYG{+w}{ }.
+\PYG{k}{EXPOSE}\PYG{+w}{ }\PYG{l+s}{5000}
+\PYG{k}{CMD}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}node\PYGZdq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}server.js\PYGZdq{}}\PYG{p}{]}
+\end{MintedVerbatim}

@@ -1,0 +1,11 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kt}{void}\PYG{+w}{ }\PYG{n+nf}{enter\PYGZus{}deep\PYGZus{}sleep}\PYG{p}{(}\PYG{k+kt}{uint64\PYGZus{}t}\PYG{+w}{ }\PYG{n}{seconds}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{n}{DBG\PYGZus{}PRINT}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}[SLEEP] Entering deep sleep\PYGZdq{}}\PYG{p}{));}
+\PYG{+w}{  }\PYG{c+c1}{// Detach interrupt before sleeping to prevent issues on wake}
+\PYG{+w}{  }\PYG{n}{detachInterrupt}\PYG{p}{(}\PYG{n}{digitalPinToInterrupt}\PYG{p}{(}\PYG{n}{PIN\PYGZus{}BTN}\PYG{p}{));}
+\PYG{+w}{  }\PYG{c+c1}{// Enable wakeup by timer}
+\PYG{+w}{  }\PYG{n}{esp\PYGZus{}sleep\PYGZus{}enable\PYGZus{}timer\PYGZus{}wakeup}\PYG{p}{(}\PYG{n}{seconds}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{l+m+mi}{1000000ULL}\PYG{p}{);}\PYG{+w}{ }\PYG{c+c1}{// microseconds}
+\PYG{+w}{  }\PYG{c+c1}{// Enable wakeup by button (on LOW level)}
+\PYG{+w}{  }\PYG{n}{esp\PYGZus{}sleep\PYGZus{}enable\PYGZus{}ext0\PYGZus{}wakeup}\PYG{p}{(}\PYG{k}{static\PYGZus{}cast}\PYG{o}{\PYGZlt{}}\PYG{n}{gpio\PYGZus{}num\PYGZus{}t}\PYG{o}{\PYGZgt{}}\PYG{p}{(}\PYG{n}{PIN\PYGZus{}BTN}\PYG{p}{),}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{);}
+\PYG{+w}{  }\PYG{n}{esp\PYGZus{}deep\PYGZus{}sleep\PYGZus{}start}\PYG{p}{();\PYGZcb{}}
+\end{MintedVerbatim}

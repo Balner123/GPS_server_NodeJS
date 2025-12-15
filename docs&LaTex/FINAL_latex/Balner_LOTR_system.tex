@@ -33,6 +33,7 @@ openright
 \usepackage[T1]{fontenc}
 \usepackage{cmap} %% balíček zajišťující, že vytvořené PDF bude prohledávatelné a kopírovatelné
 \usepackage{hyperref} %% balíček pro použití URL odkazů
+\usepackage{minted}
 
 \usepackage{graphicx} %% balík pro vkládání obrázků
 
@@ -73,6 +74,8 @@ openright
 \renewcommand{\headrulewidth}{0.025pt}
 
 \usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
 
 \usepackage{url}
 
@@ -114,6 +117,17 @@ openright
 \definecolor{royalblue}{rgb}{0.25, 0.41, 0.88}
 \definecolor{crimson}{rgb}{0.86, 0.8, 0.24}
 
+\setminted{
+  xleftmargin=0.2cm,
+  fontsize=\footnotesize,
+  baselinestretch=1.0,
+  breaklines,
+  breakanywhere,
+  frame=single,
+  framesep=3pt,
+  tabsize=2,
+  autogobble
+}
 
 \lstdefinestyle{JSES6Base}{
 	backgroundcolor=\color{white},
@@ -346,12 +360,12 @@ The outcome is an IoT prototype enabling location tracking, movement history, an
  a HW-tracker přestože s obtížemi by přece jenom šlo do doby vybití baterie používat v rámci možnstí (přes snahy o nízkou spotřeby však výdrž není úplně optimální). Nejlépe asi použít jako GPS alarm, kdy by se tracker hlasil s periodou cca. 1 dne a v případě změny by uivatel dostal hlášení. 
 \noindent Celkově tedy systém funguje v urovni možností a schopností prototypu, ale je zde mnoho místo pro zlepšení a rozšíření.
 
-\noindent Seznam nedokonalostí či nedodělků může být dosti dlouhý. Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro HW tracker. V počátcích vývoje jsem sice vymodeloval prototyp (viz. příloha modelu), ale ukázalo se, že s tím jak byly postupně přidávány prvky nebo měněny stávající, nestačil model udržovat krok (také bylo žjištěno, že na "cable managment" musí být pohlíženo s mnohem větší důležitostí. Krabička sice možná byla navržena kompaktně, ale ve výsledku možná až příliš) ,
-jediná použitelná část z tohoto modelu zůstal držák na : baterii a její nabíječku, ten se ukázal jako užitečný pro jednoduší manipulací s celou kontrukcí.
+\noindent Seznam nedokonalostí či nedodělků může být dosti dlouhý. Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro HW tracker. Jediná použitelná část z již zmíněného modelu zůstal držák na : baterii a její nabíječku, ten se ukázal jako užitečný pro jednoduší manipulací s celou kontrukcí.
 Dále také celý základní princip API a identifikace mezi zařízeními a serverem je dosti primitivní a náchylný k chybám. V budoucnu by bylo vhodné přejít na nějaký propracovanější systém autentizace a autorizace zařízení (možná MQTT mezi-server obstarávající autentifikaci ?), místo pouhého ID a uživatelských údajů ( je to takto dosti jednoduché na falšování požadavků).
 Také nějaké více komplikované možnosti výpisu či třídění dat v uživatelském rozhraní chybí, a tak bych mohl pokračovat\dots
 To vše je tak v možnostech dalšího rozšíření a možných budoucích vylepšeních.
 
+\vspace*{2cm}
 Odkaz na GitHub repozitář projektu : \url{https://github.com/Balner123/GPS_server_NodeJS}
 
 
@@ -410,8 +424,8 @@ Odkaz na GitHub repozitář projektu : \url{https://github.com/Balner123/GPS_ser
 	\addcontentsline{toc}{chapter}{Seznam tabulek}
 	
 	%\appendix %% začínají přílohy
-	\addcontentsline{toc}{chapter}{Přílohy}
-	\titleformat{\chapter}[block]{\scshape\bfseries\LARGE}{Příloha \thechapter}{10pt}{\vspace{0pt}}[\vspace{-22pt}] %% nastavení nadpisu u příloh
+	%\addcontentsline{toc}{chapter}{Přílohy}
+	%\titleformat{\chapter}[block]{\scshape\bfseries\LARGE}{Příloha \thechapter}{10pt}{\vspace{0pt}}[\vspace{-22pt}] %% nastavení nadpisu u příloh
 
 	
 \end{document}

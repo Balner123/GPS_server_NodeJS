@@ -2,20 +2,24 @@
 \label{chap:hw_tracker}
 
 \section{Úvod a koncepce}
-Tracker je základní součást systému, vše ostaní se zrodilo z jeho potřeb o rozšíření, proto je to hlavní část projektu. Jeho hlavním úkolem je pravidelně zaznamenávat polohu a odesílat ji na server, dle požadavků a jednotlivých nastavení uživatelem. 
+Tracker je základní součást systému, vše ostatní se zrodilo z jeho potřeb o rozšíření, proto je to hlavní část projektu. Jeho hlavním úkolem je pravidelně zaznamenávat polohu a odesílat ji na server, dle požadavků a jednotlivých nastavení uživatelem. 
 Hlavními (základními) požadavky na zařízení jsou:
 
 \begin{itemize}
-	\item Zisk GPS dat
-	\iten Jejich odeslání na Server
+    \setlength\itemsep{0.2em}
+    \setlength\parskip{0pt}
+    \setlength\parsep{0pt}
+    \item Pravidelný zisk polohy (GPS fix)
+    \item Pravidelné odesílání dat na Server        
+    \item Nízká spotřeba energie (pro dlouhou výdrž na baterii)
 \end{itemize}
 
-\noindent To jsou však pouze základní požadavky, se kterými návrh začínal. Postup času se poté rozvinul v mnohem komplexní systém chování (např. cachovaní, deepslep).
-Zde přikládám digram použítí pro finální konfiguraci zařízení.
+\noindent To jsou však pouze základní požadavky, se kterými návrh začínal. Postupem času se poté rozvinul v mnohem komplexnější systém chování (např. cachovaní, Deep Sleep).
+Zde přikládám diagram použití pro finální konfiguraci zařízení.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.9\linewidth]{../docs_hw/schemas/use_case_dia.png} 
+    \includegraphics[width=0.8\linewidth]{../docs_hw/schemas/use_case_dia.png} 
     \caption{Usecase diagram}
     \label{fig:use_case_dia}
 \end{figure}
@@ -56,32 +60,31 @@ Návrh hardwarové části systému vychází z požadavku na vytvoření nezáv
     \label{fig:LilyGO_T-Call}
 \end{figure}
 
-\clearpage
 \subsection{LilyGO T-Call v1.5}
 Základem celého zařízení je vývojová deska \textbf{LilyGO T-Call} (verze V1.5), která v sobě integruje výkonný mikrokontrolér ESP32 a komunikační modem. Tato volba byla učiněna kvůli následujících kritérií:
 \begin{itemize}
-    \item \textbf{Integrace:} Spojení MCU a modemu na jedné desce eliminuje nutnost složitého propojování (bylo možné použít oddělene desku ESP32 a modem SIM800L, avšak zde by vznikly problémy s napájením. Modem totiž ve špičkách odebírá až 2A.)
+    \item \textbf{Integrace:} Spojení MCU a modemu na jedné desce eliminuje nutnost složitého propojování (bylo možné použít oddělenou desku ESP32 a modem SIM800L, avšak zde by vznikly problémy s napájením. Modem totiž ve špičkách odebírá až 2A.)
     \item \textbf{Konektivita:} Použitý modem SIMCOM A7670 podporuje moderní sítě LTE (4G), což zajišťuje lepší pokrytí a nižší latenci než zastaralé 2G moduly (např. SIM800L).
 \end{itemize}
 
-V rané fázi projektu bylo zkoušeno používat desku LilyGO SIM800L (s podporou pouze 2G sítí), avšak kvůli vzniklému zkraty (typická to chyba) a nemožnosti opravy desky ručně (bylo by potřeba mikropájení), přešli jsme na desku T-call v1.5 s modemem A7670 (podpora LTE sítí).
+V rané fázi projektu bylo zkoušeno používat desku LilyGO SIM800L (s podporou pouze 2G sítí), avšak kvůli vzniklému zkratu (typická to chyba) a nemožnosti opravy desky ručně (bylo by potřeba mikropájení), přešli jsme na desku T-call v1.5 s modemem A7670 (podpora LTE sítí).
 
 \subsection{ Multi-GNSS L76K modul}
 
 Pro získávání polohy byl zvolen externí modul \textbf{Multi-GNSS L76K} (hlavně kvůli dostupnosti).
 Deska LilyGo T-call sice disponuje možností zisku GPS přes vestavěný modem, avšak externí modul nabízí lepší citlivost a
-rychlost zisku dat (dle testů až 4x rychleji), také to, že takový modul byl ve vlastnitcví již před zahájením vývoje projektu, a 
+rychlost zisku dat (dle testů až 4x rychleji), také to, že takový modul byl ve vlastnictví již před zahájením vývoje projektu, a 
 tudíž nebylo nutné jej dokupovat prosadilo jeho použití. 
 
 \begin{figure}[h]
 	\centering
-	\begin{subfigure}{0.48\linewidth}
+	\begin{subfigure}{0.35\linewidth}
 		\centering
 		\includegraphics[width=\linewidth]{image/multignsslk76.jpg}
 		\caption{Externí modul Multi-GNSS L76K}
 	\end{subfigure}
 	\hfill
-	\begin{subfigure}{0.48\linewidth}
+	\begin{subfigure}{0.35\linewidth}
 		\centering
 		\includegraphics[width=\linewidth]{../docs_hw/schemas/NPN_control.png}
 		\caption{Ovladání GND}
@@ -90,15 +93,15 @@ tudíž nebylo nutné jej dokupovat prosadilo jeho použití.
 	\label{fig:gps_module}
 \end{figure}
 
-Kvůli lepším možnostem ovladání spotřeby je modul GPS připojen přes tranzistorový spínač (NPN), který umožňuje mikrokontroléru zcela odpojit napájení GPS modulu, když není potřebný v zapnutém stavu.
+Kvůli lepším možnostem ovládání spotřeby je modul GPS připojen přes tranzistorový spínač (NPN), který umožňuje mikrokontroléru zcela odpojit napájení GPS modulu, když není potřebný v zapnutém stavu.
 Aplikován je princip řízeného GND, sice bylo rozvažováno nad stabilnější možností ovládat VCC (takto se může v krajních případech dostat do modulu napětí), 
 avšak z důvodu absence vhodného PNP tranzistoru bylo zvoleno toto řešení.
 
 \subsection{Baterie, TP4056 + MT3608}
 
-Napájení zajišťuje Li-Ion článek typu 18650 (kapacita 3200 mAh zvolena kvůli ceně), který je dobíjen pomocí modulu s čipem \textbf{TP4056}. Pro zvýšení napětí z baterie (3.7V) na úroveň potřebnou pro stabilní provoz desky a GPS modulu(5V) je použit DC-DC step-up měnič \textbf{MT3608}.
+Napájení zajišťuje Li-Ion článek typu 18650 (kapacita 3200 mAh zvolena kvůli ceně), který je dobíjen pomocí modulu s čipem \textbf{TP4056}. Pro zvýšení napětí z baterie (3.7V) na úroveň potřebnou pro stabilní provoz desky a GPS modulu (5 V) je použit DC-DC step-up měnič \textbf{MT3608}.
 
-\begin{figure}[H]
+\begin{figure}[h]
     \centering
     \begin{subfigure}{0.48\linewidth}
         \centering
@@ -121,28 +124,25 @@ Napájení zajišťuje Li-Ion článek typu 18650 (kapacita 3200 mAh zvolena kv�
 \subsection{Řízení napájení - Power Latch modul}
 V případě zařízení jakým je tracker, nestačí pouhé "tvrdé" odpojení od baterie vypínačem. Systém potřebuje čas na bezpečné ukončení procesů (uzavření souborů, odhlášení ze sítě).
 K tomuto účelu slouží obvod \textbf{Power Latch} (samodržný obvod). Jeho primárním cílem je umožnit mikrokontroléru převzít kontrolu nad vlastním napájením.
-Navržen byl dle rady a schématu od známeho v oboru Elektroniky. deska byla navržena v EasyEDA a vyrobena přes službu JLCPCB. Pro úsporu peněz byla osazena součástkami ručně (cena osazení cca. 4x převyšovala cenu součástek). Proto byly součástky vybrany dle požadavků na možnost ručního osazení (např. místo SMD vybrán mosfet v pouzdře TO-220 etc.).
+Navržen byl dle rady a schématu od známého v oboru Elektroniky. Deska byla navržena v EasyEDA a vyrobena přes službu JLCPCB. Pro úsporu peněz byla osazena součástkami ručně (cena osazení cca. 4x převyšovala cenu součástek). Proto byly součástky vybrány dle požadavků na možnost ručního osazení (např. místo SMD vybrán mosfet v pouzdře TO-220 atd.).
 
-Viz. implementace ve firmware, sekce \ref{subsec:napajeni_hw}.
-
-\section*{Výsledná sestava - schéma zapojení - piny}
-
-GPIO piny byly přiřazeny dle dostupnosti na desce, například pro GPS byly použity piny UART1 linky (GPIO16 - RX, GPIO17 - TX)
-Pro vstup tlačítka byl použit pin GPIO32, který umožňuje vstupu i z režimu Deep Sleep (Ext0 Wakeup).
-etc.
-
+Viz implementace ve firmware, sekce \ref{subsec:napajeni_hw}.
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{../docs_hw/schemas/schema_GENERAL_vyrez.jpg} 
-    \caption{Blokové schéma zapojení hardwarového trackeru [easyEDA]}
-    \label{fig:hw_schema_general}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-		\includegraphics[width=0.65\linewidth]{../docs_hw/schemas/schema_POWER_modu_cuttedl.jpg}
+		\includegraphics[width=0.7\linewidth]{../docs_hw/schemas/schema_POWER_modu_cuttedl.jpg}
 		\caption{Schéma power-modul [easyEDA]}
         \label{fig:hw_schema_power}
+\end{figure}
+
+\clearpage
+\section*{Výsledná sestava - schéma zapojení - piny}
+
+\noindent GPIO piny byly přiřazeny dle dostupnosti na desce.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.9\linewidth]{../docs_hw/schemas/schema_GENERAL_vyrez.jpg} 
+    \caption{Blokové schéma zapojení hardwarového trackeru [easyEDA]}
+    \label{fig:hw_schema_general}
 \end{figure}
 
 \begin{figure}[h]
@@ -174,12 +174,13 @@ etc.
 \end{itemize}
 
 \section*{Návrh \uv{krabice} zařízení - model}
-V počátcích vývoje byl vytvořen návrh možného obalu pro komponenty zařízení, avšak s tím jak byla přehodnocována struktura zapojení a vyběr použitých součástek, tak model nestíhal držet krok. 
-Při testovacím tisku a složení prototypu modelu také bylo zjištěno, že "Cable managment problem" si vyžaduje mnohem více pozornosti než bylo předvídáno. Model sice byl navržen kompaktně, ale v určitých případech až přespříliš, kdy nebylo možné nějakým postupem součásti v krabičce uzavřít bez nasilných úprav. 
+    
+\noindent V počátcích vývoje byl vytvořen návrh možného obalu pro komponenty zařízení, avšak s tím jak byla přehodnocována struktura zapojení a vyběr použitých součástek, tak model nestíhal držet krok. 
+Při testovacím tisku a složení prototypu modelu také bylo zjištěno, že "Cable managment problem" si vyžaduje mnohem více pozornosti než bylo předvídáno. Model sice byl navržen kompaktně, ale v určitých případech až přespříliš, kdy nebylo možné nějakým postupem součásti v krabičce uzavřít bez násilných úprav. 
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.55\linewidth]{../docs_hw/screenshots/box_prototyp.png} 
+    \includegraphics[width=0.40\linewidth]{../docs_hw/screenshots/box_prototyp.png} 
     \caption{prototyp krabičky - průhled}
     \label{fig:box_prototyp}
 \end{figure}
@@ -214,9 +215,9 @@ Mezi klíčové knihovny třetích stran, na kterých je firmware postaven, pat�
     \item \textbf{TinyGSM:} Univerzální knihovna pro komunikaci s GSM/LTE modemy. Pro tento projekt byl použit profil \texttt{TINY\_GSM\_MODEM\_A7670}.
     \item \textbf{TinyGPS++:} Efektivní parser dat z GPS modulu.
     \item \textbf{ArduinoJson:} Knihovna pro serializaci a deserializaci JSON objektů, používaná pro komunikaci s API serveru.
-    \item \textbf{DeepsSleep.h:} Umožnuje použití "hlubokého spánku" v ESP32
+    \item \textbf{DeepSleep.h:} Umožňuje použití "hlubokého spánku" v ESP32
     \item \textbf{Wifi.h:} knihovna pro připojení k WiFi síti, použitá v OTA režimu
-    \item \textbf{FreeRTOS , LittleFS:} již zmíneny v sekci \ref{sec:hw_teorie}
+    \item \textbf{FreeRTOS , LittleFS:} již zmíněny v sekci \ref{sec:hw_teorie}
 \end{itemize}
 
 \clearpage
@@ -224,7 +225,7 @@ Mezi klíčové knihovny třetích stran, na kterých je firmware postaven, pat�
 \subsection{Pracovní cyklus}
 
 Kvůli potřebě minimalizovat spotřebu baterie používá firmware funkcionalitu ESP32 : \textbf{DeepSleep} (hluboký spánek). viz \ref{sec:deep_sleep}.
-Protože je použita tato funkcionalita, veškeré činosti zařízení se odehrávají v \textbf{\texttt{setup()}}.
+Protože je použita tato funkcionalita, veškeré činnosti zařízení se odehrávají v \textbf{\texttt{setup()}}.
 Funkce \textbf{\texttt{loop()}}, obyčejně užita pro hlavní program, je nevyužita.
 Veškerý kód je proto umístěn ve funkci \textbf{\texttt{setup()}}.
 
@@ -242,11 +243,9 @@ Veškerý kód je proto umístěn ve funkci \textbf{\texttt{setup()}}.
     \item \textbf{Uspání (Deep Sleep):} Po dokončení všech úloh se zařízení odpojí od sítě, vypne periferie a přejde do režimu hlubokého spánku na dobu definovanou v konfiguraci.
 \end{enumerate}
 
-\clearpage
-
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\linewidth]{../docs_hw/schemas/life_cycle_sequence_dia.png} 
+    \includegraphics[width=0.9\linewidth]{../docs_hw/schemas/life_cycle_sequence_dia.png} 
     \caption{sekvenční diagram životního cyklu}
     \label{fig:life_cycle_sequence_dia}
 \end{figure}
@@ -254,19 +253,37 @@ Veškerý kód je proto umístěn ve funkci \textbf{\texttt{setup()}}.
 \subsection{Paralelní zpracování a obsluha přerušení (FreeRTOS)}
 Vzhledem k tomu, že ESP32 disponuje dvěma jádry používáme na něm operační systém FreeRTOS, který umožňuje efektivně rozdělit úlohy. Zatímco hlavní smyčka \texttt{loop()} řeší sekvenční logiku (GPS -> Modem -> Sleep), kritické události, jako je stisk tlačítka pro vypnutí, jsou řešeny asynchronně pomocí přerušení (ISR) a samostatné úlohy (Task).
 
-Následující ukázka z \texttt{power\_management.cpp} ukazuje inicializaci této logiky. Funkce \texttt{xTaskCreatePinnedToCore} vytvoří novou úlohu \texttt{ShutdownTask}, která běží na pozadí a čeká na signál z přerušení tlačítka.
+Následující ukázka z \texttt{power\_management.cpp} ukazuje inicializaci této logiky. 
+Funkce \\ \texttt{xTaskCreatePinnedToCore} vytvoří novou úlohu \texttt{ShutdownTask}, která běží na pozadí a čeká na signál z přerušení tlačítka.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=1\linewidth]{../docs_hw/screenshots/interupt_freertos.png} 
-    \caption{funkce \texttt{power\_init()}}
-    \label{fig:power_init}
-\end{figure}
+\clearpage
+\begin{minted}{cpp}
+    void power_init() {
+  if (shutdownTaskHandle != nullptr) {return;} // Already initialized
+  pinMode(PIN_BTN, INPUT_PULLUP); // Use internal pull-up
+  // Create the FreeRTOS task for button handling
+  xTaskCreatePinnedToCore(
+    ShutdownTask,     // Task function
+    "ShutdownTask",   // Name of task
+    4096,             // Stack size (bytes)
+    NULL,             // Parameter to pass to function
+    configMAX_PRIORITIES - 1, // Task priority (highest)
+    &shutdownTaskHandle, // Task handle
+    0                 // Core where the task should run (Core 0)
+  );
+  // Attach interrupt to the button pin
+  attachInterrupt(digitalPinToInterrupt(PIN_BTN), on_button_isr, FALLING);
+  DBG_PRINTLN(F("[POWER] Button interrupt and shutdown task initialized."));
+}
+\end{minted}
 
 \subsection{Řízení napájení a Power Latch modul}
 \label{subsec:napajeni_hw}
 Princip celého systému napájení je následující:
 \begin{enumerate}
+    \setlength\itemsep{0.2em}
+    \setlength\parskip{0pt}
+    \setlength\parsep{0pt}
     \item Uživatel stiskne tlačítko, čímž přivede napětí do systému.
     \item ESP32 se nastartuje a okamžitě nastaví pin \texttt{PIN\_EN} na úroveň HIGH. Tím "přemostí" tlačítko a drží se pod napětím i po jeho uvolnění.
     \item Když chce zařízení přejít do vypnutého stavu (Deep Sleep nebo úplné vypnutí), provede potřebné úkony a následně nastaví \texttt{PIN\_EN} na LOW, čímž se samo odpojí.
@@ -274,12 +291,26 @@ Princip celého systému napájení je následující:
 
 Následující ukázka kódu demonstruje funkci \texttt{graceful\_shutdown()}, která zajišťuje bezpečné vypnutí.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\linewidth]{../docs_hw/screenshots/gracefull_shutdown.png} 
-    \caption{funkce \texttt{graceful\_shutdown()}}
-    \label{fig:graceful_shutdown}
-\end{figure}
+\begin{minted}{cpp}
+void graceful_shutdown() {
+  DBG_PRINTLN(F("\n[POWER] Shutdown requested - starting graceful power-off..."));
+  // Detach interrupt to prevent any further triggers during shutdown
+  detachInterrupt(digitalPinToInterrupt(PIN_BTN));
+  g_shutdown_requested = true;
+  power_status_mark_off();
+  status_led_set(false);
+  // Ask long-running tasks to abort before we tear down shared resources
+  gps_request_abort();
+  modem_disconnect_gprs(); modem_power_off(); // powering down modem...
+  // Wait briefly for GPS loops to notice the abort request
+  for (int i = 0; i < 50 && gps_is_active(); ++i) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  gps_close_serial(); gps_power_down(); fs_end(); // ending other modules...
+  // Finally, cut power to the ESP32
+  digitalWrite(PIN_EN, LOW);
+}
+\end{minted}
 
 \subsubsection{Režim hlubokého spánku (Deep Sleep)}
 \label{sec:deep_sleep}
@@ -288,63 +319,88 @@ V režimu Deep Sleep je vypnuto CPU, RAM i většina periferií. Napájen zůst�
 
 Probuzení z tohoto režimu může nastat dvěma způsoby:
 \begin{enumerate}
+    \setlength\itemsep{0.2em}
+    \setlength\parskip{0pt}
+    \setlength\parsep{0pt}
     \item \textbf{Časovač (Timer Wakeup):} Po uplynutí nastaveného intervalu (např. 10 minut).
     \item \textbf{Externí signál (Ext0 Wakeup):} Stiskem tlačítka (změna logické úrovně na pinu GPIO32).
 \end{enumerate}
 
 Následující funkce \texttt{enter\_deep\_sleep} ukazuje konfiguraci těchto budících zdrojů před uspáním procesoru.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.7\linewidth]{../docs_hw/screenshots/deep_sleep.png} 
-    \caption{funkce \texttt{enter\_deep\_sleep()}}
-    \label{fig:enter_deep_sleep}
-\end{figure}
-
-\clearpage
+\begin{minted}{cpp} 
+void enter_deep_sleep(uint64_t seconds) {
+  DBG_PRINT(F("[SLEEP] Entering deep sleep"));
+  // Detach interrupt before sleeping to prevent issues on wake
+  detachInterrupt(digitalPinToInterrupt(PIN_BTN));
+  // Enable wakeup by timer
+  esp_sleep_enable_timer_wakeup(seconds * 1000000ULL); // microseconds
+  // Enable wakeup by button (on LOW level)
+  esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_BTN), 0);
+  esp_deep_sleep_start();}
+\end{minted}
 
 \subsection{Zpracování GPS dat a parsování NMEA}
-Komunikace s GPS modulem L76K probíhá přes hardwarovou sériovou linku (UART1). Modul v pravidelných intervalech (1 Hz dle dokumentace) odesílá textová data ve formátu NMEA. Pro zpracování těchto dat to rozumné podoby jsme využili knihovnu \textbf{TinyGPS++}.
+Komunikace s GPS modulem L76K probíhá přes hardwarovou sériovou linku (UART1). Modul v pravidelných intervalech (1 Hz dle dokumentace) odesílá textová data ve formátu NMEA. Pro zpracování těchto dat do rozumné podoby jsme využili knihovnu \textbf{TinyGPS++}.
 
 Klíčovou částí implementace je funkce \texttt{gps\_get\_fix}, která v cyklu čte znaky ze sériového portu a předává je parseru pomocí metody \texttt{gps.encode()}. Jakmile parser detekuje platnou větu a aktualizuje souřadnice, zkontroluje se, zda jsou splněny podmínky pro platný fix (validní poloha, čas a minimální počet satelitů).
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\linewidth]{../docs_hw/screenshots/get_gps_fix.png} 
-    \caption{funkce \texttt{gps\_get\_fix()}}
-    \label{fig:gps_get_fix}
-\end{figure}
+Viz. \texttt{gps\_control.cpp}.
 
 \subsection{Správa datového úložiště (LittleFS)}
 Jedním z klíčových požadavků byla schopnost pracovat i v oblastech bez signálu mobilní sítě nebo v případech výpadku připojení nebo selhání modemu. Firmware proto implementuje cachování dat.
-Naměřené polohy nejsou odesílány okamžitě, ale jsou nejprve serializovány a uloženy do souboru \texttt{/gps\_cache.log} v paměti flash (LittleFS). Pro tento učel musel být systém inicializován pomocí vytvoření složky \textbf{data/} ve složce firmwaru.
+Naměřené polohy nejsou odesílány okamžitě, ale jsou nejprve serializovány a uloženy do souboru \texttt{/gps\_cache.log} v paměti flash (LittleFS). Pro tento účel musel být systém inicializován pomocí vytvoření složky \textbf{data/} ve složce firmwaru.
 Při každém úspěšném připojení k internetu se pak zařízení pokusí odeslat dávku nejstarších záznamů (pravidlo : FIFO - First In, First Out). Teprve po potvrzení serverem (success: true) jsou zaznamy z cache smazány.
 
-\noindent   Následuje přiklad funkce  texttt{fs\_init()} jež zajištuje nabootovaní souborového systému.
+\noindent   Následuje příklad funkce \texttt{fs\_init()} jež zajišťuje nabootovaní souborového systému.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\linewidth]{../docs_hw/screenshots/fs_init.PNG} 
-    \caption{funkce \texttt{fs\_init()}}
-    \label{fig:fs_init}
-\end{figure}
-
+\begin{minted}{cpp}
+bool fs_init() {
+  FsLockGuard lock;
+  if (!lock.isLocked()) {
+    DBG_PRINTLN(F("[FS] Failed to acquire FS lock during init."));
+    return false;
+  }
+  if (!LittleFS.begin()) {
+    DBG_PRINTLN(F("[FS] An Error has occurred while mounting LittleFS"));
+    return false;
+  }
+  DBG_PRINTLN(F("[FS] LittleFS mounted successfully."));
+  preferences.begin(PREFERENCES_NAMESPACE, false); // false for read/write
+  DBG_PRINTLN(F("[FS] Preferences initialized."));
+  return true;
+}
+\end{minted}
 
 \section{Komunikace a data}
 \label{sec:hw_komunikace}
 
 \subsection{Komunikační protokol a zabezpečení}
-Komunikace mezi zařízením a serverem probíhá přes protokol HTTPS (modem SIMCOM A7670 umožnuje použití šifrování narozdíl třeba od SIM800L).
+Komunikace mezi zařízením a serverem probíhá přes protokol HTTPS (modem SIMCOM A7670 umožňuje použití šifrování narozdíl třeba od SIM800L).
 
 Pro navázání zabezpečeného spojení využívá modem knihovnu SSL/TLS. 
-Následující ukázka kódu z funkce \texttt{modem\_send\_post\_request} ukazuje inicializaci HTTPS relace a nastavení cílové URL.
+Zásadnější ovšem je samotné připojení zařízení k GPRS síti, které je zabezpečeno pomocí "APN credentials" poskytovatele mobilních služeb.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.7\linewidth]{../docs_hw/screenshots/https_session.png} 
-    \caption{funkce \texttt{modem\_send\_post\_request()}}
-    \label{fig:https_post_request}
-\end{figure}
+\begin{minted}{cpp}
+bool connectGPRS() {
+  SerialMon.print(F("Waiting for network..."));
+  if (!modem.waitForNetwork(240000L, true)) { 
+    SerialMon.println(F(" fail"));
+    return false;
+  }
+  SerialMon.println(F(" success"));
+
+  SerialMon.print(F("Connecting to GPRS: ")); SerialMon.print(apn);
+  if (!modem.gprsConnect(apn.c_str(), gprsUser.c_str(), gprsPass.c_str())) {
+    SerialMon.println(F(" fail"));
+    return false;
+  }
+  SerialMon.println(F(" success"));
+  SerialMon.print(F("GPRS IP: ")); SerialMon.println(modem.getLocalIP());
+  return true;
+}
+\end{minted}
+
+
 
 \subsection{Struktura dat a handshake}
 Komunikace se serverem probíhá prostřednictvím REST API rozhraní. Zařízení odesílá data ve formátu JSON (JavaScript Object Notation).
@@ -353,14 +409,21 @@ Komunikace se serverem probíhá prostřednictvím REST API rozhraní. Zařízen
 
 Pro operace a práci s odesílanými a přijímanými JSON daty je využita knihovna \textbf{ArduinoJson}. Následující ukázka kódu z funkce \texttt{modem\_perform\_handshake} demonstruje sestavení JSON objektu pro úvodní "pozdrav" (handshake) a zpracování odpovědi.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\linewidth]{../docs_hw/screenshots/perform_handshake.png} 
-    \caption{funkce \texttt{modem\_perform\_handshake()}}
-    \label{fig:handshake_json}
-\end{figure}
+\begin{minted}{cpp}
+bool modem_perform_handshake() {
+  JsonDocument payloadDoc;
+  payloadDoc["device_id"] = deviceID;
+  payloadDoc["client_type"] = CLIENT_TYPE;
+  payloadDoc["power_status"] = power_status_to_string(power_status_get());
+  String payload;
+  serializeJson(payloadDoc, payload);
 
-\clearpage
+  DBG_PRINTLN(F("[MODEM] Performing device handshake..."));
+  int statusCode = 0;
+  String response = modem_send_post_request(RESOURCE_HANDSHAKE, payload, &statusCode);
+  // Further response handling...
+\end{minted}
+
 
 \subsection{Práce s Modemem a AT příkazy}
 Komunikace s LTE modemem SIMCOM A7670 probíhá prostřednictvím sériové linky (UART) pomocí sady standardizovaných AT příkazů. 
@@ -369,15 +432,20 @@ Firmware využívá knihovnu \textbf{TinyGSM}, která umožňuje využití vysok
 Přesto je v některých případech nutné používat AT příkazy přímo, například při inicializaci modemu. 
 Následující ukázka z funkce \texttt{modem\_initialize} ukazuje sekvenci AT příkazů pro ověření dostupnosti modemu a jeho zapnutí.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\linewidth]{../docs_hw/screenshots/modem_init_AT.png} 
-    \caption{funkce \texttt{modem\_initialize()}}
-    \label{fig:modem_initialize}
-\end{figure}
+
+\begin{minted}{cpp}
+bool modem_initialize() {
+    // initialization sequence ...
+  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);delay(100);
+  if (g_modem.testAT(500)) {
+      DBG_PRINTLN(F("[MODEM] Modem responded to AT"));modemReady = true;
+  } else {
+      DBG_PRINTLN(F("[MODEM] No response"));modemReady = false;
+  }}
+\end{minted}
+
 
 Knihovna TinyGSM následně volání funkcí překládá na konkrétní AT příkazy. Například volání \texttt{g\_modem.getSignalQuality()} odešle příkaz \texttt{AT+CSQ} a vyparsuje odpověď ve formátu \texttt{+CSQ: <rssi>,<ber>}.
-
 
 
 \subsection{OTA režim a konfigurační rozhraní}
@@ -408,18 +476,24 @@ Webové rozhraní nabízí následující funkce:
     \item \textbf{Clear Cache:} Pokud je potřeba, umožňuje vymazat uložená data v paměti.(např. pokud jsou data poškozena či ve špatném formátu a nelze je odeslat). používá funkce LittleFS.
 \end{itemize}
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.9\linewidth]{../docs_hw/screenshots/wifi_apn.png} 
-    \caption{konfigurace Wifi APN pro OTA režim}
-    \label{fig:wifi_apn}
-\end{figure}
+\begin{minted}{cpp}
+  // 2. Start WiFi AP
+  DBG_PRINTLN(F("Starting WiFi AP..."));
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_AP);
+  bool apStarted = ota_password.length() == 0 ? WiFi.softAP(ota_ssid.c_str())
+            : WiFi.softAP(ota_ssid.c_str(), ota_password.c_str());
+  if (apStarted) {
+      DBG_PRINTLN(F("WiFi AP started with configured credentials."));}
+  IPAddress apIP = WiFi.softAPIP();
+  DBG_PRINT(F("AP IP address: ")); DBG_PRINTLN(apIP);
+\end{minted}
 
 
 \subsection{Uložení konfigurace zařízení}
 Konfigurace, ať již nastavena v \texttt{/settings} (OTA režim) nebo samotné nastavení posílané Serverem, je trvale uložena v paměti pomocí knihovny \texttt{Preferences}. Mezi klíčové parametry patří:
 \begin{itemize}
-    \setlength\itemsep{0.2em}
+  \setlength\itemsep{0.2em}
   \setlength\parskip{0pt}
   \setlength\parsep{0pt}
     \item \texttt{apn}, \texttt{gprsUser}, \texttt{gprsPass}: Nastavení mobilní sítě.
@@ -428,7 +502,6 @@ Konfigurace, ať již nastavena v \texttt{/settings} (OTA režim) nebo samotné 
     \item \texttt{minSatellitesForFix}: Minimální počet satelitů pro validní fix.
     \item \texttt{etc...}
 \end{itemize}
-
 
 \section{Obrázky}
 

@@ -1,0 +1,17 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kt}{bool}\PYG{+w}{ }\PYG{n+nf}{fs\PYGZus{}init}\PYG{p}{()}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{n}{FsLockGuard}\PYG{+w}{ }\PYG{n}{lock}\PYG{p}{;}
+\PYG{+w}{  }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{o}{!}\PYG{n}{lock}\PYG{p}{.}\PYG{n}{isLocked}\PYG{p}{())}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}[FS] Failed to acquire FS lock during init.\PYGZdq{}}\PYG{p}{));}
+\PYG{+w}{    }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nb}{false}\PYG{p}{;}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{  }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{o}{!}\PYG{n}{LittleFS}\PYG{p}{.}\PYG{n}{begin}\PYG{p}{())}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}[FS] An Error has occurred while mounting LittleFS\PYGZdq{}}\PYG{p}{));}
+\PYG{+w}{    }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nb}{false}\PYG{p}{;}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{  }\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}[FS] LittleFS mounted successfully.\PYGZdq{}}\PYG{p}{));}
+\PYG{+w}{  }\PYG{n}{preferences}\PYG{p}{.}\PYG{n}{begin}\PYG{p}{(}\PYG{n}{PREFERENCES\PYGZus{}NAMESPACE}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nb}{false}\PYG{p}{);}\PYG{+w}{ }\PYG{c+c1}{// false for read/write}
+\PYG{+w}{  }\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}[FS] Preferences initialized.\PYGZdq{}}\PYG{p}{));}
+\PYG{+w}{  }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nb}{true}\PYG{p}{;}
+\PYG{p}{\PYGZcb{}}
+\end{MintedVerbatim}

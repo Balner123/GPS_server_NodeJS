@@ -1,0 +1,19 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{+w}{    }\PYG{k+kt}{void}\PYG{+w}{ }\PYG{n+nf}{power\PYGZus{}init}\PYG{p}{()}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{n}{shutdownTaskHandle}\PYG{+w}{ }\PYG{o}{!=}\PYG{+w}{ }\PYG{k}{nullptr}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{k}{return}\PYG{p}{;\PYGZcb{}}\PYG{+w}{ }\PYG{c+c1}{// Already initialized}
+\PYG{+w}{  }\PYG{n}{pinMode}\PYG{p}{(}\PYG{n}{PIN\PYGZus{}BTN}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{INPUT\PYGZus{}PULLUP}\PYG{p}{);}\PYG{+w}{ }\PYG{c+c1}{// Use internal pull\PYGZhy{}up}
+\PYG{+w}{  }\PYG{c+c1}{// Create the FreeRTOS task for button handling}
+\PYG{+w}{  }\PYG{n}{xTaskCreatePinnedToCore}\PYG{p}{(}
+\PYG{+w}{    }\PYG{n}{ShutdownTask}\PYG{p}{,}\PYG{+w}{     }\PYG{c+c1}{// Task function}
+\PYG{+w}{    }\PYG{l+s}{\PYGZdq{}ShutdownTask\PYGZdq{}}\PYG{p}{,}\PYG{+w}{   }\PYG{c+c1}{// Name of task}
+\PYG{+w}{    }\PYG{l+m+mi}{4096}\PYG{p}{,}\PYG{+w}{             }\PYG{c+c1}{// Stack size (bytes)}
+\PYG{+w}{    }\PYG{n+nb}{NULL}\PYG{p}{,}\PYG{+w}{             }\PYG{c+c1}{// Parameter to pass to function}
+\PYG{+w}{    }\PYG{n}{configMAX\PYGZus{}PRIORITIES}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{l+m+mi}{1}\PYG{p}{,}\PYG{+w}{ }\PYG{c+c1}{// Task priority (highest)}
+\PYG{+w}{    }\PYG{o}{\PYGZam{}}\PYG{n}{shutdownTaskHandle}\PYG{p}{,}\PYG{+w}{ }\PYG{c+c1}{// Task handle}
+\PYG{+w}{    }\PYG{l+m+mi}{0}\PYG{+w}{                 }\PYG{c+c1}{// Core where the task should run (Core 0)}
+\PYG{+w}{  }\PYG{p}{);}
+\PYG{+w}{  }\PYG{c+c1}{// Attach interrupt to the button pin}
+\PYG{+w}{  }\PYG{n}{attachInterrupt}\PYG{p}{(}\PYG{n}{digitalPinToInterrupt}\PYG{p}{(}\PYG{n}{PIN\PYGZus{}BTN}\PYG{p}{),}\PYG{+w}{ }\PYG{n}{on\PYGZus{}button\PYGZus{}isr}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{FALLING}\PYG{p}{);}
+\PYG{+w}{  }\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}[POWER] Button interrupt and shutdown task initialized.\PYGZdq{}}\PYG{p}{));}
+\PYG{p}{\PYGZcb{}}
+\end{MintedVerbatim}

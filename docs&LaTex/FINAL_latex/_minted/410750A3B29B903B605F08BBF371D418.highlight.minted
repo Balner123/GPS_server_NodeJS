@@ -1,0 +1,14 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kt}{bool}\PYG{+w}{ }\PYG{n+nf}{modem\PYGZus{}perform\PYGZus{}handshake}\PYG{p}{()}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{n}{JsonDocument}\PYG{+w}{ }\PYG{n}{payloadDoc}\PYG{p}{;}
+\PYG{+w}{  }\PYG{n}{payloadDoc}\PYG{p}{[}\PYG{l+s}{\PYGZdq{}device\PYGZus{}id\PYGZdq{}}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{deviceID}\PYG{p}{;}
+\PYG{+w}{  }\PYG{n}{payloadDoc}\PYG{p}{[}\PYG{l+s}{\PYGZdq{}client\PYGZus{}type\PYGZdq{}}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{CLIENT\PYGZus{}TYPE}\PYG{p}{;}
+\PYG{+w}{  }\PYG{n}{payloadDoc}\PYG{p}{[}\PYG{l+s}{\PYGZdq{}power\PYGZus{}status\PYGZdq{}}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{power\PYGZus{}status\PYGZus{}to\PYGZus{}string}\PYG{p}{(}\PYG{n}{power\PYGZus{}status\PYGZus{}get}\PYG{p}{());}
+\PYG{+w}{  }\PYG{n}{String}\PYG{+w}{ }\PYG{n}{payload}\PYG{p}{;}
+\PYG{+w}{  }\PYG{n}{serializeJson}\PYG{p}{(}\PYG{n}{payloadDoc}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{payload}\PYG{p}{);}
+
+\PYG{+w}{  }\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}[MODEM] Performing device handshake...\PYGZdq{}}\PYG{p}{));}
+\PYG{+w}{  }\PYG{k+kt}{int}\PYG{+w}{ }\PYG{n}{statusCode}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{;}
+\PYG{+w}{  }\PYG{n}{String}\PYG{+w}{ }\PYG{n}{response}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{modem\PYGZus{}send\PYGZus{}post\PYGZus{}request}\PYG{p}{(}\PYG{n}{RESOURCE\PYGZus{}HANDSHAKE}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{payload}\PYG{p}{,}\PYG{+w}{ }\PYG{o}{\PYGZam{}}\PYG{n}{statusCode}\PYG{p}{);}
+\PYG{+w}{  }\PYG{c+c1}{// Further response handling...}
+\end{MintedVerbatim}

@@ -1,0 +1,15 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{n+nx}{passport}\PYG{p}{.}\PYG{n+nx}{use}\PYG{p}{(}\PYG{o+ow}{new}\PYG{+w}{ }\PYG{n+nx}{GoogleStrategy}\PYG{p}{(\PYGZob{}}
+\PYG{+w}{  }\PYG{n+nx}{clientID}\PYG{o}{:}\PYG{+w}{ }\PYG{n+nx}{process}\PYG{p}{.}\PYG{n+nx}{env}\PYG{p}{.}\PYG{n+nx}{GOOGLE\PYGZus{}CLIENT\PYGZus{}ID}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{clientSecret}\PYG{o}{:}\PYG{+w}{ }\PYG{n+nx}{process}\PYG{p}{.}\PYG{n+nx}{env}\PYG{p}{.}\PYG{n+nx}{GOOGLE\PYGZus{}CLIENT\PYGZus{}SECRET}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{callbackURL}\PYG{o}{:}\PYG{+w}{ }\PYG{n+nx}{process}\PYG{p}{.}\PYG{n+nx}{env}\PYG{p}{.}\PYG{n+nx}{GOOGLE\PYGZus{}CALLBACK\PYGZus{}URL}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{scope}\PYG{o}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}profile\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}email\PYGZsq{}}\PYG{p}{]}
+\PYG{p}{\PYGZcb{},}\PYG{+w}{ }\PYG{k}{async}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{accessToken}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{refreshToken}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{profile}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{done}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}...\PYGZcb{}));}
+
+\PYG{n+nx}{passport}\PYG{p}{.}\PYG{n+nx}{use}\PYG{p}{(}\PYG{o+ow}{new}\PYG{+w}{ }\PYG{n+nx}{GitHubStrategy}\PYG{p}{(\PYGZob{}}
+\PYG{+w}{  }\PYG{n+nx}{clientID}\PYG{o}{:}\PYG{+w}{ }\PYG{n+nx}{process}\PYG{p}{.}\PYG{n+nx}{env}\PYG{p}{.}\PYG{n+nx}{GITHUB\PYGZus{}CLIENT\PYGZus{}ID}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{clientSecret}\PYG{o}{:}\PYG{+w}{ }\PYG{n+nx}{process}\PYG{p}{.}\PYG{n+nx}{env}\PYG{p}{.}\PYG{n+nx}{GITHUB\PYGZus{}CLIENT\PYGZus{}SECRET}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{callbackURL}\PYG{o}{:}\PYG{+w}{ }\PYG{n+nx}{process}\PYG{p}{.}\PYG{n+nx}{env}\PYG{p}{.}\PYG{n+nx}{GITHUB\PYGZus{}CALLBACK\PYGZus{}URL}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{scope}\PYG{o}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}user:email\PYGZsq{}}\PYG{p}{]}\PYG{+w}{ }\PYG{c+c1}{// Important to get the email}
+\PYG{p}{\PYGZcb{},}\PYG{+w}{ }\PYG{k}{async}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{accessToken}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{refreshToken}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{profile}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{done}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}...\PYGZcb{}));}
+\end{MintedVerbatim}

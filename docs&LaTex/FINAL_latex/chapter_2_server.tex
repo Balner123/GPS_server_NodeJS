@@ -16,13 +16,13 @@ Aplikace je navržena jako monolit, což znamená, že backendová logika i prez
     \item \textbf{Controller (controllers/):} Přijímá požadavky od uživatele (nebo API), zpracovává je s využitím Modelů a rozhoduje, jaký Pohled se má zobrazit, nebo jaká data se mají vrátit (v případě JSON API).
 \end{itemize}
 
-Tento přístup umožnuje lepší organizaci kódu a rozšiřování o nové funkce.
+Tento přístup umožňuje lepší organizaci kódu a rozšiřování o nové funkce.
 
 \subsection{Relační databáze a ORM (MySQL + Sequelize)}
 Jako databázový systém bylo zvoleno relační \textbf{MySQL}. Pro interakci s databází je využita technika \textbf{ORM} (Object-Relational Mapping) prostřednictvím knihovny Sequelize. Ta mapuje databázové tabulky na JavaScriptové objekty, což zjednodušuje manipulaci s daty.
 
 \subsection{Principy autentizace a OAuth 2.0}
-Pro zabezpečení přístupu a možností third-party-autentizace je implementován mechanismus využívající knihovnu \texttt{passport.js}. Kromě lokálního přihlášení (email/heslo) je tak podporován i standard \textbf{OAuth 2.0} pro přihlášení přes externí poskytovatele (v našem případě: Google, GitHub).
+Pro zabezpečení přístupu a možností autentizace třetích stran je implementován mechanismus využívající knihovnu \texttt{passport.js}. Kromě lokálního přihlášení (email/heslo) je tak podporován i standard \textbf{OAuth 2.0} pro přihlášení přes externí poskytovatele (v našem případě: Google, GitHub).
 
 \subsection{REST API architektura}
 \textbf{REST} (Representational State Transfer) je architektonický styl pro návrh síťových aplikací. REST API definuje sadu pravidel pro komunikaci mezi klientem a serverem:
@@ -37,7 +37,7 @@ Pro zabezpečení přístupu a možností third-party-autentizace je implementov
 \subsection{Databázová vrstva (MySQL a Sequelize)}
 \label{subsec:server_db}
 Databázová vrstva je postavena na relační databázi MySQL. Pro komunikaci s databází je využita knihovna \texttt{mysql2} ve spojení s ORM frameworkem Sequelize.
-pro iniciální konfiguraci databáze používáme soubor \textbf{init-db.sql}, který vytvoří potřebné tabulky a indexy.
+Pro iniciální konfiguraci databáze používáme soubor \textbf{init-db.sql}, který vytvoří potřebné tabulky a indexy.
 
 \subsubsection{ORM Sequelize a definice modelů}
 Sequelize abstrahuje SQL dotazy do JavaScriptových objektů. V projektu jsou definovány následující klíčové modely:
@@ -48,7 +48,7 @@ Sequelize abstrahuje SQL dotazy do JavaScriptových objektů. V projektu jsou de
     \item \texttt{User}: Ukládá informace o uživatelích (jméno, email, hash hesla, OAuth ID).
     \item \texttt{Device}: Reprezentuje hardwarové jednotky (tracker). Obsahuje unikátní identifikátor, název a vazbu na vlastníka (\texttt{User}).
     \item \texttt{Location}: Uchovává historická data o poloze (zeměpisná šířka, délka, čas, rychlost).
-    \item \texttt{Alert}: Záznamy o bezpečnostních událostech (např. opuštění geofence zóny nebo nárvat do ní).
+    \item \texttt{Alert}: Záznamy o bezpečnostních událostech (např. opuštění geofence zóny nebo návrat do ní).
 \end{itemize}
 Vztahy mezi modely jsou definovány pouze jako 1:N (jeden uživatel má více zařízení, jedno zařízení má více záznamů polohy).
 \begin{figure}[h]
@@ -60,17 +60,17 @@ Vztahy mezi modely jsou definovány pouze jako 1:N (jeden uživatel má více za
 
 \subsubsection{API - HW tracker (ESP32)}
 \label{sec:server_api}
-HW klient se při komunikaci autentizuje pouze pomocí \texttt{device\_id} (získaného z MAC adresy) které je zaregistrováno pokud uživatel vloží správné uživatelské údaje v registrační části OTA režimu. Nevyužívá session/cookie.
+HW klient se při komunikaci autentizuje pouze pomocí \texttt{device\_id} (získaného z MAC adresy), které je zaregistrováno, pokud uživatel vloží správné uživatelské údaje v registrační části OTA režimu. Nevyužívá session/cookie.
 
 \begin{table}[H]
 \centering
-\begin{tabular}{|l|l|p{7cm}|}
+\begin{tabularx}{\textwidth}{|l|l|>{\raggedright\arraybackslash}X|}
 \hline
 Endpoint & Metoda & Popis \\ \hline
-\verb|/api/devices/register| & POST & Registrace HW zařízení k účtu. Payload: \verb|client_type="HW"|, \verb|device_id|, \verb|username|, \verb|password|, volitelné \verb|name|. \\ \hline
-\verb|/api/devices/handshake| & POST & Periodická synchronizace stavu a konfigurace. Payload: \verb|device_id|, \verb|client_type="HW"|, \verb|power_status|. Odezva obsahuje \verb|registered|, \verb|config|, \verb|power_instruction|. \\ \hline
-\verb|/api/devices/input| & POST & Příjem telemetrie. Payload: jeden objekt nebo pole objektů se souřadnicemi, časem, rychlostí, \verb|power_status|. \\ \hline
-\end{tabular}
+\texttt{/api/devices/register} & POST & Registrace HW zařízení k účtu. Payload: \texttt{client\_type="HW"}, \texttt{device\_id}, \texttt{username}, \texttt{password}, volitelné \texttt{name}. \\ \hline
+\texttt{/api/devices/handshake} & POST & Periodická synchronizace stavu a konfigurace. Payload: \texttt{device\_id}, \texttt{client\_type="HW"}, \texttt{power\_status}. Odezva obsahuje \texttt{registered}, \texttt{config}, \texttt{power\_instruction}. \\ \hline
+\texttt{/api/devices/input} & POST & Příjem telemetrie. Payload: jeden objekt nebo pole objektů se souřadnicemi, časem, rychlostí, \texttt{power\_status}. \\ \hline
+\end{tabularx}
 \caption{HW API endpointy}
 \label{tab:api_hw}
 \end{table}
@@ -99,7 +99,7 @@ APK klient používá uživatelské přihlášení (session cookie) a odděleně
 
 \begin{table}[H]
 \centering
-\begin{tabular}{|l|l|p{7cm}|}
+\begin{tabularx}{\textwidth}{|l|l|>{\raggedright\arraybackslash}X|}
 \hline
 Endpoint & Metoda & Popis \\ \hline
     \texttt{/api/apk/login} & POST & Přihlášení uživatele; vyžaduje ověřený účet (\texttt{user.is\_verified=true}); vydá HTTP-only cookie \texttt{connect.sid}. \\ \hline
@@ -107,7 +107,7 @@ Endpoint & Metoda & Popis \\ \hline
 	\texttt{/api/devices/register} & POST & Registrace zařízení typu APK. Payload: \texttt{client\_type="APK"}, \texttt{device\_id} (UUID), \texttt{name}; vyžaduje platnou session. \\ \hline
 	\texttt{/api/devices/handshake} & POST & Synchronizace konfigurace a power instrukcí. Payload: \texttt{device\_id}, \texttt{client\_type="APK"}, \texttt{power\_status}, \texttt{reason}. \\ \hline
 	\texttt{/api/devices/input} & POST & Odeslání telemetrie z APK (batch array). Stejný formát jako HW, navíc může obsahovat \texttt{accuracy}. \\ \hline
-\end{tabular}
+\end{tabularx}
 \caption{APK API endpointy}
 \label{tab:api_apk}
 \end{table}
@@ -125,6 +125,7 @@ Autentizace a chyby (APK):
         \item \texttt{404 registered=false}: zařízení není registrováno; klient zastaví službu a vyžádá novou registraci.
         \item \texttt{500+}: retry s exponential backoff; data v lokální DB zůstávají.
 \end{itemize}
+\clearpage
 
 \subsubsection{Validace vstupních dat (Express Validator)}
 Pro všechny vstupy (HW i APK) platí validace přes \texttt{express-validator}. Chybné payloady jsou odmítnuty kódem 400 ještě před zpracováním.
@@ -151,7 +152,7 @@ Swagger (\texttt{swagger-jsdoc} + \texttt{swagger-ui-express}) generuje strojov�
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\textwidth]{../docs_server/screenshots/swagger_docs.png} 
+    \includegraphics[width=0.9\textwidth]{../docs_server/screenshots/swagger_docs.png} 
     \caption{Ukázka Swagger dokumentace API}
     \label{fig:swagger_api}
 \end{figure}
@@ -173,27 +174,31 @@ Middleware \texttt{authorization.js} vynucuje přihlášení, odděluje běžné
 
 \begin{table}[H]
 \centering
-\begin{tabular}{|l|p{5cm}|p{5cm}|}
+\begin{tabularx}{\textwidth}{|l|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
 \hline
 Role / middleware & Webové routy & API routy \\ \hline
 	\texttt{isAuthenticated} & Zobrazí HTML nebo přesměruje na \texttt{/login}. & Vrací 401 JSON, neprovádí přesměrování. \\ \hline
 	\texttt{isUser} & Povolen běžný uživatel, \texttt{root} přesměrován do administrace. & Kombinuje se s \texttt{isNotRootApi} pro blokaci \texttt{root} na uživatelských API. \\ \hline
 	\texttt{isRoot} & Otevírá \texttt{/administration}. & Chrání \texttt{/api/admin/*}. \\ \hline
-	\texttt{authenticateDevice} & N/A & Povinné pro \texttt{/api/devices/input|handshake}, váže \texttt{device\_id} k uživateli. \\ \hline
-\end{tabular}
+	\texttt{authenticateDevice} & N/A & Povinné pro \texttt{/api/devices/input}, \texttt{/api/devices/handshake} váže \texttt{device\_id} k uživateli. \\ \hline
+\end{tabularx}
 \caption{Rychlá orientace v rolích a middleware}
 \label{tab:auth_roles}
 \end{table}
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.75\textwidth]{../docs_server/screenshots/authorization_example.png} 
-    \caption{příklad jedné z funkcí v authorization.js}
-    \label{fig:auth_middleware}
-\end{figure}
+
+\begin{minted}{javascript}
+    const isAuthenticated = (req, res, next) => {
+  if (hasUserSession(req)) {
+    return next();
+  }
+  req.flash?.('error', 'Please log in to view this page.');
+  res.redirect('/login');
+};
+\end{minted}
 
 \subsubsection{Sessions}
-Session jsou spravovány pomocí \texttt{express-session}. Klíč \texttt{SESSION\_SECRET} se načítá z prostředí, cookie je \texttt{httpOnly} s \texttt{maxAge} 6 hodin. Flag \texttt{secure} se zapíná, pokud je \texttt{NODE\_ENV=using\_ssl}, aby se cookie přenášela jen přes HTTPS. Webové routy používají \texttt{isAuthenticated} a případně přesměrování, API vrací JSON přes \texttt{isApiAuthenticated}.
+Relace (sessions) jsou spravovány pomocí \texttt{express-session}. Klíč \texttt{SESSION\_SECRET} se načítá z prostředí, cookie je \texttt{httpOnly} s \texttt{maxAge} 6 hodin. Flag \texttt{secure} se zapíná, pokud je \texttt{NODE\_ENV=using\_ssl}, aby se cookie přenášela jen přes HTTPS. Webové routy používají \texttt{isAuthenticated} a případně přesměrování, API vrací JSON přes \texttt{isApiAuthenticated}.
 
 \subsubsection{Správa identit (Passport.js)}
 Knihovna \texttt{passport.js} zajišťuje flexibilní autentizaci. V systému jsou implementovány tři strategie:
@@ -207,17 +212,28 @@ Knihovna \texttt{passport.js} zajišťuje flexibilní autentizaci. V systému js
 \end{itemize}
 Po úspěšném přihlášení je uživatelská relace (session) uložena a identifikována pomocí cookie.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.75\textwidth]{../docs_server/screenshots/no-local_strategies.png} 
-    \caption{Passport.js autentizační strategie}
-    \label{fig:passport_strategies}
-\end{figure}
+\begin{minted}{javascript}
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: process.env.GOOGLE_CALLBACK_URL,
+  scope: ['profile', 'email']
+}, async (accessToken, refreshToken, profile, done) => {...}));
+
+passport.use(new GitHubStrategy({
+  clientID: process.env.GITHUB_CLIENT_ID,
+  clientSecret: process.env.GITHUB_CLIENT_SECRET,
+  callbackURL: process.env.GITHUB_CALLBACK_URL,
+  scope: ['user:email'] // Important to get the email
+}, async (accessToken, refreshToken, profile, done) => {...}));
+\end{minted}
+
+
 \subsubsection{Hashování hesel (Bcrypt.js)}
 Hesla uživatelů nejsou nikdy ukládána v otevřené podobě. Při registraci je heslo prohnáno hashovací funkcí \texttt{bcrypt} se solí (salt). Při přihlášení se zadané heslo zahashuje a porovná s uloženým hashem. To chrání uživatele i v případě úniku databáze.
 
 
-\subsubsection{ROOT účet} Z provozních důvodů systém startuje s hardcoded administrátorským účtem \texttt{ROOT}. Tento účet má vlástní administraci, která umožnuje přímí přístup do DB a manipulaci s jejími daty.
+\subsubsection{ROOT účet} Z provozních důvodů systém startuje s hardcoded administrátorským účtem \texttt{ROOT}. Tento účet má vlastní administraci, která umožňuje přímý přístup do DB a manipulaci s jejími daty.
 
 \begin{figure}[h]
     \centering
@@ -255,9 +271,10 @@ Pro interakci s uživatelem mimo webové rozhraní slouží knihovna \texttt{nod
     \caption{E-mailové scénáře: transakční zprávy a bezpečnostní upozornění}
 \end{figure}
 
+\clearpage
 \section{Prezentační vrstva (Frontend)}
 \label{sec:server_frontend}
-Frontendová část aplikace je dělaná s myšlenko ujednoduchosti. Kombinuje "server-side rendering" (EJS) pro základní strukturu stránky a klientský JavaScript pro dynamické aktualizace dat v reálném čase.
+Frontendová část aplikace je navržena s myšlenkou jednoduchosti. Kombinuje "server-side rendering" (EJS) pro základní strukturu stránky a klientský JavaScript pro dynamické aktualizace dat v reálném čase.
 
 \subsection{Šablonovací systém EJS a struktura pohledů}
 \label{subsec:server_ejs}
@@ -280,9 +297,12 @@ Klíčovou funkcí frontendu je vizualizace polohy trackerů na mapě. Pro tento
 Jako zdroj mapových podkladů (dlaždic) slouží služba \textbf{OpenStreetMap}.
 
 \subsubsection{Dynamická aktualizace (AJAX)}
-Aby uživatel viděl aktuální polohu zařízení bez nutnosti obnovovat celou stránku, využívá aplikace technologii \textbf{AJAX} (Asynchronous JavaScript and XML) prostřednictvím moderního Fetch.
+Aby uživatel viděl aktuální polohu zařízení bez nutnosti obnovovat celou stránku, využívá aplikace technologii \textbf{AJAX} (Asynchronous JavaScript and XML) prostřednictvím moderního Fetch API.
 
-\begin{enumerate}
+\begin{enumerate}  \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+
     \item Při načtení stránky se inicializuje mapa a vykreslí se poslední známé polohy.
     \item Klientský skript (\texttt{index.js}) spouští v pravidelných intervalech (nastaveno na 5 sekund) požadavek na API endpoint \texttt{/api/devices/coordinates}.
     \item Server vrátí aktuální data ve formátu JSON.
@@ -318,13 +338,15 @@ Proces sestavení obrazu zahrnuje:
     \item Expozice portu 5000, na kterém server naslouchá.
     \item Definice spouštěcího příkazu \texttt{node server.js}.
 \end{enumerate}
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.4\textwidth]{../docs_server/screenshots/dockerfile.png} 
-    \caption{Ukázka Dockerfile pro serverovou aplikaci}
-    \label{fig:dockerfile_example}
-\end{figure}
+\begin{minted}{dockerfile}
+FROM node:24-slim
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5000
+CMD ["node", "server.js"]
+\end{minted}
 
 \subsection{Orchestrace - Docker Compose}
 \label{subsec:server_compose}

@@ -1,0 +1,12 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{// 2. Start WiFi AP}
+\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}Starting WiFi AP...\PYGZdq{}}\PYG{p}{));}
+\PYG{n}{WiFi}\PYG{p}{.}\PYG{n}{disconnect}\PYG{p}{(}\PYG{n+nb}{true}\PYG{p}{);}
+\PYG{n}{WiFi}\PYG{p}{.}\PYG{n}{mode}\PYG{p}{(}\PYG{n}{WIFI\PYGZus{}AP}\PYG{p}{);}
+\PYG{k+kt}{bool}\PYG{+w}{ }\PYG{n}{apStarted}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{ota\PYGZus{}password}\PYG{p}{.}\PYG{n}{length}\PYG{p}{()}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{+w}{ }\PYG{o}{?}\PYG{+w}{ }\PYG{n}{WiFi}\PYG{p}{.}\PYG{n}{softAP}\PYG{p}{(}\PYG{n}{ota\PYGZus{}ssid}\PYG{p}{.}\PYG{n}{c\PYGZus{}str}\PYG{p}{())}
+\PYG{+w}{          }\PYG{o}{:}\PYG{+w}{ }\PYG{n}{WiFi}\PYG{p}{.}\PYG{n}{softAP}\PYG{p}{(}\PYG{n}{ota\PYGZus{}ssid}\PYG{p}{.}\PYG{n}{c\PYGZus{}str}\PYG{p}{(),}\PYG{+w}{ }\PYG{n}{ota\PYGZus{}password}\PYG{p}{.}\PYG{n}{c\PYGZus{}str}\PYG{p}{());}
+\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{n}{apStarted}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}WiFi AP started with configured credentials.\PYGZdq{}}\PYG{p}{));\PYGZcb{}}
+\PYG{n}{IPAddress}\PYG{+w}{ }\PYG{n}{apIP}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{WiFi}\PYG{p}{.}\PYG{n}{softAPIP}\PYG{p}{();}
+\PYG{n}{DBG\PYGZus{}PRINT}\PYG{p}{(}\PYG{n}{F}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}AP IP address: \PYGZdq{}}\PYG{p}{));}\PYG{+w}{ }\PYG{n}{DBG\PYGZus{}PRINTLN}\PYG{p}{(}\PYG{n}{apIP}\PYG{p}{);}
+\end{MintedVerbatim}
