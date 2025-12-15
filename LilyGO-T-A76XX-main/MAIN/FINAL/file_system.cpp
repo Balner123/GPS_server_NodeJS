@@ -1,6 +1,6 @@
 #include "file_system.h"
 #include "ota_mode.h"
-#include "modem_control.h" // For modem_send_post_request, modem_disconnect_gprs, modem_initialize, modem_connect_gprs
+#include "modem_control.h"
 #include "power_management.h"
 
 #include "freertos/FreeRTOS.h"
@@ -274,7 +274,6 @@ bool send_cached_data() {
       if (!serverResponseDoc["config"].isNull()) {
         fs_apply_server_config(serverResponseDoc["config"]);
       } else {
-        // Backwards compatibility with legacy flat responses
         fs_apply_server_config(serverResponseDoc.as<JsonVariantConst>());
       }
       if (!serverResponseDoc["registered"].isNull()) {

@@ -251,7 +251,18 @@ Veškerý kód je proto umístěn ve funkci \textbf{\texttt{setup()}}.
 \end{figure}
 
 \subsection{Paralelní zpracování a obsluha přerušení (FreeRTOS)}
-Vzhledem k tomu, že ESP32 disponuje dvěma jádry používáme na něm operační systém FreeRTOS, který umožňuje efektivně rozdělit úlohy. Zatímco hlavní smyčka \texttt{loop()} řeší sekvenční logiku (GPS -> Modem -> Sleep), kritické události, jako je stisk tlačítka pro vypnutí, jsou řešeny asynchronně pomocí přerušení (ISR) a samostatné úlohy (Task).
+Vzhledem k tomu, že ESP32 disponuje dvěma jádry používáme na něm operační systém FreeRTOS, který umožňuje efektivně rozdělit úlohy. 
+V našem případě používáme FreeRTOS pro obsluhu funkce vypnutí zařízení. Nemohli jsme použít pouze attachInterrupt (ISR)
+jelikož při přerušení nelze provádět složité akce, dlouhé I/O operace nebo vyvolávat delay.
+
+FreeRTOS zde řeší problém souběžnosti (\uv{Concurrency}):
+\begin{itemize} 
+  \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+    \item Když zmáčknete tlačítko, ISR se provede bleskově a jen \uv{probudí} ShutdownTask.
+   \item Tento task běží \uv{na pozadí} a může bezpečně provádět pomalé operace (uspání modemu, uložení dat), aniž by zablokoval celý systém v kritickém stavu ISR.
+\end{itemize}
 
 Následující ukázka z \texttt{power\_management.cpp} ukazuje inicializaci této logiky. 
 Funkce \\ \texttt{xTaskCreatePinnedToCore} vytvoří novou úlohu \texttt{ShutdownTask}, která běží na pozadí a čeká na signál z přerušení tlačítka.
