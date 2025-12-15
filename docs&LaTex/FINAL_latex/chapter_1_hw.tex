@@ -1,9 +1,25 @@
-\chapter{Fyzické zařízení \uv{tracker}}
+\chapter{Fyzické zařízení - tracker}
 \label{chap:hw_tracker}
 
 \section{Úvod a koncepce}
 Tracker je základní součást systému, vše ostaní se zrodilo z jeho potřeb o rozšíření, proto je to hlavní část projektu. Jeho hlavním úkolem je pravidelně zaznamenávat polohu a odesílat ji na server, dle požadavků a jednotlivých nastavení uživatelem. 
-Hlavními požadavky na zařízení jsou:
+Hlavními (základními) požadavky na zařízení jsou:
+
+\begin{itemize}
+	\item Zisk GPS dat
+	\iten Jejich odeslání na Server
+\end{itemize}
+
+\noindent To jsou však pouze základní požadavky, se kterými návrh začínal. Postup času se poté rozvinul v mnohem komplexní systém chování (např. cachovaní, deepslep).
+Zde přikládám digram použítí pro finální konfiguraci zařízení.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.9\linewidth]{../docs_hw/schemas/use_case_dia.png} 
+    \caption{Usecase diagram}
+    \label{fig:use_case_dia}
+\end{figure}
+
 \section{POUŽITÉ TECHNOLOGIE}
 \label{sec:hw_teorie}
 
@@ -102,7 +118,7 @@ Napájení zajišťuje Li-Ion článek typu 18650 (kapacita 3200 mAh zvolena kv�
 \end{figure}
 
 
-\subsection{Řízení napájení a Power Latch modul}
+\subsection{Řízení napájení - Power Latch modul}
 V případě zařízení jakým je tracker, nestačí pouhé "tvrdé" odpojení od baterie vypínačem. Systém potřebuje čas na bezpečné ukončení procesů (uzavření souborů, odhlášení ze sítě).
 K tomuto účelu slouží obvod \textbf{Power Latch} (samodržný obvod). Jeho primárním cílem je umožnit mikrokontroléru převzít kontrolu nad vlastním napájením.
 Navržen byl dle rady a schématu od známeho v oboru Elektroniky. deska byla navržena v EasyEDA a vyrobena přes službu JLCPCB. Pro úsporu peněz byla osazena součástkami ručně (cena osazení cca. 4x převyšovala cenu součástek). Proto byly součástky vybrany dle požadavků na možnost ručního osazení (např. místo SMD vybrán mosfet v pouzdře TO-220 etc.).
@@ -127,6 +143,45 @@ etc.
 		\includegraphics[width=0.65\linewidth]{../docs_hw/schemas/schema_POWER_modu_cuttedl.jpg}
 		\caption{Schéma power-modul [easyEDA]}
         \label{fig:hw_schema_power}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{../docs_hw/screenshots/foto_progresACTUAL.jpg} 
+    \caption{"vnitřnosti" zařízení}
+    \label{fig:class_dia}
+\end{figure}
+
+\section*{Seznam použitých součástek}
+\begin{itemize}
+  \setlength\itemsep{0.2em}
+  \setlength\parskip{0pt}
+  \setlength\parsep{0pt}
+  \item LilyGO T-Call V1.5 (ESP32 + LTE modem A7670)
+  \item Externí GPS modul Multi-GNSS L76K (alternativně NEO-6M)
+  \item LTE mikroSIM karta, datový tarif (díky minimálnímu toku dat bylo za celé období testování využito do 1MB dat)
+  \item GPS anténa (u.FL/SMA dle modulu)
+  \item LTE anténa (u.FL/SMA dle desky)
+  
+  \item Li-Ion 18650 článek
+  \item Nabíjecí modul TP4056 + Step-up měnič MT3608
+
+  \item SEMTECH BC337-25 bipolární NPN tranzistor
+  \item INFINEON IRF4905PBF P-Channel MOSFET
+  \item Rezistory (1 k$\Omega$, 330 $\Omega$, 100 k$\Omega$)
+  \item KLS 7-P8.0x8.0-0 non lock tlačítko do DPS, 2 póly, ON-(ON) 
+  \item LED dioda 3mm zelená
+\end{itemize}
+
+\section*{Návrh \uv{krabice} zařízení - model}
+V počátcích vývoje byl vytvořen návrh možného obalu pro komponenty zařízení, avšak s tím jak byla přehodnocována struktura zapojení a vyběr použitých součástek, tak model nestíhal držet krok. 
+Při testovacím tisku a složení prototypu modelu také bylo zjištěno, že "Cable managment problem" si vyžaduje mnohem více pozornosti než bylo předvídáno. Model sice byl navržen kompaktně, ale v určitých případech až přespříliš, kdy nebylo možné nějakým postupem součásti v krabičce uzavřít bez nasilných úprav. 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.55\linewidth]{../docs_hw/screenshots/box_prototyp.png} 
+    \caption{prototyp krabičky - průhled}
+    \label{fig:box_prototyp}
 \end{figure}
 
 \clearpage
@@ -186,6 +241,15 @@ Veškerý kód je proto umístěn ve funkci \textbf{\texttt{setup()}}.
     \item \textbf{Synchronizace:} Server potvrdí přijetí dat a případně pošle novou konfiguraci (např. změnu intervalu sledování).
     \item \textbf{Uspání (Deep Sleep):} Po dokončení všech úloh se zařízení odpojí od sítě, vypne periferie a přejde do režimu hlubokého spánku na dobu definovanou v konfiguraci.
 \end{enumerate}
+
+\clearpage
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\linewidth]{../docs_hw/schemas/life_cycle_sequence_dia.png} 
+    \caption{sekvenční diagram životního cyklu}
+    \label{fig:life_cycle_sequence_dia}
+\end{figure}
 
 \subsection{Paralelní zpracování a obsluha přerušení (FreeRTOS)}
 Vzhledem k tomu, že ESP32 disponuje dvěma jádry používáme na něm operační systém FreeRTOS, který umožňuje efektivně rozdělit úlohy. Zatímco hlavní smyčka \texttt{loop()} řeší sekvenční logiku (GPS -> Modem -> Sleep), kritické události, jako je stisk tlačítka pro vypnutí, jsou řešeny asynchronně pomocí přerušení (ISR) a samostatné úlohy (Task).
@@ -366,34 +430,7 @@ Konfigurace, ať již nastavena v \texttt{/settings} (OTA režim) nebo samotné 
 \end{itemize}
 
 
-\section{Seznam součástek + Obrázky}
-
-\begin{itemize}
-  \setlength\itemsep{0.2em}
-  \setlength\parskip{0pt}
-  \setlength\parsep{0pt}
-  \item LilyGO T-Call V1.5 (ESP32 + LTE modem A7670)
-  \item Externí GPS modul Multi-GNSS L76K (alternativně NEO-6M)
-  \item LTE mikroSIM karta, datový tarif (díky minimálnímu toku dat bylo za celé období testování využito do 1MB dat)
-  \item GPS anténa (u.FL/SMA dle modulu)
-  \item LTE anténa (u.FL/SMA dle desky)
-  
-  \item Li-Ion 18650 článek
-  \item Nabíjecí modul TP4056 + Step-up měnič MT3608
-
-  \item SEMTECH BC337-25 bipolární NPN tranzistor
-  \item INFINEON IRF4905PBF P-Channel MOSFET
-  \item Rezistory (1 k$\Omega$, 330 $\Omega$, 100 k$\Omega$)
-  \item KLS 7-P8.0x8.0-0 non lock tlačítko do DPS, 2 póly, ON-(ON) 
-  \item LED dioda 3mm zelená
-\end{itemize}
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.55\linewidth]{../docs_hw/screenshots/box_prototyp.png} 
-    \caption{prototyp krabičky - průhled}
-    \label{fig:box_prototyp}
-\end{figure}
+\section{Obrázky}
 
 %\begin{figure}[h]
 %    \centering
@@ -427,29 +464,5 @@ Konfigurace, ať již nastavena v \texttt{/settings} (OTA režim) nebo samotné 
 %   \caption{Stavový diagram trackeru}
 %   \label{fig:process_flow_tracker}
 %\end{figure}
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.9\linewidth]{../docs_hw/schemas/use_case_dia.png} 
-    \caption{Usecase diagram}
-    \label{fig:use_case_dia}
-\end{figure}
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\linewidth]{../docs_hw/screenshots/foto_progresACTUAL.jpg} 
-    \caption{"vnitřnosti" zařízení}
-    \label{fig:class_dia}
-\end{figure}
-
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=1\linewidth]{../docs_hw/schemas/life_cycle_sequence_dia.png} 
-    \caption{sekvenční diagram životního cyklu}
-    \label{fig:life_cycle_sequence_dia}
-\end{figure}
-
-
-
 
 \cleardoublepage
