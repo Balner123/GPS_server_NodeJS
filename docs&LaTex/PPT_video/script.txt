@@ -47,6 +47,9 @@ Seznam nedokonalostí či nedodělků může být dosti dlouhý. Jako hlavní ne
 {foto_cizího trackeru}
 V počátcích vývoje jsem sice vymodeloval prototyp (viz. příloha modelu), ale ukázalo se, že s tím jak byly postupně přidávány prvky nebo měněny stávající, nestačil model udržovat krok,
 {screenshot_modelu}
+také bylo žjištěno, že na "cable managment" musí být pohlíženo s mnohem větší důležitostí. Krabička sice možná byla navržena kompaktně, ale ve výsledku možná až příliš
+{cable_problem_photo}
+
 jediná použitelná část z tohoto modelu zůstal držák na : baterii a její nabíječku, ten se ukázal jako užitečný pro jednoduší manipulací s celou kontrukcí.
 {foto_baterie_konstrukce}
 
