@@ -32,6 +32,7 @@ openright
 \usepackage[utf8]{inputenc} %% balíky pro kódování textu
 \usepackage[T1]{fontenc}
 \usepackage{cmap} %% balíček zajišťující, že vytvořené PDF bude prohledávatelné a kopírovatelné
+\usepackage{hyperref} %% balíček pro použití URL odkazů
 
 \usepackage{graphicx} %% balík pro vkládání obrázků
 
@@ -294,17 +295,17 @@ The outcome is an IoT prototype enabling location tracking, movement history, an
 %% Stránka s úvodem - povinná část
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%		
 	\chapter*{Úvod}
-	Můžeme říci, že již od začátku cílem projektu bylo vytvořit kompletní a hlavně uzavřený systém, co by mohl žít svým vlastním životem a jehož použití by bylo možné nasadit v reálných podmínkách.
+	Můžeme říci, že již od začátku cílem projektu bylo vytvořit kompletní a hlavně uzavřený systém, co by mohl tzv. "žít svým vlastním životem" a jehož použití by bylo možné i v reálných podmínkách.
 	
 	Již kdysi jsem se zabýval "sběrnými" nebo "sledovacími" systémy. Poohlížel jsem se z variabilních (různých ale rozhodně ne nelegálních) důvodů po možnostech jak by šlo sestrojit zařízení schopné nahrávat video a ukládat na SD kartu nebo jiné uložiště díky vlastnímu zařízení, protože komerční varianty nesplnovaly požadavky na velikost. 
 	Sledování polohy je jenom dalším krokem v tomto směru. Možnost že bych měl krabičku, jež bych mohl dát někomu do auta, připnout k nápravě kamionu (naivní to myšlenka) nebo vložit do zásilky a sledovat jeho pohyb do doby vybití baterie, byla, a stále je, velmi přitažlivá.
 	
-	Bylo jasné, že již existují řešení a "GPS-trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem dumal nad tématem pro zavěrečný projekt, výroba a řešení konstrukce vlastního, sic nízkokvalitního a nutně dosti poruchového, zařízení se ukázal jako vhodný nápad.
+	Bylo jasné, že již existují řešení a "GPS trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem dumal nad tématem pro zavěrečný projekt, výroba a řešení konstrukce vlastního, sic nízkokvalitního a nutně dosti poruchového, zařízení se ukázal jako vhodný nápad.
 	Existovala možnost vytvořit opravdu pouze "krabici" trackeru s ukládáním dat na pevné úložiště , avšak rozhodl jsem se to spojit s vývojem serveru jež by umožňoval sledování v reálném čase. Na tomto "webovém" serveru by tak šlo zobrazovat a spravovat data posílaná  zařízením přes mobilní síť.  
 	To se pak přirozeně rozvinulo do plného systému s uživatelskými účty a možností spravovat více zařízení na jednom z nich. 
 
 	Jako méně důležitou, spíše doplňkovou, ale přesto užitečnou součást systému jsem pak viděl výtvoření mobilní aplikace pro systém Android. Avšak z důvodu, že by pak byl projekt roztřepen na až mnoho frontách, věnoval jsem ji menší (spíše minimální) pozornost.
-	Tato aplikace nemá důležitosti jako ostatní komponenty, jelikož byla koncipována jako testování API a pro neznalost Kotlinu většina (přes 90\%) jejího kódu byla generována LLM (chcete-li "AI", konkrétně Gemini).
+	Tato aplikace nemá důležitosti jako ostatní komponenty, jelikož byla koncipována jako testování API a pro neznalost Kotlinu většina (přes 90 \%) jejího kódu byla generována LLM (chcete-li "AI", konkrétně Gemini).
 	Tato dokumentace ji proto nezmiňuje, pouze popisuje uivatelské prostředí.
 
 	Proto je tento Dokument rozdělen do tří hlavních kapitol. 
@@ -350,6 +351,9 @@ jediná použitelná část z tohoto modelu zůstal držák na : baterii a její
 Dále také celý základní princip API a identifikace mezi zařízeními a serverem je dosti primitivní a náchylný k chybám. V budoucnu by bylo vhodné přejít na nějaký propracovanější systém autentizace a autorizace zařízení (možná MQTT mezi-server obstarávající autentifikaci ?), místo pouhého ID a uživatelských údajů ( je to takto dosti jednoduché na falšování požadavků).
 Také nějaké více komplikované možnosti výpisu či třídění dat v uživatelském rozhraní chybí, a tak bych mohl pokračovat\dots
 To vše je tak v možnostech dalšího rozšíření a možných budoucích vylepšeních.
+
+Odkaz na GitHub repozitář projektu : \url{https://github.com/Balner123/GPS_server_NodeJS}
+
 
 \addcontentsline{toc}{chapter}{Závěr}
 
