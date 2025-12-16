@@ -31,7 +31,7 @@ Tato aplikace nemá důležitosti jako ostatní komponenty, jelikož byla koncip
 Tato dokumentace ji proto nezmiňuje, pouze popisuje uivatelské prostředí.
 
 --- HW ---           [3,5 minuty]
-1. technologie+Zpracování
+1. technologie + Zpracování + Úžití
 
 Lily ttgo + A7607 modem
 bylo možné použití Lora_network desky, avšak to by znamenalo pořídit desku uzce specializovanou desku , ta komunikuje na speciálním vlnem pásmu a je nutná registrace do lora-networks sítě, také není možný přenos většího objemu dat (možný datový tok je minimální)
@@ -58,11 +58,34 @@ dalé používáme ArduinoJSON+, STL/SSL, etc.
 
 zařízení také disponuje tzv. OTA režímem "over the Air" kdy při držení tlačítka po určitovu dobu (>2s) se spustí Wifi accesspoint ke kterému je možné se připojit a konfigurovat nastavení zařízení přes webový prohlížeč.
 
-2. Úžití
-
 --- Server ---       [3.5 minuty]
-1. technologie+zpracování
-2. užití
+1. technologie + zpracování + užití
+Hlavní serverový kod je kodóván ve frameworku Node.JS. Byl zvolen kvůli tomu, že jsem s ním již dříve pracoval a také kvůli podpoře skutečné asynchronosti, což je vhodné pokud počítáme s několika zařízeními připojenými zároveň.
+
+pro DB byl zvolen MySql ( It is known for its speed and reliability, MySQL is widely used in web applications and is a preferred choice for read-heavy operations.), opět kvůli předchozím zkušenostem , (PostGres byl zvažovan ale nebyl zvolen)
+pro práci s SQL dotazi používáme balíčk Sequalize s namapovaním modelů DB v /models adresáři. 
+
+Pro API máme vytvořneou dokumentaci jednotlivých Endpointů pommocí  "swagger" dokumentace (/docs-api)
+
+routy : /handshake & /input , /register-device
+
+Používáme systém uživatelů kdy v DB je "hardcoded" root uživatel, jenž má přístup k administraci aktuálních dat v DB, a obyčejných uživatelů jež je možné zaregistrovat, buďto přes email, nebo pomocí autentifikace třetích stran (OAuth {registrována fallback adresa -> aktuálně Google, Github)
+
+Pro práci s Emailem používáme balíček NodeMailer s propojeným Gmail účtem (lotr-system.cz@gmail.com)
+
+Pro frontend byl ze zkušeností zvolen šablonovací systém EJS (jednoduchý, minimalistický).
+webové rozhraní nabízí uživateli : 
+	1. správu registrovanbých zařízení,
+	- zobrazení jejich dat na mape (Openstreet maps)
+	- jejich vzálenou konfiguraci (režim, vpnutí, intervaly, velikosti dávek "batch" etc.)
+	- vytvoření GeoFence (ohraničení) - kdy pokud je zjistěna poloha mimo ohraničenou oblast tak je vytvořen Alert a uživateli poslán varovný email.
+	2. správa archivu Alertů a oznámení
+	3. nastavení účtu 
+	- standartní akce (změna hesla, username, email, zapomenuté heslo, smazání účtu etc.)
+
+Používáme Docker, s orchestrací kontejnerů (1x pro NodeJS, 1x pro MySQL)  s  perzistetními svazky pro DB. 
+
+Aktuálně je Server nazasen na Oracle free-tier instanci, https://lotr-system.xyz
 
 --- Zhodnocení, splnění cílů + Závěr [1 minuty]
 
