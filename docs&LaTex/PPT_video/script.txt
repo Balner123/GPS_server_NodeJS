@@ -3,7 +3,7 @@ LOTR System -> "location tracking system with options of malice use" [10 sekund]
 
 Dobrý den, jmenuji se Štěpán Balner a představuji vám můj zavěrečný projekt : systém lotr alias {strojově čten Anglicky}"location tracking system with options of malice use" ,,, pro správu zarízení poskytujících polohová data.
 
---- Cíle projektu  [2,5 minuty]
+--- Cíle projektu  [1,5 minuty]
 
 Již kdysi jsem se zabýval "sběrnými" nebo "sledovacími" systémy. Poohlížel jsem se z variabilních důvodů po možnostech jak by šlo sestrojit zařízení schopné nahrávat video a ukládat na SD kartu nebo jiné uložiště.
 Sledování polohy je jenom dalším krokem v tomto směru. Možnost že bych měl krabičku jež bych mohl dát někomu do auta, nebo jej připnout k nápravě kamionu (naivní to myšlenka) nebo dát pouze do zásilky a sledoval jeho pohyb do doby vybití baterie byla
@@ -30,15 +30,64 @@ Jako méně důležitou, spíše doplňkovou, ale přesto užitečnou součást 
 Tato aplikace nemá důležitosti jako ostatní komponenty, jelikož byla koncipována jako testování API a pro neznalost Kotlinu většina (přes 90\%)jejího kódu byla generována LLM (chcete-li "AI", konkrétně Gemini).
 Tato dokumentace ji proto nezmiňuje, pouze popisuje uivatelské prostředí.
 
---- HW ---           [2,5 minuty]
-1. technologie+Zpracování
-2. Úžití
+--- HW ---           [3,5 minuty]
+1. technologie + Zpracování + Úžití
 
---- Server ---       [2.5 minuty]
-1. technologie+zpracování
-2. užití
+Lily ttgo + A7607 modem
+bylo možné použití Lora_network desky, avšak to by znamenalo pořídit desku uzce specializovanou desku , ta komunikuje na speciálním vlnem pásmu a je nutná registrace do lora-networks sítě, také není možný přenos většího objemu dat (možný datový tok je minimální)
+desku by tedy nešlo využit jiným způsobem a ani by nebylo možné přidat funkce vyžadující větší datový tok než pouhé hlášení gps (je docelas možné, že ani systém posílání batche cachovaných poloh by kvůli tomu nebyl možný, anebo pouze s obtížemi)
+proto byla zvolena deska se SIM module který sice vyžaduje micro-simkartu a proudové špičky při vysílání jsou o něco větší, avšak poskytuje mnohem více možností
 
---- Zhodnocení, splnění cílů + Závěr [2 minuty]
+GPS modul
+deska lily ttgo sice má možnost zisku GPS (má konektor na GPS anténu a zřejmě modem A7606 dokáže s touto anténou pracovat) avšak, protože již byl ve vlastnictví externí modul s mnohem kvalitnější anténou  a použití externího modulu umožnovalo se při zisku GPS fixu zapínání modemu (největší žrout napájení) byl zvolen L76k external GPS modul. dle počátečních testu při použítí externího modulu byl zisk GPS sígnálu asi 3-4krát rychlejší než při použití interního zisku. také bylo možné jej připojit k 5V napájení přímo z Napájecího modulu (piny na lilyttgo umožnují max 3V a omezený proud), což také má vliv.
+
+Power Modul
+pro možnost softwarem řízeného vypínání (software si dokáže odpojit napájení) a lepší možnosti ma nuálního ovládání napájení byl vytvořen "Power Latch" modul který umožnuje pomocí zapojení mosfetu -> stiskem zapnout/vypnout + přerušit nápájení signálem z GPIO pinu. Plošý obvod byl navržen v EasyEDA a vyroben sloužbou JLBCP , osazen byl manuálně jelikož cena osazení mnohokrát předčí cenu samotných součástek, proto byly součástky zvoleny v pouzdrech které umožnují snadné pájení (místo SMD -> T220)
+
+Baterie + TP3504 + nabíječka
+také byl sestavena napájecí část složená z baterie , její nabíječky přes microUSB s boost-up měničem napětí díky kterému Deska dostává stabilně takové napětí jaké požaduje (3.7v -> 5v)
+
+Firmare - kod je napsán v cpp s frameworkem arduino
+využíváme DeepSleep pro ESP32, které umožnuje přechodu desky do stavu s minimální spotřebou na dobu určenou RTC (časovačem)
+
+za zminku stojí využítí FreeRTOS  které využíváme pro funkčnost GracefullShutdown,, v našem případě totiž není možné pouhé použí Attachinterupt na pinu BTN se vstupem z tlačítka. Při interupt událostí se totiž nesmí provádět složitější operace, vyvolávat delay, či posílat větší množství dat přes seriové linky. tento problém řeší systém kdy Interupt pouze upozorní -> shutdown úlohu (vytvořenou pomocí FreeRTOS a běžící nezávisle na hlavním kodu)
+
+pro práci s modemem a komunikaci skrz HTTP(S) používáme knihovnu TinyGSM která umožuje využívat již připravené funkce místo čisté nizkourovnové komunikace pomocí AT-AT příkazů.
+
+dalé používáme ArduinoJSON+, STL/SSL, etc.
+
+zařízení také disponuje tzv. OTA režímem "over the Air" kdy při držení tlačítka po určitovu dobu (>2s) se spustí Wifi accesspoint ke kterému je možné se připojit a konfigurovat nastavení zařízení přes webový prohlížeč.
+
+--- Server ---       [3.5 minuty]
+1. technologie + zpracování + užití
+Hlavní serverový kod je kodóván ve frameworku Node.JS. Byl zvolen kvůli tomu, že jsem s ním již dříve pracoval a také kvůli podpoře skutečné asynchronosti, což je vhodné pokud počítáme s několika zařízeními připojenými zároveň.
+
+pro DB byl zvolen MySql ( It is known for its speed and reliability, MySQL is widely used in web applications and is a preferred choice for read-heavy operations.), opět kvůli předchozím zkušenostem , (PostGres byl zvažovan ale nebyl zvolen)
+pro práci s SQL dotazi používáme balíčk Sequalize s namapovaním modelů DB v /models adresáři. 
+
+Pro API máme vytvořneou dokumentaci jednotlivých Endpointů pommocí  "swagger" dokumentace (/docs-api)
+
+routy : /handshake & /input , /register-device
+
+Používáme systém uživatelů kdy v DB je "hardcoded" root uživatel, jenž má přístup k administraci aktuálních dat v DB, a obyčejných uživatelů jež je možné zaregistrovat, buďto přes email, nebo pomocí autentifikace třetích stran (OAuth {registrována fallback adresa -> aktuálně Google, Github)
+
+Pro práci s Emailem používáme balíček NodeMailer s propojeným Gmail účtem (lotr-system.cz@gmail.com)
+
+Pro frontend byl ze zkušeností zvolen šablonovací systém EJS (jednoduchý, minimalistický).
+webové rozhraní nabízí uživateli : 
+	1. správu registrovanbých zařízení,
+	- zobrazení jejich dat na mape (Openstreet maps)
+	- jejich vzálenou konfiguraci (režim, vpnutí, intervaly, velikosti dávek "batch" etc.)
+	- vytvoření GeoFence (ohraničení) - kdy pokud je zjistěna poloha mimo ohraničenou oblast tak je vytvořen Alert a uživateli poslán varovný email.
+	2. správa archivu Alertů a oznámení
+	3. nastavení účtu 
+	- standartní akce (změna hesla, username, email, zapomenuté heslo, smazání účtu etc.)
+
+Používáme Docker, s orchestrací kontejnerů (1x pro NodeJS, 1x pro MySQL)  s  perzistetními svazky pro DB. 
+
+Aktuálně je Server nazasen na Oracle free-tier instanci, https://lotr-system.xyz
+
+--- Zhodnocení, splnění cílů + Závěr [1 minuty]
 
 1. Cíle. zhodnocení
 
