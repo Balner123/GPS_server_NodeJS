@@ -74,7 +74,7 @@ Další middleware používané v kódu (API vs web chování):
 
 - **`isApiAuthenticated`**: Variant autentikace určená pro API routy — pokud není session platná, vrátí JSON s HTTP 401 (místo přesměrování). Používá se např. v `routes/apk.js`.
 - **`isNotRootApi`**: Používá se u uživatelských API endpointů, aby zablokoval přístup `root` uživateli (server vrátí HTTP 403/401 podle kontextu).
-- **`authenticateDevice`**: Middleware pro HW/APK vstupy (např. `POST /api/devices/input`) — ověřuje, že zaslané `device`/`device_id` existuje v DB, připojí `req.device` a `req.user` a nastaví `req.clientType`. Při chybě vrací vhodný JSON (400/404/500).
+- **`authenticateDevice`**: Middleware pro HW/APK vstupy (např. `POST /api/devices/input`) — ověřuje, že zaslané `device_id` existuje v DB, připojí `req.device` a `req.user` a nastaví `req.clientType`. Při chybě vrací vhodný JSON (400/404/500).
 
 Poznámka: Rozdíl v chování mezi webovými a API routami je záměrný — webové routy renderují stránky a používají přesměrování s flash zprávami; API routy vrací JSON se strukturovanými chybami.
 

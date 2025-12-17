@@ -19,54 +19,6 @@ const router = express.Router();
  *       302:
  *         description: Redirects to Google for authentication.
  */
-// Route to initiate Google OAuth flow
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-/**
- * @swagger
- * /auth/google/callback:
- *   get:
- *     summary: Google OAuth callback
- *     tags: [OAuth]
- *     responses:
- *       302:
- *         description: Redirects to '/' on success, '/login' on failure.
- */
-// Google OAuth callback route
-router.get('/google/callback', 
-  passport.authenticate('google', { 
-    failureRedirect: '/login', 
-    failureFlash: true // Enable flash messages for failures
-  }), 
-  (req, res) => {
-    // On successful authentication, Passport adds the user to req.user.
-    // We now need to manually set our application's session variables for compatibility.
-    req.session.isAuthenticated = true;
-    req.session.user = {
-      id: req.user.id,
-      username: req.user.username,
-      email: req.user.email
-    };
-
-    // Redirect to the home page after successful login
-    res.redirect('/');
-  }
-);
-
-/**
- * @swagger
- * /auth/github:
- *   get:
- *     summary: Initiate GitHub OAuth 2.0 login
- *     tags: [OAuth]
- *     responses:
- *       302:
- *         description: Redirects to GitHub for authentication.
- */
-// --- GitHub Routes ---
-
-// Route to initiate GitHub OAuth flow
-router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
 
 /**
  * @swagger
@@ -79,6 +31,60 @@ router.get('/github', passport.authenticate('github', { scope: ['user:email'] })
  *         description: Redirects to '/' on success, '/login' on failure.
  */
 // GitHub OAuth callback route
+
+/**
+ * @swagger
+ * /auth/google/callback:
+ *   get:
+ *     summary: Google OAuth callback
+ *     tags: [OAuth]
+ *     responses:
+ *       302:
+ *         description: Redirects to '/' on success, '/login' on failure.
+ */
+
+/**
+ * @swagger
+ * /auth/github:
+ *   get:
+ *     summary: Initiate GitHub OAuth 2.0 login
+ *     tags: [OAuth]
+ *     responses:
+ *       302:
+ *         description: Redirects to GitHub for authentication.
+ */
+
+// --- Google Routes ---
+
+// Route to initiate Google OAuth flow
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+// Google OAuth callback route
+router.get('/google/callback', 
+  passport.authenticate('google', { 
+    failureRedirect: '/login', 
+    failureFlash: true // Enable flash messages for failures
+  }), 
+  (req, res) => {
+    // On successful authentication, Passport adds the user to req.user.
+    req.session.isAuthenticated = true;
+    req.session.user = {
+      id: req.user.id,
+      username: req.user.username,
+      email: req.user.email
+    };
+
+    // Redirect to the home page after successful login
+    res.redirect('/');
+  }
+);
+
+// --- GitHub Routes ---
+
+// Route to initiate GitHub OAuth flow
+router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
+
+
 router.get('/github/callback', 
   passport.authenticate('github', { 
     failureRedirect: '/login', 

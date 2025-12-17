@@ -40,35 +40,6 @@ const deviceController = require('../controllers/deviceController');
 
 /**
  * @swagger
- * /api/hw/register-device:
- *   post:
- *     summary: Register a hardware device to a user account.
- *     description: Called by the hardware from OTA mode. It authenticates the user and, if successful, registers the device to their account.
- *     tags: [Hardware API]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/HardwareRegister'
- *     responses:
- *       '201':
- *         description: Device registered successfully.
- *       '200':
- *         description: Device was already registered to this account.
- *       '400':
- *         description: Bad request (e.g., missing required fields).
- *       '401':
- *         description: Unauthorized (invalid username or password).
- *       '409':
- *         description: Conflict (device is already registered to another user).
- *       '500':
- *         description: Server error.
- */
-router.post('/register-device', deviceController.registerDeviceFromHardware);
-
-/**
- * @swagger
  * /api/hw/handshake:
  *   post:
  *     summary: Device handshake

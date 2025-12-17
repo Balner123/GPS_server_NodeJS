@@ -18,11 +18,11 @@ const { isAuthenticated, isUser, authenticateDevice, isNotRootApi } = require('.
  *     DeviceInput:
  *       type: object
  *       required:
- *         - device
+ *         - device_id
  *         - latitude
  *         - longitude
  *       properties:
- *         device:
+ *         device_id:
  *           type: string
  *           description: The unique ID of the device.
  *           example: "AC12345678"
@@ -523,9 +523,34 @@ router.post('/name', isAuthenticated, isNotRootApi, deviceController.updateDevic
 
 /**
  * @swagger
+ * /api/devices/{deviceId}:
+ *   delete:
+ *     summary: Delete a specific device
+ *     tags: [Devices API]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: deviceId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The hardware ID of the device to delete.
+ *     responses:
+ *       '200':
+ *         description: Device deleted successfully.
+ *       '401':
+ *         description: Unauthorized.
+ *       '404':
+ *         description: Device not found.
+ */
+router.delete('/:deviceId', isAuthenticated, isNotRootApi, deviceController.deleteDevice);
+
+/**
+ * @swagger
  * /api/devices/delete/{deviceId}:
  *   post:
- *     summary: Delete a specific device
+ *     summary: Delete a specific device (Legacy)
  *     tags: [Devices API]
  *     security:
  *       - cookieAuth: []

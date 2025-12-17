@@ -112,30 +112,4 @@ router.post('/login', authController.loginApk);
  */
 router.post('/logout', authController.logoutApk);
 
-/**
- * @swagger
- * /api/apk/register-device:
- *   post:
- *     summary: (APK) Register a new device from the APK client
- *     tags: [APK API]
- *     security:
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/ApkRegisterDevice'
- *     responses:
- *       '201':
- *         description: Device registered successfully.
- *       '400':
- *         description: Bad request (e.g., missing fields).
- *       '409':
- *         description: Conflict (device with this ID already exists).
- *       '500':
- *         description: Server error.
- */
-router.post('/register-device', authorization.isApiAuthenticated, deviceController.registerDeviceFromApk);
-
 module.exports = router;

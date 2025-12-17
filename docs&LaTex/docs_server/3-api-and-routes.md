@@ -23,17 +23,34 @@ Hlavní skupiny API:
 - `/api/settings` — změny uživatelských preferencí a bezpečnostní operace (změna hesla, smazání účtu).
 - `/api/admin` — administrativní operace (pouze `isRoot`).
 
-Poznámka: legacy endpointy pro HW/APK existují pouze pro zpětnou kompatibilitu; primární integrace probíhá přes sjednocené controllery pod `/api/devices`.
+## Standardizace REST API (Novinka 2025)
+
+V rámci refactoringu byly sjednoceny metody pro mazání zdrojů. Nyní jsou preferovány `DELETE` metody:
+
+- `DELETE /api/devices/:deviceId` — Smazání zařízení.
+- `DELETE /api/admin/users/:userId` — Smazání uživatele (admin).
+- `DELETE /api/admin/devices/:deviceId` — Smazání zařízení (admin).
+- `DELETE /api/admin/alerts/:alertId` — Smazání alertu.
+
+*Poznámka: Původní `POST` endpointy pro mazání (např. `/api/devices/delete/:deviceId`) byly ponechány pro zpětnou kompatibilitu s HTML formuláři, ale pro API klienty se doporučuje používat `DELETE`.*
+
+## Registrace zařízení (Unified Registration)
+
+Registrace nových zařízení (HW i APK) je nyní centralizována pod endpointem:
+
+- `POST /api/devices/register`
+
+Tento endpoint přijímá parametr `client_type` (`'HW'` nebo `'APK'`) a na základě toho aplikuje příslušnou logiku ověření (pro HW vyžaduje heslo, pro APK session). Staré specifické endpointy (např. `/api/hw/register-device`) byly označeny za zastaralé nebo odstraněny ve prospěch tohoto sjednoceného přístupu.
 
 ## Klíčové endpointy (vybrané)
 
-- `POST /api/devices/input` — přijímá dávky dat z trackerů (HW). Endpoint je veřejný, očekávaný payload a chování viz `docs_server/schemas/` a `docs_hw/4-data-format.md`.
+- `POST /api/devices/input` — přijímá dávky dat z trackerů (HW). Endpoint je veřejný (vyžaduje validní HW ID), očekávaný payload a chování viz `docs_server/schemas/` a `docs_hw/4-data-format.md`.
 - `POST /api/devices/handshake` — vrací konfigurační překryvy a instrukce napájení (`NONE` | `TURN_OFF`).
-- `POST /api/devices/register` — registrace zařízení (podrobnosti a podmínky viz `docs_hw/5-ota.md`).
 - `/api/auth/*` — standardní autentizační operace; odpovědi obsahují stav a chybové kódy pro klienta.
 
 Pro úplný seznam rout, autorizaci a příklady odpovědí použijte Swagger (`/api-docs`).
 
 Poznámky k identifikátorům zařízení:
-- V uživatelských API (`/api/devices/...`) se používá `deviceId` jako HW ID (řetězec `device_id`).
-- V administraci pro endpoint `/api/admin/delete-device/:deviceId` se očekává databázové ID zařízení (číselné `id`).
+- V komunikaci se zařízeními (HW/APK endpointy jako `/api/devices/input` nebo `/api/devices/handshake`) se striktně vyžaduje klíč `device_id` v JSON payloadu.
+- V uživatelských API pro správu (`/api/devices/settings`, `/api/devices/name`) se často používá klíč `deviceId` (camelCase).
+- V administraci pro endpoint `/api/admin/delete-device/:deviceId` se očekává databázové ID zařízení (číselné `id`), nicméně novější API metody se snaží sjednotit na HW ID tam, kde je to možné. Vždy ověřte v Swaggeru.

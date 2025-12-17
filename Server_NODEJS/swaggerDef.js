@@ -4,9 +4,9 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'GPS Tracking Server API',
+      title: 'LOTR System Server API',
       version: '1.0.0',
-      description: 'API documentation for the GPS Tracking Server, providing endpoints for user authentication, device management, and data handling.',
+      description: 'API documentation for the LOTR System Server, providing description of endpoints for user authentication, device management, and data handling.',
     },
     servers: [
       {

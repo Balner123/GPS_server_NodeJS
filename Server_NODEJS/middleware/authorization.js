@@ -59,12 +59,13 @@ const isRoot = (req, res, next) => {
 
 const authenticateDevice = async (req, res, next) => {
   const payload = Array.isArray(req.body) ? req.body[0] : req.body;
-  const deviceId = payload?.device || payload?.device_id || payload?.deviceId || null;
+  // Unified to use device_id as per database column and requirements
+  const deviceId = payload?.device_id || null;
   const log = getRequestLogger(req, { middleware: 'authenticateDevice', deviceId });
 
   if (!deviceId) {
     log.warn('Device authentication missing deviceId');
-    return res.status(400).json({ success: false, error: 'Device ID is missing in the request body.' });
+    return res.status(400).json({ success: false, error: 'device_id is missing in the request body.' });
   }
 
   try {

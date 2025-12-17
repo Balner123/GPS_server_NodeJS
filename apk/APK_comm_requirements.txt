@@ -100,7 +100,7 @@ APK Communication Requirements
 6) Chování při chybách
 ----------------------
 - `POST /api/apk/login`: 400 (missing fields), 401 (invalid credentials/user not found), 403 (account not verified), 500 (internal).
-- `POST /api/apk/register-device` / `POST /api/devices/register`: 200/201 success, 400 invalid payload, 401 missing session, 409 conflict, 500 internal.
+- `POST /api/devices/register`: 200/201 success, 400 invalid payload, 401 missing session, 409 conflict, 500 internal.
 - `POST /api/devices/handshake`: 200 + `registered=false` (není registrováno), 500 internal error.
 - `POST /api/devices/input`: 200 success, 400 invalid payload, 404 device unknown, 500 internal error.
 - Po obdržení 401/403 musí APK uživatele znovu přihlásit (session je neplatná) a požadavek neopakovat se stejnou cookie.

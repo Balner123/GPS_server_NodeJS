@@ -1,6 +1,7 @@
 
 const db = require('../database');
 const { getRequestLogger } = require('../utils/requestLogger');
+const adminService = require('../services/adminService');
 
 const getAdminPage = async (req, res) => {
     try {
@@ -121,52 +122,27 @@ const deleteUserAndData = async (req, res) => {
         return res.redirect('/administration');
     }
     try {
-        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteUserAndData', targetUserId: userId });
-        await db.User.destroy({ where: { id: userId } });
+        await adminService.deleteUserAndData(userId);
         req.flash('success', 'User has been deleted successfully.');
-        log.info('User deleted from administration');
         res.redirect('/administration');
     } catch (err) {
         const log = getRequestLogger(req, { controller: 'administration', action: 'deleteUserAndData', targetUserId: userId });
-        log.error('Error deleting user and data', err);
-        req.flash('error', 'An error occurred while deleting the user.');
+        log.error('Error deleting user', err);
+        req.flash('error', err.message === 'USER_NOT_FOUND' ? 'User not found.' : 'An error occurred.');
         res.redirect('/administration');
     }
 };
 
 const deleteDeviceAndData = async (req, res) => {
     const deviceId = req.params.deviceId;
-    const t = await db.sequelize.transaction();
-
     try {
-        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteDeviceAndData', deviceId });
-        const device = await db.Device.findOne({ where: { id: deviceId } });
-
-        if (!device) {
-            await t.rollback();
-            req.flash('error', 'Device not found.');
-            log.warn('Attempted to delete missing admin device');
-            return res.redirect('/administration');
-        }
-
-        // 1. Manually delete associated locations
-        await db.Location.destroy({ where: { device_id: device.id }, transaction: t });
-
-        // 2. Manually delete associated alerts
-        await db.Alert.destroy({ where: { device_id: device.id }, transaction: t });
-
-        // 3. Finally, delete the device itself
-        await device.destroy({ transaction: t });
-
-        await t.commit();
-        req.flash('success', `Device '${device.name || device.device_id}' and all its data have been deleted successfully.`);
-        log.info('Device deleted from admin panel');
+        const { name } = await adminService.deleteDeviceAndData(deviceId);
+        req.flash('success', `Device '${name}' and all its data have been deleted successfully.`);
         res.redirect('/administration');
     } catch (err) {
-        await t.rollback();
         const log = getRequestLogger(req, { controller: 'administration', action: 'deleteDeviceAndData', deviceId });
-        log.error('Error deleting device from administration', err);
-        req.flash('error', 'Failed to delete device. An internal server error occurred.');
+        log.error('Error deleting device', err);
+        req.flash('error', err.message === 'DEVICE_NOT_FOUND' ? 'Device not found.' : 'Failed to delete device.');
         res.redirect('/administration');
     }
 };
@@ -174,48 +150,22 @@ const deleteDeviceAndData = async (req, res) => {
 const verifyUser = async (req, res) => {
     const userId = req.params.userId;
     try {
-        const log = getRequestLogger(req, { controller: 'administration', action: 'verifyUser', targetUserId: userId });
-        await db.User.update({ is_verified: true }, { where: { id: userId } });
+        await adminService.verifyUser(userId);
         req.flash('success', 'User has been verified successfully.');
-        log.info('User verified via admin');
         res.redirect('/administration');
     } catch (err) {
         const log = getRequestLogger(req, { controller: 'administration', action: 'verifyUser', targetUserId: userId });
-        log.error('Error verifying user in admin', err);
-        req.flash('error', 'An error occurred while verifying the user.');
+        log.error('Error verifying user', err);
+        req.flash('error', err.message === 'USER_NOT_FOUND' ? 'User not found.' : 'An error occurred.');
         res.redirect('/administration');
     }
 };
 
 const deleteAlert = async (req, res) => {
     const alertId = req.params.alertId;
-    const log = getRequestLogger(req, { controller: 'administration', action: 'deleteAlert', alertId });
-
     try {
-        const alert = await db.Alert.findOne({ where: { id: alertId } });
-
-        if (!alert) {
-            log.warn('Alert to be deleted not found');
-            if (req.accepts('json')) {
-                return res.status(404).json({ success: false, error: 'Alert not found.' });
-            }
-            req.flash('error', 'Alert not found.');
-            return res.redirect(req.headers.referer || '/administration');
-        }
-
-        // Root can delete any alert. Regular users can only delete their own.
-        if (!req.session.user.isRoot && alert.user_id !== req.session.user.id) {
-            log.warn('Permission denied to delete alert', { userId: req.session.user.id });
-            if (req.accepts('json')) {
-                return res.status(403).json({ success: false, error: 'You do not have permission to delete this alert.' });
-            }
-            req.flash('error', 'You do not have permission to delete this alert.');
-            return res.redirect(req.headers.referer || '/');
-        }
-
-        await alert.destroy();
-        log.info('Alert deleted successfully');
-
+        await adminService.deleteAlert(alertId, req.session.user);
+        
         if (req.accepts('json')) {
             return res.status(200).json({ success: true, message: 'Alert deleted successfully.' });
         }
@@ -223,9 +173,23 @@ const deleteAlert = async (req, res) => {
         res.redirect(req.headers.referer || '/administration');
 
     } catch (err) {
+        const log = getRequestLogger(req, { controller: 'administration', action: 'deleteAlert', alertId });
+        
+        // Handle specific errors
+        if (err.message === 'ALERT_NOT_FOUND') {
+             if (req.accepts('json')) return res.status(404).json({ success: false, error: 'Alert not found.' });
+             req.flash('error', 'Alert not found.');
+             return res.redirect(req.headers.referer || '/administration');
+        }
+        if (err.message === 'FORBIDDEN') {
+            if (req.accepts('json')) return res.status(403).json({ success: false, error: 'Permission denied.' });
+            req.flash('error', 'You do not have permission to delete this alert.');
+            return res.redirect(req.headers.referer || '/');
+        }
+
         log.error('Error deleting alert', err);
         if (req.accepts('json')) {
-            return res.status(500).json({ success: false, error: 'An internal server error occurred.' });
+            return res.status(500).json({ success: false, error: 'Internal server error.' });
         }
         req.flash('error', 'An error occurred while deleting the alert.');
         res.redirect(req.headers.referer || '/administration');

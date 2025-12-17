@@ -38,19 +38,8 @@ void start_ota_mode() {
     DBG_PRINTLN(F("[OTA] Failed to initialize filesystem; using defaults only."));
   }
 
-  // Load configuration from Preferences (needed for OTA SSID/Pass and GPRS settings)
+  // Load configuration from Preferences (needed for OTA SSID and GPRS settings)
   fs_load_configuration();
-
-  // FORCE OPEN NETWORK: Clear any stored OTA password to ensure access
-  if (ota_password.length() > 0) {
-    ota_password = "";
-    // Optionally clear it from preferences too, to keep things clean
-    Preferences otaPrefs;
-    if (otaPrefs.begin(PREFERENCES_NAMESPACE, false)) {
-      otaPrefs.putString("ota_password", "");
-      otaPrefs.end();
-    }
-  }
 
   // Set Device ID from MAC Address, this is permanent and unique
   String mac = WiFi.macAddress();
@@ -67,7 +56,23 @@ void start_ota_mode() {
   };
   finalizeOtaHotspot();
 
-  // 1. Initialize Modem (synchronously) - Moved before WiFi AP to prevent brownouts on battery.
+  // 1. Start WiFi AP (Moved before Modem Init for immediate access)
+  DBG_PRINTLN(F("Starting WiFi AP..."));
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_AP);
+  // Always start as open network
+  bool apStarted = WiFi.softAP(ota_ssid.c_str());
+  
+  if (apStarted) {
+    DBG_PRINTLN(F("WiFi AP started as open network."));
+  } else {
+    DBG_PRINTLN(F("[OTA] Failed to start WiFi AP."));
+  }
+  IPAddress apIP = WiFi.softAPIP();
+  DBG_PRINT(F("AP IP address: "));
+  DBG_PRINTLN(apIP);
+
+  // 2. Initialize Modem (synchronously)
   DBG_PRINTLN(F("[OTA] Initializing modem synchronously..."));
   if (modem_initialize()) {
     // Connect with a timeout
@@ -97,26 +102,6 @@ void start_ota_mode() {
     handshakeAttemptedOTA = false;
     handshakeSucceededOTA = false;
   }
-
-  // 2. Start WiFi AP
-  DBG_PRINTLN(F("Starting WiFi AP..."));
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_AP);
-  bool apStarted = ota_password.length() == 0
-                       ? WiFi.softAP(ota_ssid.c_str())
-                       : WiFi.softAP(ota_ssid.c_str(), ota_password.c_str());
-  if (apStarted) {
-    if (ota_password.length() == 0) {
-      DBG_PRINTLN(F("WiFi AP started as open network."));
-    } else {
-      DBG_PRINTLN(F("WiFi AP started with configured credentials."));
-    }
-  } else {
-    DBG_PRINTLN(F("[OTA] Failed to start WiFi AP with configured credentials; fallback open AP may be used."));
-  }
-  IPAddress apIP = WiFi.softAPIP();
-  DBG_PRINT(F("AP IP address: "));
-  DBG_PRINTLN(apIP);
 
   // 3. Define Web Server Handlers
 

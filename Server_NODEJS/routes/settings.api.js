@@ -187,39 +187,6 @@ router.post('/set-password', isAuthenticated, isUser, settingsController.setPass
 
 /**
  * @swagger
- * /api/settings/disconnect:
- *   post:
- *     summary: Disconnect a third-party provider from the account
- *     tags: [Settings API]
- *     security:
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - provider
- *             properties:
- *               provider:
- *                 type: string
- *                 description: The provider to disconnect (e.g., 'google', 'github').
- *                 example: 'google'
- *     responses:
- *       '200':
- *         description: Provider disconnected successfully.
- *       '400':
- *         description: Bad request.
- *       '401':
- *         description: Unauthorized.
- *       '500':
- *         description: Server error.
- */
-router.post('/disconnect', isAuthenticated, isUser, settingsController.disconnect);
-
-/**
- * @swagger
  * /api/settings/confirm-delete:
  *   post:
  *     summary: Confirm account deletion with a verification code

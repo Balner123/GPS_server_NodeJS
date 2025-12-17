@@ -127,11 +127,8 @@ void fs_load_configuration() {
   } else {
     ota_ssid = DEFAULT_OTA_SSID;
   }
-  if (preferences.isKey("ota_password")) {
-    ota_password = preferences.getString("ota_password");
-  } else {
-    ota_password = DEFAULT_OTA_PASSWORD;
-  }
+  // OTA Password removed - always open network
+  ota_password = "";
 
   // Load sleep time, min satellites, and batch send threshold
   if (preferences.isKey("sleepTime")) {

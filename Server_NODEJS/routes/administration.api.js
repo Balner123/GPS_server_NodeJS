@@ -12,10 +12,9 @@ const { isAuthenticated, isRoot } = require('../middleware/authorization');
 
 /**
  * @swagger
- * /api/admin/delete-user/{userId}:
- *   post:
+ * /api/admin/users/{userId}:
+ *   delete:
  *     summary: (Admin) Delete a user and all their associated data
- *     description: Deletes a user and all of their associated devices and location data. The root user cannot delete themselves.
  *     tags: [Administration API]
  *     security:
  *       - cookieAuth: []
@@ -28,20 +27,20 @@ const { isAuthenticated, isRoot } = require('../middleware/authorization');
  *         description: The database ID of the user to delete.
  *     responses:
  *       '302':
- *         description: Redirects to the /administration page on success, or if the root user attempts to delete themselves.
+ *         description: Redirects to /administration (legacy behavior).
  *       '401':
- *         description: Unauthorized (user is not a root admin). This is handled by the `isRoot` middleware.
- *       '500':
- *         description: Server error.
+ *         description: Unauthorized.
  */
+router.delete('/users/:userId', isAuthenticated, isRoot, administrationController.deleteUserAndData);
+
+// Legacy POST wrapper
 router.post('/delete-user/:userId', isAuthenticated, isRoot, administrationController.deleteUserAndData);
 
 /**
  * @swagger
- * /api/admin/delete-device/{deviceId}:
- *   post:
+ * /api/admin/devices/{deviceId}:
+ *   delete:
  *     summary: (Admin) Delete a device and all its associated data
- *     description: Deletes a device and all of its associated location data. This action is irreversible.
  *     tags: [Administration API]
  *     security:
  *       - cookieAuth: []
@@ -51,15 +50,16 @@ router.post('/delete-user/:userId', isAuthenticated, isRoot, administrationContr
  *         schema:
  *           type: integer
  *         required: true
- *         description: The database numeric ID (id) of the device to delete.
+ *         description: The database ID of the device to delete.
  *     responses:
  *       '302':
- *         description: Redirects to the /administration page on success. The redirect happens even if the device was not found.
+ *         description: Redirects to /administration (legacy behavior).
  *       '401':
- *         description: Unauthorized (user is not a root admin). This is handled by the `isRoot` middleware.
- *       '500':
- *         description: Server error.
+ *         description: Unauthorized.
  */
+router.delete('/devices/:deviceId', isAuthenticated, isRoot, administrationController.deleteDeviceAndData);
+
+// Legacy POST wrapper
 router.post('/delete-device/:deviceId', isAuthenticated, isRoot, administrationController.deleteDeviceAndData);
 
 /**

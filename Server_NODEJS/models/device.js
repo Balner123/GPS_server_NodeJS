@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true
     },
     device_id: {
-      type: DataTypes.STRING(10),
+      type: DataTypes.STRING(255),
       allowNull: false,
       unique: true
     },

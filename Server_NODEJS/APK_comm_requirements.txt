@@ -22,21 +22,14 @@ APK Communication Requirements
 2) Registrace zařízení / instalace APK
 --------------------------------------
 - Každá instalace APK vystupuje jako zařízení s `device_id = installationId` a `device_type = APK`.
-- Varianty registrace:
-  a) Legacy endpoint `POST /api/apk/register-device` (vyžaduje aktivní session z kroku 1).
-     Payload:
-     {
-       "installationId": "apk-install-uuid-12345",
-       "deviceName": "Pixel 8 Pro"
-     }
-     Odezvy: `201` vytvořeno, `200` již registrováno, `409` konflikt (patří jinému uživateli), `401` bez session, `400` chybějící pole.
-  b) Unified endpoint `POST /api/devices/register`:
+- Unified endpoint `POST /api/devices/register`:
      {
        "client_type": "APK",
        "device_id": "apk-install-uuid-12345",
        "name": "Pixel 8 Pro"
      }
-     Vyžaduje platnou session. Stejné návratové kódy jako výše.
+     Vyžaduje platnou session. Odezvy: `201` vytvořeno, `200` již registrováno, `409` konflikt (patří jinému uživateli), `401` bez session, `400` chybějící pole.
+
 - Server ukládá zařízení do `devices` a přidělí jej aktuálně přihlášenému uživateli.
 
 3) Handshake (konfigurace + instrukce)
@@ -102,7 +95,7 @@ APK Communication Requirements
 6) Chování při chybách
 ----------------------
 - `POST /api/apk/login`: 400 (missing fields), 401 (invalid credentials/user not found), 403 (account not verified), 500 (internal).
-- `POST /api/apk/register-device` / `POST /api/devices/register`: 200/201 success, 400 invalid payload, 401 missing session, 409 conflict, 500 internal.
+- `POST /api/devices/register`: 200/201 success, 400 invalid payload, 401 missing session, 409 conflict, 500 internal.
 - `POST /api/devices/handshake`: 200 + `registered=false` (není registrováno), 500 internal error.
 - `POST /api/devices/input`: 200 success, 400 invalid payload, 404 device unknown, 500 internal error.
 - Po obdržení 401/403 musí APK uživatele znovu přihlásit (session je neplatná) a požadavek neopakovat se stejnou cookie.

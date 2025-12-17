@@ -46,7 +46,7 @@ Sequelize abstrahuje SQL dotazy do JavaScriptových objektů. V projektu jsou de
   \setlength\parskip{0pt}
   \setlength\parsep{0pt}
     \item \texttt{User}: Ukládá informace o uživatelích (jméno, email, hash hesla, OAuth ID).
-    \item \texttt{Device}: Reprezentuje hardwarové jednotky (tracker). Obsahuje unikátní identifikátor, název a vazbu na vlastníka (\texttt{User}).
+    \item \texttt{Device}: Reprezentuje hardwarové jednotky. Kromě identifikátoru a vazby na uživatele uchovává konfiguraci synchronizovanou s HW: \texttt{interval\_gps} (četnost snímání), \texttt{interval\_send} (četnost odesílání), \texttt{mode} (režim simple/batch) a \texttt{geofence} (definice bezpečnostní zóny ve formátu GeoJSON).
     \item \texttt{Location}: Uchovává historická data o poloze (zeměpisná šířka, délka, čas, rychlost).
     \item \texttt{Alert}: Záznamy o bezpečnostních událostech (např. opuštění geofence zóny nebo návrat do ní).
 \end{itemize}
@@ -58,9 +58,14 @@ Vztahy mezi modely jsou definovány pouze jako 1:N (jeden uživatel má více za
     \label{fig:db_schema}
 \end{figure}
 
-\subsubsection{API - HW tracker (ESP32)}
+\subsection{Rozhraní API a komunikace}
 \label{sec:server_api}
-HW klient se při komunikaci autentizuje pouze pomocí \texttt{device\_id} (získaného z MAC adresy), které je zaregistrováno, pokud uživatel vloží správné uživatelské údaje v registrační části OTA režimu. Nevyužívá session/cookie.
+V rámci optimalizace backendu došlo ke sjednocení registračních procesů a standardizaci HTTP metod. 
+Pro registraci všech typů zařízení (HW i APK) nyní slouží centrální endpoint \texttt{/api/devices/register}, 
+kde se typ klienta rozlišuje parametrem \texttt{client\_type}.
+
+\subsubsection{API - HW tracker (ESP32)}
+HW klient se v tuto chvíly při komunikaci autentizuje pouze pomocí \texttt{device\_id} (získaného z MAC adresy). Toto ID je zaregistrováno, pokud uživatel vloží správné uživatelské údaje v registrační části OTA režimu. HW klient nevyužívá session ani cookies.
 
 \begin{table}[H]
 \centering
@@ -150,12 +155,21 @@ Pro všechny vstupy (HW i APK) platí validace přes \texttt{express-validator}.
 \subsubsection{Dokumentace API (Swagger)}
 Swagger (\texttt{swagger-jsdoc} + \texttt{swagger-ui-express}) generuje strojově čitelnou dokumentaci z komentářů controllerů a je dostupný na \texttt{/api-docs}.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.9\textwidth]{../docs_server/screenshots/swagger_docs.png} 
-    \caption{Ukázka Swagger dokumentace API}
-    \label{fig:swagger_api}
-\end{figure}
+% \begin{figure}[h]
+%    \centering
+%    \includegraphics[width=0.9\textwidth]{../docs_server/screenshots/swagger_docs.png} 
+%     \caption{Ukázka Swagger dokumentace API}
+%  \label{fig:swagger_api}
+% \end{figure}
+
+\subsubsection{Zpracování a agregace GPS dat}
+\label{subsec:server_gps_processing}
+Jedním z úkolů serveru je efektivní zpracování velkého množství dat o poloze. Aby se předešlo zahlcení mapy redundantními body, implementuje server tzv. \textbf{"On-Read" agregaci}.
+Původní data jsou v databázi uložena v surové podobě, což zaručuje jejich integritu. Ke shlukování dochází až v momentě Fetchovaní dat pro zobrazení na mapě.
+
+Algoritmus \texttt{clusterLocations} prochází časově seřazené záznamy a sdružuje body, které jsou si vzájemně blízké (vzdálenost menší než X metrů). 
+Výsledkem je pole, které obsahuje jak jednotlivé body (v pohybu), tak "clustery" (shluky), které reprezentují stání na místě v určitém časovém intervalu.
+
 
 \clearpage
 

@@ -1,27 +1,20 @@
-const { sendVerificationEmail } = require('../utils/emailSender');
-const bcrypt = require('bcryptjs');
-const db = require('../database');
 const { getRequestLogger } = require('../utils/requestLogger');
-
-const passwordRequirements = [
-                { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
-                { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
-                { regex: /[0-9]/, message: 'Password must contain at least one number.' },
-                { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
-            ];
+const authService = require('../services/authService');
 
 const getSettingsPage = async (req, res) => {
     try {
         const log = getRequestLogger(req, { controller: 'settings', action: 'getSettingsPage' });
-        const user = await db.User.findByPk(req.session.user.id);
+        const user = await authService.getUserProfile(req.session.user.id);
+        
         if (!user) {
             req.flash('error', 'User not found.');
             return res.redirect('/login');
         }
+        
         log.info('Settings page rendered');
         res.render('settings', {
             currentPage: 'settings',
-            user: user, // Pass the full user object
+            user: user,
             success: req.flash('success'),
             error: req.flash('error')
         });
@@ -44,23 +37,21 @@ const updateUsername = async (req, res) => {
     }
 
     if (username === req.session.user.username) {
-        // No change, just redirect
         return res.redirect('/settings');
     }
 
     try {
-        const existingUser = await db.User.findOne({ where: { username: username } });
-        if (existingUser) {
-            req.flash('error', 'This username is already taken.');
-            return res.redirect('/settings');
-        }
-        await db.User.update({ username: username }, { where: { id: userId } });
-        req.session.user.username = username; // Update username in session
+        await authService.updateUsername(userId, username);
+        req.session.user.username = username;
         req.flash('success', 'Username has been successfully changed.');
         log.info('Username updated');
     } catch (err) {
-        log.error('Error updating username', err);
-        req.flash('error', 'An error occurred while changing the username.');
+        if (err.message === 'USERNAME_TAKEN') {
+            req.flash('error', 'This username is already taken.');
+        } else {
+            log.error('Error updating username', err);
+            req.flash('error', 'An error occurred while changing the username.');
+        }
     }
     res.redirect('/settings');
 };
@@ -70,8 +61,6 @@ const updatePassword = async (req, res) => {
     const log = getRequestLogger(req, { controller: 'settings', action: 'updatePassword', userId });
 
     try {
-        const user = await db.User.findByPk(userId);
-
         const { oldPassword, newPassword, confirmPassword, use_weak_password } = req.body;
 
         if (!oldPassword || !newPassword || !confirmPassword) {
@@ -84,37 +73,24 @@ const updatePassword = async (req, res) => {
             return res.redirect('/settings');
         }
 
-        // --- Password Validation (copied from registerUser) ---
-        if (!use_weak_password) {
-            for (const requirement of passwordRequirements) {
-                if (!requirement.regex.test(newPassword)) {
-                    req.flash('error', requirement.message);
-                    return res.redirect('/settings');
-                }
-            }
-        } else {
-            // Weak password requirement
-            if (newPassword.length < 3) {
-                req.flash('error', 'Weak password must be at least 3 characters long.');
-                return res.redirect('/settings');
-            }
-        }
-
-        const isMatch = await bcrypt.compare(oldPassword, user.password);
-
-        if (!isMatch) {
-            req.flash('error', 'Old password is incorrect.');
+        const passwordError = authService.validatePassword(newPassword, use_weak_password);
+        if (passwordError) {
+            req.flash('error', passwordError);
             return res.redirect('/settings');
         }
 
-        const newHash = await bcrypt.hash(newPassword, 10);
-        await user.update({ password: newHash });
+        await authService.updatePassword(userId, oldPassword, newPassword);
+        
         req.flash('success', 'Password has been successfully changed.');
         log.info('Password updated');
 
     } catch (err) {
-        log.error('Error changing password', err);
-        req.flash('error', 'An error occurred while changing the password.');
+        if (err.message === 'INVALID_PASSWORD') {
+            req.flash('error', 'Old password is incorrect.');
+        } else {
+            log.error('Error changing password', err);
+            req.flash('error', 'An error occurred while changing the password.');
+        }
     }
     res.redirect('/settings');
 };
@@ -124,42 +100,15 @@ const updateEmail = async (req, res) => {
     const log = getRequestLogger(req, { controller: 'settings', action: 'updateEmail', userId });
 
     try {
-        const user = await db.User.findByPk(userId);
-        if (user.provider !== 'local') {
-            req.flash('error', 'Email cannot be changed for accounts linked with a third-party provider.');
-            return res.redirect('/settings');
-        }
-
         const { email } = req.body;
-
         const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+        
         if (!email || !emailRegex.test(email)) {
             req.flash('error', 'Enter a valid email address.');
             return res.redirect('/settings');
         }
 
-        if (email === user.email) { // Compare with the email from the database
-            req.flash('info', 'The entered email is the same as your current one.');
-            return res.redirect('/settings');
-        }
-
-        const existingUser = await db.User.findOne({ where: { email: email } });
-        if (existingUser) {
-            req.flash('error', 'This email is already taken by another account.');
-            return res.redirect('/settings');
-        }
-
-        const code = Math.floor(1000 + Math.random() * 9000).toString();
-        const expires = new Date(Date.now() + 10 * 60 * 1000);
-
-        await user.update({
-            pending_email: email,
-            action_token: code,
-            action_token_expires: expires,
-            action_type: 'VERIFY_EMAIL'
-        });
-
-        await sendVerificationEmail(email, code);
+        await authService.initiateEmailChange(userId, email);
 
         req.session.pendingUserId = userId;
         req.session.pendingEmailChange = true;
@@ -169,8 +118,16 @@ const updateEmail = async (req, res) => {
         return res.redirect('/verify-email');
 
     } catch (err) {
-        log.error('Error updating email', err);
-        req.flash('error', 'An error occurred while changing the email.');
+        if (err.message === 'PROVIDER_ACCOUNT') {
+            req.flash('error', 'Email cannot be changed for accounts linked with a third-party provider.');
+        } else if (err.message === 'SAME_EMAIL') {
+            req.flash('info', 'The entered email is the same as your current one.');
+        } else if (err.message === 'EMAIL_TAKEN') {
+            req.flash('error', 'This email is already taken by another account.');
+        } else {
+            log.error('Error updating email', err);
+            req.flash('error', 'An error occurred while changing the email.');
+        }
         return res.redirect('/settings');
     }
 };
@@ -179,25 +136,10 @@ const deleteAccount = async (req, res) => {
     const userId = req.session.user.id;
     try {
         const log = getRequestLogger(req, { controller: 'settings', action: 'deleteAccount', userId });
-        const user = await db.User.findByPk(userId);
-        if (!user) {
-            req.flash('error', 'User not found.');
-            return res.redirect('/settings');
-        }
+        
+        await authService.initiateAccountDeletion(userId);
 
-        const code = Math.floor(1000 + Math.random() * 9000).toString();
-        const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-        await user.update({
-            action_token: code,
-            action_token_expires: expires,
-            action_type: 'DELETE_ACCOUNT'
-        });
-
-        // Send email with deletion code
-        await sendVerificationEmail(user.email, code, 'account_deletion'); // 'account_deletion' is a new template type
-
-        req.session.pendingDeletionUserId = userId; // Store user ID in session for deletion confirmation
+        req.session.pendingDeletionUserId = userId;
         req.flash('success', 'A verification code has been sent to your email to confirm account deletion.');
         log.info('Account deletion initiated');
         return res.redirect('/settings/confirm-delete');
@@ -215,14 +157,6 @@ const setPassword = async (req, res) => {
     const log = getRequestLogger(req, { controller: 'settings', action: 'setPassword', userId });
 
     try {
-        const user = await db.User.findByPk(userId);
-
-        // This action should only be for provider-based users without a password
-        if (user.provider === 'local' || (user.password && user.password.trim() !== '')) {
-            req.flash('error', 'This action is not applicable for your account.');
-            return res.redirect('/settings');
-        }
-
         const { newPassword, confirmPassword, use_weak_password } = req.body;
 
         if (!newPassword || !confirmPassword) {
@@ -235,102 +169,26 @@ const setPassword = async (req, res) => {
             return res.redirect('/settings');
         }
 
-        // --- Password Validation ---
-        if (!use_weak_password) {
-            for (const requirement of passwordRequirements) {
-                if (!requirement.regex.test(newPassword)) {
-                    req.flash('error', requirement.message);
-                    return res.redirect('/settings');
-                }
-            }
-        } else {
-            if (newPassword.length < 3) {
-                req.flash('error', 'Weak password must be at least 3 characters long.');
-                return res.redirect('/settings');
-            }
+        const passwordError = authService.validatePassword(newPassword, use_weak_password);
+        if (passwordError) {
+            req.flash('error', passwordError);
+            return res.redirect('/settings');
         }
 
-        const newHash = await bcrypt.hash(newPassword, 10);
-        await user.update({ password: newHash });
+        await authService.setPassword(userId, newPassword);
 
         req.flash('success', 'Your password has been set successfully. You can now use it for external devices.');
         log.info('Password set for federated user');
 
     } catch (err) {
-        log.error('Error setting password', err);
-        req.flash('error', 'An error occurred while setting your password.');
+        if (err.message === 'NOT_ELIGIBLE') {
+            req.flash('error', 'This action is not applicable for your account.');
+        } else {
+            log.error('Error setting password', err);
+            req.flash('error', 'An error occurred while setting your password.');
+        }
     }
     res.redirect('/settings');
-};
-
-const disconnect = async (req, res) => {
-    const userId = req.session.user.id;
-    const log = getRequestLogger(req, { controller: 'settings', action: 'disconnect', userId });
-
-    try {
-        const user = await db.User.findByPk(userId);
-
-        if (user.provider === 'local') {
-            req.flash('error', 'This action is only available for accounts linked with a third-party provider.');
-            return res.redirect('/settings');
-        }
-
-        const { newPassword, confirmPassword, use_weak_password } = req.body;
-
-        if (!newPassword || !confirmPassword) {
-            req.flash('error', 'To disconnect your account, you must set a new password.');
-            return res.redirect('/settings');
-        }
-
-        if (newPassword !== confirmPassword) {
-            req.flash('error', 'Passwords do not match.');
-            return res.redirect('/settings');
-        }
-
-        // --- Password Validation ---
-        if (!use_weak_password) {
-            const passwordRequirements = [
-                { regex: /.{6,}/, message: 'Password must be at least 6 characters long.' },
-                { regex: /[A-Z]/, message: 'Password must contain at least one uppercase letter.' },
-                { regex: /[0-9]/, message: 'Password must contain at least one number.' },
-                { regex: /[^A-Za-z0-9]/, message: 'Password must contain at least one special character.' }
-            ];
-            for (const requirement of passwordRequirements) {
-                if (!requirement.regex.test(newPassword)) {
-                    req.flash('error', requirement.message);
-                    return res.redirect('/settings');
-                }
-            }
-        } else {
-            if (newPassword.length < 3) {
-                req.flash('error', 'Weak password must be at least 3 characters long.');
-                return res.redirect('/settings');
-            }
-        }
-
-        const newHash = await bcrypt.hash(newPassword, 10);
-        await user.update({
-            password: newHash,
-            provider: 'local',
-            provider_id: null,
-            provider_data: null
-        });
-
-        req.session.destroy((err) => {
-            if (err) {
-                log.error('Error destroying session after disconnect', err);
-                return res.redirect('/login');
-            }
-            res.clearCookie('connect.sid');
-            log.info('Account disconnected from provider');
-            res.redirect('/login');
-        });
-
-    } catch (err) {
-        log.error('Error disconnecting account', err);
-        req.flash('error', 'An error occurred while disconnecting your account.');
-        res.redirect('/settings');
-    }
 };
 
 const getConfirmDeletePage = (req, res) => {
@@ -356,35 +214,9 @@ const confirmDeleteAccount = async (req, res) => {
     }
 
     try {
-        const user = await db.User.findByPk(userId);
+        await authService.confirmAccountDeletion(userId, code);
 
-        if (!user) {
-            req.flash('error', 'User not found.');
-            delete req.session.pendingDeletionUserId;
-            return res.redirect('/settings');
-        }
-
-        // Check for code expiration and validity
-        if (!user.action_token || !user.action_token_expires || new Date() > user.action_token_expires || user.action_type !== 'DELETE_ACCOUNT') {
-            req.flash('error', 'Verification code has expired or is invalid. Please try deleting your account again.');
-            delete req.session.pendingDeletionUserId;
-            return res.redirect('/settings');
-        }
-
-        // Check if code matches
-        if (user.action_token !== code) {
-            req.flash('error', 'The provided code is incorrect.');
-            return res.redirect('/settings/confirm-delete');
-        }
-
-        // First, delete all devices associated with the user.
-        // This will trigger the cascading delete for locations and alerts.
-        await db.Device.destroy({ where: { user_id: userId } });
-
-        // Now, it's safe to delete the user.
-        await db.User.destroy({ where: { id: userId } });
-
-        delete req.session.pendingDeletionUserId; // Clear pending deletion status
+        delete req.session.pendingDeletionUserId;
 
         req.session.destroy((err) => {
             if (err) {
@@ -397,6 +229,10 @@ const confirmDeleteAccount = async (req, res) => {
         });
 
     } catch (err) {
+        if (err.message === 'INVALID_CODE') {
+            req.flash('error', 'Verification code has expired or is invalid.');
+            return res.redirect('/settings/confirm-delete');
+        }
         log.error('Error confirming account deletion', err);
         req.flash('error', 'An error occurred while confirming account deletion.');
         res.redirect('/settings/confirm-delete');
@@ -412,23 +248,7 @@ const resendDeletionCode = async (req, res) => {
 
     try {
         const log = getRequestLogger(req, { controller: 'settings', action: 'resendDeletionCode', userId });
-        const user = await db.User.findByPk(userId);
-        if (!user) {
-            req.flash('error', 'User not found.');
-            delete req.session.pendingDeletionUserId;
-            return res.redirect('/settings');
-        }
-
-        const code = Math.floor(1000 + Math.random() * 9000).toString();
-        const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-        await user.update({
-            action_token: code,
-            action_token_expires: expires,
-            action_type: 'DELETE_ACCOUNT'
-        });
-
-        await sendVerificationEmail(user.email, code, 'account_deletion');
+        await authService.initiateAccountDeletion(userId);
 
         log.info('Deletion code resent');
         req.flash('success', 'New verification code sent to your email.');
@@ -451,15 +271,7 @@ const cancelDeleteAccount = async (req, res) => {
     const log = getRequestLogger(req, { controller: 'settings', action: 'cancelDeleteAccount', userId });
 
     try {
-        const user = await db.User.findByPk(userId);
-        if (user) {
-            await user.update({
-                action_token: null,
-                action_token_expires: null,
-                action_type: null
-            });
-        }
-
+        await authService.clearActionTokens(userId);
         delete req.session.pendingDeletionUserId;
 
         log.info('Account deletion cancelled');
@@ -472,6 +284,7 @@ const cancelDeleteAccount = async (req, res) => {
         res.redirect('/settings');
     }
 };
+
 module.exports = {
     getSettingsPage,
     updateUsername,
@@ -479,7 +292,6 @@ module.exports = {
     updateEmail,
     deleteAccount,
     setPassword,
-    disconnect,
     getConfirmDeletePage,
     confirmDeleteAccount,
     resendDeletionCode,
