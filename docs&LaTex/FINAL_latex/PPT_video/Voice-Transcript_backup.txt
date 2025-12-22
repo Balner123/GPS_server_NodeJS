@@ -1,0 +1,125 @@
+(Transcribed by TurboScribe.ai. Go Unlimited to remove this message.)
+
+Dobrý den, jmenuji se Štěpán Balner a nyní představuji vám můj zavedečný projekt System Loader. Jedná se o systém pro sběr, 
+přenos a správopolohový dát z fyzických zařízení na ználených server. Motivace byla jednoduchá, nebo jednoduchá nebyla, ale můžeme to tak říct.
+
+Chtěl jsem vytvořit vlastní fyzické zařízení, vlastní kravičku, která můžu připojit k čemkoliv a co by chtěla sledovat. 
+Ta by pak polová data odesílala na server, který by je dále zpracoval a poskytl uživateli. Ať už by šlo o pouhé sledování pohybu, 
+či upozornění v případě opuštění stanovaného obhazití.
+
+Cílem se stalo propojení dvou záležitostí. 1. Hardware, který získá GPS ořednice a pošluje přes mobilní sít. 2. Server, 
+který data přijme a bezpečně uloží.
+
+3. Web aplikace, kde data nakonec ujdí uživatel na mapy. Vznikl tak tento systém, který si nyní představíme. 
+Hardware Základem je trackeru fyzického.
+
+Z fyzické části je deska Lilygo T-Call s modelem A7670. Zvolil jsem ji pro její integraci SP a LTN modelu. 
+Bylo možné použít Lora Network desky, takzvaná Lora One.
+
+Avšak to by znamenalo pořídit úzce specializovaný desk. Hardware s malou možností použití. Zde by byla nutná registrace do sítě Lora One.
+
+Přes té roby se data posílá místo přes LTE. Také přes tu sítě nebylo možné přinost většího objemu dat. Proto byla zvlána deska se SIM modulem, 
+který sice vyžaduje mikro-SIM kartu.
+
+Proudové špičky při vysílání jsou o dosti větší. Avšak poskytuje mnohem více možností, hlavně výšší průtoku dat. Pro možnost s softwarem řízena, 
+vypínání a lepší možnosti manuálně ovládání, napájení i zapnutí a vypnutí byl vytvořen Powerledge modul.
+
+Ten umožňuje si zapojení MOSFETu stiskem zapnout a signálem si GPIO pinu vypnout napájení. Plošní obvod byl nabržen v EasyED a vyroben službou JCLPCB.
+Osazen byl manuálně, tedy ručně, jelikož cena strojového osazení mnohokrát předší cenu samotných součástek.
+
+Firmware Firmware kód je napsán v C++ s frajmorkem Arduino. Využíváme zde DeepSleep pro ESP32, 
+která umožňuje přechod desku do stavu minimálního spotřebu energii na dobu určeným časovatčem RTC. Zazměnku také stojí po využití knivny FreeRTOS, 
+nebo takzvaného operačního systému reálného času, kdy využíváme funkčnost Graceful Shutdown.
+
+V dalším případě totiž není možné použití pouze přerušení, jednoduchého přerušení nastaveného na určitý pin se vstupem z tlačítka. 
+Při interrupci událostí se totiž nesmí provádět složitější operace, vyvolávaný delays pro větší posad většinosti dat přes sériové linky, 
+což my potřebujeme, protože pro práci s modelmem jeho vypnutí, je potřeba větší posad vydat přes sériovou linku a jednak musíme nastavovat delays a 
+všechno takového. Proto využíváme FreeRTOS, kdy tento problém zřeší systém výinterrupt která pouze upozorní vypínací úlohu, která je vytvořena právě 
+pomocí FreeRTOS a běží nezávisle na hlavním kóru, je na jiném jádře.
+
+Ta pak provede veškeré operace, potřebné operace k vypnutí místo interruptu samotného. Pro práci s modelmem a komunikací zkreslet TTTPS používáme 
+týmavý tajný GSM, která umožňuje využívat již připravené funkce místočistě nízkourovního komunikace pouze pomocí ATAP příkazu. ¨
+Pomocí ní se přihlašujeme do sítě pomocí údajů nastavených APN vydátela SIM karty.
+
+Pomocí ní inicializujeme připojení a udesíláme veškeré data. Jako další knihony použijeme Arduino JSON pro strukturalní data, STL, SSL pro použitelné SSL 
+připojení, zašifrování, etc. Zařízení disponuje takzvaným OTTA režimem Over the Air, kdy při startovním stisku tlačítka podržíme tlačítko delší dobu, 
+do doby, kdy signální LED začne blikat, což je asi tak 2 sekundy, a tehdy se spustí Wi-Fi access point, k kterému je možné se připojit a konfigurovat 
+zde nastavení zařízení předzborový prohlížeč.
+
+OTTA také zařízení registruje na server, pomocí přihlašovacích údajů zadaných uživatelem. Po úspěšné zaregistrování pak zařízení cyklicky, 
+který získává data, odesílá je a upadá do hlubokého spánku na dobu časovače určené. To všetko posíláme ze servru, kde byla nastavena uživatelem.
+
+Server Serverová část je postavená na Node.js. Tento framework je zvolen pro jeho schopnost asynchronicity, což je vhodné, pokud bychom měli více 
+současně připojitých zařízení, s čím se počítá jako výchozní stav. Jako databázy používáme MySQLS ORM v knihovnou SQLite pro mapování tabulek na objekty 
+nebo modely. Nepoužíváme systém migrací.
+
+Sice bylo o to pokušeno, však jeho integrace s Dockerem byla složitější, než jsme chtěli připustit. A proč jsme se na to vykašlili? Schéma pro DB je 
+postavená na třech hlavních entitách. Máme uživatele, users, kteří vlastní zařízení, devices.
+
+Každé zařízení pak generuje historii poloh, locations a bezpečnostní alerty, alerts. Komunikace probíhá přes REST API, které je zdokumentovanou pomocí 
+SWEGR dokumentace, přístupné na adrese lumenu apidocs, kde je popsané všechny endpointy, jejich možnosti, statusové kódy etc. Fyzický tracker 
+využíva endpointy základní tři.
+
+To je register, kde je požadověk na registraci. Handshake, stáhnutí konfigurace a uvěření registrace. Input, vstup, loginet.
+
+Ostatní endpointy jsou využité. API je navrženo již pro fungování i z aplikacích, kde v požadacích je příznak, zda je zařízení APK a nebo HV. 
+Při čem se rozlišuje fungování route při tomto příznaku, protože pro APK je potřeba takzvaná state API, state endpoint, kdy musíme uchovávat sesion pro 
+jednotlivé přihlášení.
+
+Místo jednoduchého objevění. Webové rozhodaní je postavené na frameworku Express a využívá šablovací systém AHS. To bylo zvoleno kvůli jednoduchosti, 
+jeho jednoduchosti a již dřívějším zkušenostem s tím.
+
+Systém umožňuje základní uživatelský půjčtu, buď pouze pomocí e-mailu, zde využívám modul Mobile Mailer, a nebo tzv. Hirt 3rd Party Authentication 
+pomocí 2Auth, kdy umožňujeme registraci za pomocí učtu Google nebo GitHubu. Uživatele se tedy mohou registrovat klasicky nebo přes OAuth.
+
+Umožňujeme základní nastavení učtu, zněmedlivý údajů, či mazání učtu a všech jeho dat. Také máme funkci zapomenuté heslo. Hlavní stránka zobrazuje 
+přehled připojených zařízení, jak se známou, tak na mapě.
+
+I výpis aktivního pozornění mapu použijeme na Open Source, OpenStreetMaps, Leaflet.js Dále pak máme stránku pro jednotlivé zařízení, což je hlavní 
+bod servru, která obsahuje možnost změnit celé konfigurace a parametru, ať už je to mod, v jakém zařízení funguje. Zde máme Simple a Batch, kdy se 
+rozlišuje, zda se po každém získu dat pokoušíme o odeslání anebo až po určitém nastřádání dávky dat. Intervaly odeslání a případné velikosti batche.
+
+Jestli tak je možnost zadání instrukce k vypnutí, kdy při dalším stáhnutí konfigurace zařízení tuto instrukci. Drží a vypne se. Provede Graceful Shutdown.
+
+Na mapě máme pak vykreslenou trahstvou poloh zařízení s možností klasterizace, kdy pokud polohy jsou časově přímo návazné a jsou zdálené na určitou 
+zdálenost, minimální zdálenost, pak vykreslené budou jako jeden bod klaster. Vypís historii poloh to také pak reflektuje. Geofence.
+
+Uživatel může na mapě definovat takzvanou Geofence Arrayu. Pokud zónu opustí, server to tak vyhodnotí, vytvoří upozornění a odešle varovný e-mail uživateli. To samé také platí při opětovném návratu tohoto zóny.
+
+Máme také zde funkcionální prostrčení datby GPS formatu, což funguje jako bonus. Tady by mohla být dále využívaná nebo v jiných službách. Samozřejmě 
+jisté jsou takové možnosti zmazání zařízení, upozornění či přejmenování.
+
+Upozornění jsou koncipované univerzálně. Při případném rozšiření je tedy možné vytvářet a vyukládat upozornění jiného typu, než není pouze využívané 
+Geofence. Databázy máme pro účely testování a jednoduchosti takzvaného Hardcore Route uživatele.
+
+Ten má přístup k administraci databáze, jednoduché, kdy s možností zmazání jakýkoliv dat s nejvyššími opravděními. Na závěr pak zmíním i Android aplikaci,
+ kterou jsem používal primárně pro testování API serveru a vlastně fungování nebo odraz, jak funguje zařízení. Je v úrovni možností funkční zahej kód,
+  ale po ně nechci zodpovídat, poněvadž kvůli neznalosti kotlinu, nedostatku časových úvorů, časového prostoru, byla většina kódů,
+   a to je přes 90% vytvořeno pomocí LLM.
+
+Konkrétní geminy, kdyby někoho zajímalo. Aplikace tady síce funguje a pro testování API byla dostačující, přesto však je zde dost velká šance se 
+špatne oči jenom špatně ustrukturovaného kódu. Přesto, že je hodností.
+
+Zde vidíte, jak aplikace vypadá, jak se používá funkce přivášení spěru dat, její ukládání do lokální cache při výpadku signálu a následné odeslání 
+na server. Sesnám nedoklastí, nedotojovku či nesplněních plánů může být dosti dlouhý. Jako hlavní nedostatek, hlavní nesplnění plánů vidím 
+na absenci 3D tisnutého pouzdra pouzdra pro hardware tracker.
+
+Po čásích výborů jsem sice vymodeloval prototyp, ale ukázalo se, že s tím, jak by byly postupně přidávány prvky, model nestačil udržovat takzvaně krok. 
+Tak je bylo zjištěno, že na jinak známý cable management problém musí být povrženo s větší důležitostí. Krabička sice možná byla navržena kompaktně, 
+ale ve výsledku možná až příliš.
+
+Jediná použitelná část z modelů zůstal držák na baterii a její nabíječku. Já nevyužívám to teď. Dále tak je celý základní princip API a identifikace 
+mezi zařízením a serverem jednostíku Primitivi.
+
+V budoucnu by bylo možné být vhodné přejít na nějaký propracovající systém, možná MQTT, mezi serverem, z kterého by byly licentifikáty, či jenom tokeny, 
+access tokeny, místo pomoci Hardware definovaného MAC ID. 
+Co však funguje? To, co všechno končeno bylo, je samotná jádra systému. I když budeš spokročovat zadezpečení, 
+API funguje, zařízení se dokáže se s serverem komunikovat a mají schopnosti se vypořádat výpadky sítě v rámci možností díky implementovávací crashování.
+
+Celkově tedy systém funguje v úrovni možností a schopností prototypu, ale je samozřejmě z nejednoho místa pro zlepšení a rozšiření. 
+Toto je tým pádem. Udám tě vše.
+
+A tak hlavně děkuji za pozornost. Pokud se zajímáte, tak podle dnešních informace se budu komentací na githubu spolu se samotným 
+kódem i odkazem na instanci serveru, který můžete vyzkoušet, ale nedoporučuju. Nasleduj.
+
+(Transcribed by TurboScribe.ai. Go Unlimited to remove this message.)

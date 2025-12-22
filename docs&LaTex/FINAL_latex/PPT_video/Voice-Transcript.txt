@@ -1,0 +1,125 @@
+Dobrý den, jmenuji se Štěpán Balner a nyní představuji vám můj závěrečný projekt  Sytém LOTR.
+Jedná se o systém pro sběr, přenos a správu polohových dat z fyzických zařízení na vzdálený server.
+
+Motivace byla jednoduchá. Chtěl jsem vytvořit vlastní fyzické zařízení, vlastní "krabičku",
+kterou můžu připojit k čemukoliv, co bych chtěl sledovat.
+Ta by pak polohová data odesílala na server, který by je dále zpracoval a poskytl uživateli.
+Ať už by šlo o pouhé sledování pohybu, či upozornění v případě opuštění stanovené oblasti.
+
+Cílem se stalo propojení dvou záležitostí:
+1. Hardwaru, který získá GPS souřadnice a pošle je přes mobilní síť.
+2. Serveru, který data přijme a bezpečně uloží.
+3. Webové aplikace, kde data nakonec uvidí uživatel na mapě.
+
+Vznikl tak tento systém, který si nyní představíme.
+
+--- HARDWARE ---
+
+Základem fyzického trackeru je deska LilyGO T-Call s modemem A7670.
+Zvolil jsem ji pro její integraci ESP32 a LTE modemu.
+Bylo možné použít LoRaWAN desky. Avšak to by znamenalo pořídit úzce specializovaný hardware
+s malou možností dalšího použití. Zde by byla nutná registrace do sítě LoRaWAN.
+Přes tu by se data posílala místo přes LTE. Také přes tuto síť nebylo možné přenést větší objem dat.
+Proto byla zvolena deska se SIM modulem, který sice vyžaduje micro-SIM kartu a proudové špičky
+při vysílání jsou o dost větší, avšak poskytuje mnohem více možností, hlavně vyšší průtok dat.
+
+Pro možnost softwarově řízeného vypínání a lepší možnosti manuálního ovládání napájení
+byl vytvořen "Power Latch" modul. Ten umožňuje zapojení MOSFETu stiskem zapnout
+a signálem z GPIO pinu vypnout napájení. Plošný obvod byl navržen v EasyEDA a vyroben službou JLCPCB.
+Osazen byl manuálně, tedy ručně, jelikož cena strojového osazení mnohokrát předčí cenu samotných součástek.
+
+--- FIRMWARE ---
+
+Firmware kód je napsán v C++ s frameworkem Arduino. Využíváme zde Deep Sleep pro ESP32,
+který umožňuje přechod desky do stavu minimální spotřeby energie na dobu určenou časovačem RTC.
+Za zmínku také stojí využití knihovny FreeRTOS, neboli operačního systému reálného času,
+kdy využíváme funkčnost "Graceful Shutdown".
+V našem případě totiž není možné použití pouze jednoduchého přerušení (interruptu)
+nastaveného na určitý pin se vstupem z tlačítka. Při interrupci se totiž nesmí provádět složitější operace,
+vyvolávat delay, či posílat větší množství dat přes sériové linky.
+Což my potřebujeme, protože pro práci s modemem a jeho vypnutí je potřeba poslat data přes sériovou linku
+a musíme nastavovat delay.
+Proto využíváme FreeRTOS, kdy tento problém řeší systém, kdy interrupt pouze upozorní "vypínací úlohu",
+která je vytvořena právě pomocí FreeRTOS a běží nezávisle na hlavním kódu.
+Ta pak provede veškeré potřebné operace k vypnutí místo interruptu samotného.
+
+Pro práci s modemem a komunikaci skrz HTTPS používáme knihovnu TinyGSM,
+která umožňuje využívat již připravené funkce místo čistě nízkoúrovňové komunikace pomocí AT příkazů.
+Pomocí ní se přihlašujeme do sítě pomocí údajů nastavených APN vydavatele SIM karty,
+inicializujeme připojení a odesíláme veškerá data.
+
+Zařízení disponuje takzvaným OTA režimem (Over-The-Air), kdy při startovním stisku tlačítka
+podržíme tlačítko delší dobu, do doby, kdy signální LED začne blikat (cca 2 sekundy).
+Tehdy se spustí WiFi Access Point, ke kterému je možné se připojit a konfigurovat nastavení zařízení
+přes webový prohlížeč.
+OTA také zařízení registruje na server pomocí přihlašovacích údajů zadaných uživatelem.
+Po úspěšném zaregistrování pak zařízení cyklicky získává data, odesílá je a upadá do hlubokého spánku
+na dobu určenou časovačem. To vše dle konfigurace posílané ze serveru, kde byla nastavena uživatelem.
+
+--- SERVER ---
+
+Serverová část je postavena na Node.js. Tento framework je zvolen pro jeho schopnost asynchronicity,
+což je vhodné, pokud bychom měli více současně připojených zařízení, s čímž se počítá jako s výchozím stavem.
+Jako databázi používáme MySQL s ORM knihovnou Sequelize pro mapování tabulek na objekty.
+Nepoužíváme systém migrací. Sice bylo o to pokoušeno, avšak jeho integrace s Dockerem byla složitější,
+než jsme chtěli připustit.
+
+Schéma pro DB je postaveno na třech hlavních entitách. Máme uživatele (Users), kteří vlastní zařízení (Devices).
+Každé zařízení pak generuje historii poloh (Locations) a bezpečnostní alerty (Alerts).
+
+Komunikace probíhá přes REST API, které je zdokumentováno pomocí Swagger dokumentace.
+Fyzický tracker využívá základní tři endpointy:
+1. `/register` - požadavek na registraci.
+2. `/handshake` - stáhnutí konfigurace a ověření registrace.
+3. `/input` - vstup polohových dat.
+
+Webové rozhraní je postaveno na frameworku Express a využívá šablonovací systém EJS.
+To bylo zvoleno kvůli jeho jednoduchosti a již dřívějším zkušenostem s tím.
+Systém umožňuje zakládání uživatelských účtů buď pouze pomocí e-mailu (zde využívám modul Nodemailer),
+anebo takzvanou "3rd Party Authentication" pomocí OAuth, kdy umožňujeme registraci za pomoci účtu Google nebo GitHub.
+
+Hlavní stránka zobrazuje přehled připojených zařízení, jak v seznamu, tak na mapě, i výpis aktivních upozornění.
+Mapu používáme OpenSource: OpenStreetMaps s knihovnou Leaflet.js.
+Dále pak máme stránku pro jednotlivá zařízení, což je hlavní bod serveru,
+která obsahuje možnost změny celé konfigurace a parametrů.
+Ať už je to mód, v jakém zařízení funguje (Simple nebo Batch), intervaly odesílání a případné velikosti batche.
+Je zde také možnost zadání instrukce k vypnutí, kdy při dalším stáhnutí konfigurace zařízení
+tuto instrukci obdrží a vypne se (provede Graceful Shutdown).
+
+Na mapě máme pak vykreslenou trasu poloh zařízení s možností clusterizace,
+kdy pokud polohy jsou časově přímo návazné a jsou vzdálené na určitou minimální vzdálenost,
+pak budou vykresleny jako jeden bod "cluster".
+Uživatel může na mapě definovat takzvanou "Geofence Area". Pokud tracker zónu opustí, server to vyhodnotí,
+vytvoří upozornění a odešle varovný e-mail uživateli. To samé také platí při opětovném návratu do zóny.
+
+--- ANDROID APLIKACE ---
+
+Na závěr pak zmíním i Android aplikaci, kterou jsem používal primárně pro testování API serveru
+a vlastně fungování zařízení. Je v úrovni možností funkční.
+Za její kód ale plně nechci zodpovídat, poněvadž kvůli neznalosti Kotlinu a nedostatku časového prostoru
+byla většina kódu (přes 90 %) vytvořena pomocí LLM, konkrétně Gemini.
+Aplikace tedy sice funguje a pro testování API byla dostačující,
+přesto však je zde dost velká šance špatně strukturovaného kódu.
+Zde vidíte, jak aplikace vypadá a jak se používá: funkce přihlášení, sběr dat,
+jejich ukládání do lokální cache při výpadku signálu a následné odeslání na server.
+
+--- ZÁVĚR ---
+
+Seznam nedodělků či nesplněných plánů může být dosti dlouhý.
+Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro hardware tracker.
+V počátcích vývoje jsem sice vymodeloval prototyp, ale ukázalo se, že s tím, jak byly postupně přidávány prvky,
+model nestačil udržovat krok. Také bylo zjištěno, že na "cable management" musí být pohlíženo s větší důležitostí.
+Krabička sice možná byla navržena kompaktně, ale ve výsledku možná až příliš.
+Jediná použitelná část z modelu zůstal držák na baterii.
+
+Dále také celý základní princip API a identifikace mezi zařízením a serverem je dosti primitivní.
+V budoucnu by bylo vhodné přejít na nějaký propracovanější systém, možná MQTT s klientskými certifikáty,
+místo pouhého ID.
+
+Co však dokončeno bylo, je samotné jádro systému. I když bez pokročilého zabezpečení, API funguje,
+zařízení dokáží se serverem komunikovat a mají schopnosti se vypořádat s výpadky sítě díky implementovanému cachování.
+Celkově tedy systém funguje v úrovni možností a schopností prototypu,
+ale je zde samozřejmě mnoho místa pro zlepšení a rozšíření.
+
+To je ode mě vše. Děkuji za pozornost. Pokud se zajímáte, tak podrobnější informace jsou v dokumentaci na GitHubu
+spolu se samotným kódem i odkazem na instanci serveru. Nashledanou.
