@@ -1,0 +1,132 @@
+--- představení + obecný úvod
+LOTR System -> "location tracking system with options of malice use" [10 sekund]
+
+Dobrý den, jmenuji se Štěpán Balner a představuji vám můj zavěrečný projekt : systém lotr alias {strojově čten Anglicky}"location tracking system with options of malice use" ,,, pro správu zarízení poskytujících polohová data.
+
+--- Cíle projektu  [1,5 minuty]
+
+Již kdysi jsem se zabýval "sběrnými" nebo "sledovacími" systémy. Poohlížel jsem se z variabilních důvodů po možnostech jak by šlo sestrojit zařízení schopné nahrávat video a ukládat na SD kartu nebo jiné uložiště.
+Sledování polohy je jenom dalším krokem v tomto směru. Možnost že bych měl krabičku jež bych mohl dát někomu do auta, nebo jej připnout k nápravě kamionu (naivní to myšlenka) nebo dát pouze do zásilky a sledoval jeho pohyb do doby vybití baterie byla
+a stále je, velmi přitažlivá.
+
+Je jasné, že již existují řešení a "GPS-trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem volil téma pro zavěrečný projekt, výroba a řešení, konstrukce vlastního, sic nízkokvalitního a nutně dosti poruchového,
+zařízení (prototypu) se zdál jako vhodný nápad.
+Existovala možnost vytvořit opravdu pouze "krabici" trackeru s ukládáním dat n apevné úložiště , avšak rozhodl jsem se to spojit s vývojem serveru, na kterém by pak šlo zobrazovat a spravovat data posílaná  zařízením přes mobilní síť.
+
+To se pak přirozeně rozvinulo do plného systému s uživatelskými účty a možností spravovat více zařízení na jednom z nich.
+
+cílem projektu tedy bylo vytvořit funkční uzavřený systém pro sběr GPS dat pomocí fyzických zarízení(bud krabičky nebeo případně i mobilní aplikace) -> (sledování, trackování) a jejich příjem a další správu na vzdáleném serveru.
+
+1. HW
+    bylo nutno vytvořit fyzické zařízení které by:
+        1. získávalo polohu (z GPS či jiných)
+        2. tato data odesílal na server dle aktuální konfigurace
+2.Server - server by pak:
+            1. ukládal dat do db
+            2. umožnoval jejich zobrazení ve webovém prostředí.
+            3. umožnoval by vzálenou konfiguraci zařízení (intervaly a režimy funkce, příkaz k vypnutí etc.)
+	
+Jako méně důležitou, spíše doplňkovou, ale přesto užitečnou součást systému jsem pak viděl výtvoření mobilní aplikace pro systém Android. Avšak z důvodu, že by pak byl projekt roztřepen na až mnoho frontách věnoval jsem ji menší pozornost.
+Tato aplikace nemá důležitosti jako ostatní komponenty, jelikož byla koncipována jako testování API a pro neznalost Kotlinu většina (přes 90\%)jejího kódu byla generována LLM (chcete-li "AI", konkrétně Gemini).
+Tato dokumentace ji proto nezmiňuje, pouze popisuje uivatelské prostředí.
+
+--- HW ---           [3,5 minuty]
+1. technologie + Zpracování + Úžití
+
+Lily ttgo + A7607 modem
+bylo možné použití Lora_network desky, avšak to by znamenalo pořídit desku uzce specializovanou desku , ta komunikuje na speciálním vlnem pásmu a je nutná registrace do lora-networks sítě, také není možný přenos většího objemu dat (možný datový tok je minimální)
+desku by tedy nešlo využit jiným způsobem a ani by nebylo možné přidat funkce vyžadující větší datový tok než pouhé hlášení gps (je docelas možné, že ani systém posílání batche cachovaných poloh by kvůli tomu nebyl možný, anebo pouze s obtížemi)
+proto byla zvolena deska se SIM module který sice vyžaduje micro-simkartu a proudové špičky při vysílání jsou o něco větší, avšak poskytuje mnohem více možností
+
+GPS modul
+deska lily ttgo sice má možnost zisku GPS (má konektor na GPS anténu a zřejmě modem A7606 dokáže s touto anténou pracovat) avšak, protože již byl ve vlastnictví externí modul s mnohem kvalitnější anténou  a použití externího modulu umožnovalo se při zisku GPS fixu zapínání modemu (největší žrout napájení) byl zvolen L76k external GPS modul. dle počátečních testu při použítí externího modulu byl zisk GPS sígnálu asi 3-4krát rychlejší než při použití interního zisku. také bylo možné jej připojit k 5V napájení přímo z Napájecího modulu (piny na lilyttgo umožnují max 3V a omezený proud), což také má vliv.
+
+Power Modul
+pro možnost softwarem řízeného vypínání (software si dokáže odpojit napájení) a lepší možnosti ma nuálního ovládání napájení byl vytvořen "Power Latch" modul který umožnuje pomocí zapojení mosfetu -> stiskem zapnout/vypnout + přerušit nápájení signálem z GPIO pinu. Plošý obvod byl navržen v EasyEDA a vyroben sloužbou JLBCP , osazen byl manuálně jelikož cena osazení mnohokrát předčí cenu samotných součástek, proto byly součástky zvoleny v pouzdrech které umožnují snadné pájení (místo SMD -> T220)
+
+Baterie + TP3504 + nabíječka
+také byl sestavena napájecí část složená z baterie , její nabíječky přes microUSB s boost-up měničem napětí díky kterému Deska dostává stabilně takové napětí jaké požaduje (3.7v -> 5v)
+
+Firmare - kod je napsán v cpp s frameworkem arduino
+využíváme DeepSleep pro ESP32, které umožnuje přechodu desky do stavu s minimální spotřebou na dobu určenou RTC (časovačem)
+
+za zminku stojí využítí FreeRTOS  které využíváme pro funkčnost GracefullShutdown,, v našem případě totiž není možné pouhé použí Attachinterupt na pinu BTN se vstupem z tlačítka. Při interupt událostí se totiž nesmí provádět složitější operace, vyvolávat delay, či posílat větší množství dat přes seriové linky. tento problém řeší systém kdy Interupt pouze upozorní -> shutdown úlohu (vytvořenou pomocí FreeRTOS a běžící nezávisle na hlavním kodu)
+
+pro práci s modemem a komunikaci skrz HTTP(S) používáme knihovnu TinyGSM která umožuje využívat již připravené funkce místo čisté nizkourovnové komunikace pomocí AT-AT příkazů.
+
+dalé používáme ArduinoJSON+, STL/SSL, etc.
+
+zařízení také disponuje tzv. OTA režímem "over the Air" kdy při držení tlačítka po určitovu dobu (>2s) se spustí Wifi accesspoint ke kterému je možné se připojit a konfigurovat nastavení zařízení přes webový prohlížeč.
+
+--- Server ---       [3.5 minuty]
+1. technologie + zpracování + užití
+Hlavní serverový kod je kodóván ve frameworku Node.JS. Byl zvolen kvůli tomu, že jsem s ním již dříve pracoval a také kvůli podpoře skutečné asynchronosti, což je vhodné pokud počítáme s několika zařízeními připojenými zároveň.
+
+pro DB byl zvolen MySql ( It is known for its speed and reliability, MySQL is widely used in web applications and is a preferred choice for read-heavy operations.), opět kvůli předchozím zkušenostem , (PostGres byl zvažovan ale nebyl zvolen)
+pro práci s SQL dotazi používáme balíčk Sequalize s namapovaním modelů DB v /models adresáři. 
+
+Pro API máme vytvořneou dokumentaci jednotlivých Endpointů pommocí  "swagger" dokumentace (/docs-api)
+
+routy : /handshake & /input , /register-device
+
+Používáme systém uživatelů kdy v DB je "hardcoded" root uživatel, jenž má přístup k administraci aktuálních dat v DB, a obyčejných uživatelů jež je možné zaregistrovat, buďto přes email, nebo pomocí autentifikace třetích stran (OAuth {registrována fallback adresa -> aktuálně Google, Github)
+
+Pro práci s Emailem používáme balíček NodeMailer s propojeným Gmail účtem (lotr-system.cz@gmail.com)
+
+Pro frontend byl ze zkušeností zvolen šablonovací systém EJS (jednoduchý, minimalistický).
+webové rozhraní nabízí uživateli : 
+	1. správu registrovanbých zařízení,
+	- zobrazení jejich dat na mape (Openstreet maps)
+	- jejich vzálenou konfiguraci (režim, vpnutí, intervaly, velikosti dávek "batch" etc.)
+	- vytvoření GeoFence (ohraničení) - kdy pokud je zjistěna poloha mimo ohraničenou oblast tak je vytvořen Alert a uživateli poslán varovný email.
+	2. správa archivu Alertů a oznámení
+	3. nastavení účtu 
+	- standartní akce (změna hesla, username, email, zapomenuté heslo, smazání účtu etc.)
+
+Používáme Docker, s orchestrací kontejnerů (1x pro NodeJS, 1x pro MySQL)  s  perzistetními svazky pro DB. 
+
+Aktuálně je Server nazasen na Oracle free-tier instanci, https://lotr-system.xyz
+
+--- Zhodnocení, splnění cílů + Závěr [1 minuty]
+
+1. Cíle. zhodnocení
+
+{uvodni slide}
+Seznam nedokonalostí či nedodělků může být dosti dlouhý. Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro HW tracker.
+{foto_cizího trackeru}
+V počátcích vývoje jsem sice vymodeloval prototyp (viz. příloha modelu), ale ukázalo se, že s tím jak byly postupně přidávány prvky nebo měněny stávající, nestačil model udržovat krok,
+{screenshot_modelu}
+také bylo žjištěno, že na "cable managment" musí být pohlíženo s mnohem větší důležitostí. Krabička sice možná byla navržena kompaktně, ale ve výsledku možná až příliš
+{cable_problem_photo}
+
+jediná použitelná část z tohoto modelu zůstal držák na : baterii a její nabíječku, ten se ukázal jako užitečný pro jednoduší manipulací s celou kontrukcí.
+{foto_baterie_konstrukce}
+
+Dále také celý základní princip API a identifikace mezi zařízeními a serverem je dosti primitivní a náchylný k chybám. 
+{foto_chyb_konzole (sekvence?)}
+V budoucnu by bylo vhodné přejít na nějaký propracovanější systém autentizace a autorizace zařízení (moožná MQTT mezi-server obstarávající autentifikaci ?),
+{logo_mqqt a příklad možnosti}
+místo pouhého ID a uživatelských údajů ( je to takto dosti jednoduché na falšování požadavků).
+{pirates?}
+Také nějaké více komplikované možnosti výpisu či třídění dat v uživatelském rozhraní chybí, 
+{příklady razení}
+a tak bych mohl pokračovat\dots
+
+Co však dokončeno bylo, alespoň základně či přízemně, je samotné jadro systému. I když bez pokročilého zabezpečení tak API funguje a zařízení dokáží se serverem komunikovat 
+{sekvence_příkladu SUCCES , sent etc. -> zobrazení konektivity serveru a zarízení(fotos+cable abstract animation)} 
+a mají schopnosti se tak či onak vypořádat s vypadky sítě (cachování)
+{zobrazení zaplněné cache (OTA režim výpis)}
+
+a HW-tracker přestože s obtížemi by přece jenom šlo do doby vybití baterie používat v rámci možnstí (přes snahy o nízkou spotřeby však výdrž není úplně optimální, ani "power mangment"). 
+{případ zkoušení zapnutí při vybité baterii - frustrace}
+
+Nejlépe asi použít jako GPS alarm, kdy by se tracker hlasil s periodou cca. 1 dne a v případě změny polohy by uivatel dostal hlášení.
+{chata v pustině + tracker -> peeping_animation}
+
+Celkově tedy systém funguje v urovni možností a schopností prototypu, ale je zde mnoho místo pro zlepšení a rozšíření.
+{checked_OK - animation_abstract}
+
+2. Závěr+rozloučení [10 sekund]
+
+To je ode mě zřejmě vše, a tak vám nyní děkuji za pozornost a prosím nezkoušejte server na svou vlastní pěst neboť se mi nechce neustále rebootovat shozenou instanci serveru...
+{oracle_error_shutdown}

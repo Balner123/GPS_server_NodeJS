@@ -1,0 +1,184 @@
+================================================================================
+SCÉNÁŘ VIDEO PREZENTACE - PROJEKT LOTR
+Celková délka: cca 10 min
+Legenda:
+[SLIDE: ...] = Statický snímek prezentace (PowerPoint)
+{...}        = Vizuální vložka (video, fotka, animace, screenshot)
+"..."        = Mluvený komentář
+================================================================================
+
+--- 1. ÚVOD (cca 0:30) ---
+
+[SLIDE: Titulní snímek]
+- Název: LOTR - LOcation TRacking System
+- Autor: Štěpán Balner
+- Školní rok: 2025/26
+
+"Dobrý den, jmenuji se Štěpán Balner a představuji vám můj závěrečný projekt: systém LOTR, alias 'LOcation TRacking System with options of malice use'..."
+
+{strojově čtený hlas: "location tracking system with options of malicious use"}
+
+"...jedná se o systém pro sběr GPS dat a správu zařízení tato data poskytujících"
+
+--- 2. CÍLE PROJEKTU (cca 1:30) ---
+
+"Cílem projektu bylo vytvořit funkční uzavřený systém pro sběr GPS dat pomocí fyzických zařízení a jejich příjem a další správu na vzdáleném serveru."
+
+[SLIDE: Cíle projektu]
+- 1. HW (Zisk polohy -> Odeslání přes síť)
+- 2. Server (DB -> Web UI -> Konfigurace)
+
+[SLIDE: Architektura systému]
+- vlastní HW tracker (energeticky soběstačný + nejlépe zapouzdřený)
+        1. získávalo polohu (z GPS či jiných)
+        2. tato data odesílal na server dle aktuální konfigurace-
+- Server se kterým by tracker komunikoval přes mobilní síť
+        1. ukládal dat do db
+        2. umožnoval jejich zobrazení ve webovém prostředí.
+        3. umožnoval by vzálenou konfiguraci zařízení (intervaly a režimy funkce, příkaz k vypnutí etc.)
+
+"Existovala možnost vytvořit opravdu pouze 'krabici' trackeru s ukládáním dat na pevné úložiště, avšak rozhodl jsem se to spojit s vývojem serveru, na kterém by pak šlo zobrazovat a spravovat data posílaná zařízením přes mobilní síť.
+To se pak rozvinulo do plného systému s uživatelskými účty a možností spravovat více zařízení na jednom z nich."
+
+"Konkrétně:
+1. HW: Bylo nutno vytvořit fyzické zařízení, které by získávalo polohu a odesílalo ji na server dle aktuální konfigurace.
+2. Server: Ten by pak ukládal data do DB, umožňoval jejich zobrazení ve webovém prostředí a umožňoval vzdálenou konfiguraci zařízení.
+Jako méně důležitou, spíše doplňkovou součást, jsem pak viděl vytvoření mobilní aplikace. Ta sloužila hlavně pro testování API a jelikož byla z 90 % generována AI, nebudu se jí zde hlouběji věnovat."
+
+--- 3. HARDWARE (cca 3:30) ---
+
+[SLIDE: Volba Hardwaru - Technologie]
+- Mikrokontrolér: ESP32 (LilyGO T-Call v1.5)
+- Modem: SIMCOM A7670 (LTE)
+- GPS: Multi-GNSS L76K (Externí)
+
+{VIDEO: tracker -> zisk a odeslání GPS dat}
+"Pojďme na Hardware. Základem je deska LilyGO T-Call s modemem A7670. Zde vidíte zařízení v akci – probuzení, rychlý zisk GPS fixu díky externímu modulu a následné odeslání dat přes LTE síť."
+
+"Bylo možné použití Lora_network desky, avšak to by znamenalo pořídit úzce specializovanou desku která by komunikovala na speciálním vlnovém pásmu Zde by byla nutná registrace do sítě LORA, také není možný přenos většího objemu dat. Desku by tedy nešlo využít jiným způsobem a ani by nebylo možné přidat funkce vyžadující větší datový tok.
+Proto byla zvolena deska se SIM modulem, který sice vyžaduje micro-simkartu a proudové špičky při vysílání jsou o něco větší, avšak poskytuje mnohem více možností – hlavně vyšší průtok dat."
+
+{detail_GPS_modulu}
+
+"Co se týče GPS – deska LilyGO sice má možnost zisku GPS přes modem, avšak protože již byl ve vlastnictví externí modul L76K s mnohem kvalitnější anténou, a použití externího modulu umožňovalo se při zisku GPS fixu vyhnout zapínání modemu (což je největší žrout napájení), byl zvolen tento externí modul. Dle testů byl zisk GPS signálu asi 3-4krát rychlejší."
+
+[SLIDE: Napájení a Power Latch]
+- Li-Ion 18650 + TP4056
+- Vlastní Power Latch modul (řízení spotřeby)
+
+{schéma_power_latch_modulu (fig:hw_schema_power)}
+{foto_ručně_pájené_desky (fig:battery_charging_module_b)}
+
+"Pro možnost softwarem řízeného vypínání a lepší možnosti manuálního ovládání napájení byl vytvořen 'Power Latch' modul. Ten umožňuje pomocí zapojení mosfetu stiskem zapnout a signálem z GPIO pinu vypnout napájení. Plošný obvod byl navržen v EasyEDA a vyroben službou JLCPCB. Osazen byl manuálně, jelikož cena strojového osazení mnohokrát předčí cenu samotných součástek."
+
+[SLIDE: Firmware]
+- C++ / Arduino Framework
+- FreeRTOS (Multitasking)
+- Deep Sleep & Graceful Shutdown
+
+Firmare - kod je napsán v cpp s frameworkem arduino
+využíváme DeepSleep pro ESP32, které umožnuje přechodu desky do stavu s minimální spotřebou na dobu určenou RTC (časovačem)
+
+{diagram_životního_cyklu (fig:life_cycle_sequence_dia)}
+
+za zminku stojí využítí FreeRTOS  které využíváme pro funkčnost GracefullShutdown,, v našem případě totiž není možné pouhé použí Attachinterupt na pinu BTN se vstupem z tlačítka. Při interupt událostí se totiž nesmí provádět složitější operace, vyvolávat delay, či posílat větší množství dat přes seriové linky. tento problém řeší systém kdy Interupt pouze upozorní -> shutdown úlohu (vytvořenou pomocí FreeRTOS a běžící nezávisle na hlavním kodu)
+
+pro práci s modemem a komunikaci skrz HTTP(S) používáme knihovnu TinyGSM která umožuje využívat již připravené funkce místo čisté nizkourovnové komunikace pomocí AT-AT příkazů.
+
+dalé používáme ArduinoJSON+, STL/SSL, etc.
+
+zařízení také disponuje tzv. OTA režímem "over the Air" kdy při držení tlačítka po určitovu dobu (>2s) se spustí Wifi accesspoint ke kterému je možné se připojit a konfigurovat nastavení zařízení přes webový prohlížeč.
+
+{VIDEO: tracker -> Start OTA režimu}
+"Zařízení také disponuje tzv. OTA režimem. Při držení tlačítka při startu se spustí WiFi Access Point..."
+
+{VIDEO: OTA -> Zobrazení testů a kompletní průhled možností konfigurace}
+"...ke kterému je možné se připojit a konfigurovat nastavení zařízení přes webový prohlížeč. Zde vidíte kompletní průchod konfigurací – od nastavení APN, přes testy konektivity, až po možnost nahrát nový firmware vzduchem."
+
+--- 4. SERVER (cca 3:30) ---
+
+[SLIDE: Server - Technologie]
+- Backend: Node.js + Express
+- Databáze: MySQL + Sequelize ORM
+- API: REST + Swagger dokumentace
+
+{diagram_databáze (fig:db_schema)}
+
+"Hlavní serverový kód je kódován ve frameworku Node.js. Byl zvolen kvůli tomu, že jsem s ním již dříve pracoval a také kvůli podpoře skutečné asynchronnosti, což je vhodné, pokud počítáme s několika zařízeními připojenými zároveň.
+Pro databázi bylo zvoleno MySQL. Je to ověřená klasika, rychlá a spolehlivá pro čtení. Pro práci s SQL dotazy používáme balíček Sequelize, který nám mapuje databázové tabulky přímo na objekty v kódu, takže nemusím psát surové SQL."
+
+{VIDEO: server -> ukázka Swagger dokumentace}
+
+"Komunikace probíhá přes REST API. Máme vytvořenou dokumentaci pomocí Swaggeru, kterou zde vidíte. Hlavní routy jsou pro handshake, input dat a registraci zařízení.
+Používáme systém uživatelů, kdy v DB je 'hardcoded' root uživatel pro administraci, a obyčejní uživatelé se mohou registrovat buď přes email, nebo pomocí OAuth přes Google a GitHub."
+
+[SLIDE: Frontend a Funkce]
+- EJS šablony (Server-side rendering)
+- Leaflet mapy (OpenStreetMaps)
+- Docker nasazení
+
+{VIDEO: Server -> průhled všech součástí}
+"Nyní se podívejme na samotné webové rozhraní.
+(Login & Registrace): Začínáme přihlášením nebo registrací nového uživatele, včetně ověření emailu.
+(Dashboard): Po přihlášení se dostáváme na hlavní přehled. Zde vidíme mapu s polohou zařízení.
+(Geofence): Uživatel může snadno vytvořit Geofence – virtuální ohraničení. Pokud zařízení tuto oblast opustí, systém vygeneruje alert.
+(Nastavení zařízení): Každé zařízení lze na dálku konfigurovat – měnit intervaly odesílání, nebo dokonce poslat příkaz k vypnutí.
+(Admin): A nakonec pohled do administrace pro správu celé databáze."
+
+{logo_docker + schéma_kontejnerů}
+
+"Server je zdocrovaný pomocí Docker a Docker-compose. Máme jeden kontejner pro Node.js, jeden pro MySQL a perzistentní svazky pro data. Aktuálně je server nasazen na Oracle Cloud free-tier instanci."
+
+--- 5. APK (cca 0:45) ---
+
+[SLIDE: Android Aplikace]
+- Testovací nástroj
+- Kotlin + Android Studio
+
+{VIDEO: APK -> login, zisk, cache, odeslání vypnutí}
+"Krátce zmíním i Android aplikaci kterou jsem používal primárně pro testování API serveru, Je v urovni možností funkční. Za její kód, ale plně nechci zodpovídat, kvůli neznalosti Kotlinu a nedostatku času byla většina kodu (přes 90%) vtvořena pomocí LLM (Ai konrétně gemini).
+Aplikace tedy sice funguje a pro testování API byla dostačující, přesto však je zde dost vělká šance špatného či jenom špatně strukturováného , kodu. 
+Musí se však přiznat že kodu je toho docela dost.
+{pohled na seznam 15 souborů .kt ze source aplikace}
+
+Zde vidíte jak aplikace vypadá a jak se používá : funkce přihlášení, sběr dat, jejich ukládání do lokální cache při výpadku signálu a následné odeslání na server."
+
+--- 6. ZHODNOCENÍ A ZÁVĚR (cca 1:00) ---
+
+[SLIDE: Zhodnocení a Nedostatky]
+- Absence 3D krabičky
+- Primitivní autentizace
+
+"Seznam nedokonalostí či nedodělků může být dosti dlouhý. Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro HW tracker."
+
+{screenshot_modelu (fig:box_prototyp)}
+"V počátcích vývoje jsem sice vymodeloval prototyp, ale ukázalo se, že s tím, jak byly postupně přidávány prvky, model nestačil udržovat krok."
+
+{cable_problem_photo / foto_vnitřností (fig:class_dia)}
+"Také bylo zjištěno, že na 'cable management' musí být pohlíženo s mnohem větší důležitostí. Krabička sice možná byla navržena kompaktně, ale ve výsledku možná až příliš. Jediná použitelná část z modelu zůstal držák na baterii."
+
+{foto_chyb_konzole / logo_MQTT}
+"Dále také celý základní princip API a identifikace mezi zařízeními a serverem je dosti primitivní. V budoucnu by bylo vhodné přejít na nějaký propracovanější systém, možná MQTT s klientskými certifikáty, místo pouhého ID."
+
+[SLIDE: Závěr - Co se povedlo]
+- Funkční jádro systému
+- Odolnost proti výpadkům (Cache)
+- Komplexní řešení
+
+{sekvence_příkladu_SUCCESS_na_displeji_nebo_logu}
+"Co však dokončeno bylo, je samotné jádro systému. I když bez pokročilého zabezpečení, API funguje, zařízení dokáží se serverem komunikovat a mají schopnosti se vypořádat s výpadky sítě díky cachování."
+
+{chata_v_pustině + tracker -> peeping_animation}
+"Nejlépe by se systém asi dal použít jako GPS alarm, kdy by se tracker hlásil s periodou cca 1 dne a v případě změny polohy by uživatel dostal hlášení."
+
+{checked_OK - animation_abstract}
+"Celkově tedy systém funguje v úrovni možností a schopností prototypu, ale je zde mnoho místa pro zlepšení a rozšíření."
+
+--- 7. OUTRO (cca 0:10) ---
+
+[SLIDE: Děkuji za pozornost]
+- https://github.com/Balner123/GPS_server_NodeJS
+
+"To je ode mě zřejmě vše, a tak vám nyní děkuji za pozornost pokud se zajímáte, tak podrobnější informace jsou v dokumentaci na Githubu spolu se samotným kodem i odkazem na instanci serveru.
+Nashledanou.
+{oracle_error_shutdown_animation / blue_screen}
