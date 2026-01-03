@@ -19,7 +19,7 @@ openright
 \newcommand\trida{IT4} %% vyplň jméno svého konzultanta
 \newcommand\jmenoAutora{Štěpán Balner}  %% vyplň své jméno
 \newcommand\skolniRok{2025/26} %% vyplň rok
-\newcommand\datumOdevzdani{1. 1. 2026} %% vyplň rok
+\newcommand\datumOdevzdani{1.~1.~2026} %% vyplň rok
 \newcommand\nazevPrace{LOTR - LOcation TRacking System} %% vyplň název své práce
 
 \title{\nazevPrace} %% -- Název tvé práce
@@ -262,12 +262,12 @@ openright
 %% Abstrakt v češtině
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	\noindent{\Large{\bfseries{Abstrakt}\\}}
-	\noindent Tato práce obsahuje návrh a realizaci sledovacího systému LOTR (LOcation TRacking System), který se skládá z fyzického hardwarového zařízení, serverové infrastruktury a (doplňkově | bonusově | nezávazně) klientské mobilní aplikace.
+	\noindent Tato práce obsahuje návrh a realizaci sledovacího systému LOTR (LOcation TRacking System), který se skládá z~fyzického hardwarového zařízení, serverové infrastruktury a~(doplňkově | bonusově | nezávazně) klientské mobilní aplikace.
 	
-	Hardwarová část je postavena na platformě ESP32 s využitím modemu SIMCOM A7670 pro komunikaci přes sítě LTE a modulu GPS pro získávání polohy. Firmware využívá přerušovacího systému a zápisu dat do flash paměti. Serverová část, realizovaná v prostředí Node.js s databází MySQL, 
-	zajišťuje sběr telemetrických dat, správu uživatelů a poskytuje REST API pro komunikaci s koncovými zařízeními. Doplňkovou součástí systému je také nativní aplikace pro OS Android vyvinutá v jazyce Kotlin, která slouží jako testovací náhrada hardwarového trackeru.
+	Hardwarová část je postavena na~platformě ESP32 s~využitím modemu SIMCOM A7670 pro~komunikaci přes sítě LTE a~modulu GPS pro~získávání polohy. Firmware využívá přerušovacího systému a~zápisu dat do~flash paměti. Serverová část, realizovaná v~prostředí Node.js s~databází MySQL, 
+	zajišťuje sběr telemetrických dat, správu uživatelů a~poskytuje REST API pro~komunikaci s~koncovými zařízeními. Doplňkovou součástí systému je také nativní aplikace pro~OS Android vyvinutá v~jazyce Kotlin, která slouží jako testovací náhrada hardwarového trackeru.
 	
-	Výsledkem projektu je prototyp IoT řešení umožňující sledování polohy, historii pohybu a vzdálenou konfiguraci připojených zařízení.
+	Výsledkem projektu je prototyp IoT řešení umožňující sledování polohy, historii pohybu a~vzdálenou konfiguraci připojených zařízení.
 	
 	
 	\vspace{18pt}
@@ -296,48 +296,49 @@ The outcome is an IoT prototype enabling location tracking, movement history, an
 \vspace{18pt}
 
 \clearpage %% Page break
-	\clearpage %% Zalomení stránky
 
 %% Stránka s generovaným obsahem
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
 	
 	\tableofcontents %% Vygeneruje tabulku s obsahem
 
+	\cleardoublepage %% Zarovnání na lichou stranu před začátkem číslování
 	\pagenumbering{arabic} %% Nastavení způsobu číslování stránek (alternativy roman | Roman)
 	\setcounter{page}{1} %% Nastavení počitadla stránek
+	\pagestyle{plain} %% Zapnutí číslování stránek (bez záhlaví)
 
 %% Stránka s úvodem - povinná část
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%		
 	\chapter*{Úvod}
-	Můžeme říci, že již od začátku cílem projektu bylo vytvořit kompletní a hlavně uzavřený systém, co by mohl tzv. "žít svým vlastním životem" a jehož použití by bylo možné i v reálných podmínkách.
+	Můžeme říci, že již od začátku cílem projektu bylo vytvořit kompletní a~hlavně uzavřený systém, co by mohl tzv. "žít svým vlastním životem" a~jehož použití by bylo možné i~v~reálných podmínkách.
 	
-	Již kdysi jsem se zabýval "sběrnými" nebo "sledovacími" systémy. Poohlížel jsem se z variabilních (různých ale rozhodně ne nelegálních) důvodů po možnostech jak by šlo sestrojit zařízení schopné nahrávat video a ukládat na SD kartu nebo jiné uložiště díky vlastnímu zařízení, protože komerční varianty nesplnovaly požadavky na velikost. 
-	Sledování polohy je jenom dalším krokem v tomto směru. Možnost že bych měl krabičku, jež bych mohl dát někomu do auta, připnout k nápravě kamionu (naivní to myšlenka) nebo vložit do zásilky a sledovat jeho pohyb do doby vybití baterie, byla, a stále je, velmi přitažlivá.
+	Již kdysi jsem se zabýval "sběrnými" nebo "sledovacími" systémy. Po-ohlížel jsem se z~variabilních (různých ale rozhodně ne nelegálních) důvodů po~možnostech jak by šlo sestrojit zařízení schopné nahrávat video a~ukládat na~SD kartu nebo jiné uložiště díky vlastnímu zařízení, protože komerční varianty nesplnovaly požadavky na~velikost. 
+	Sledování polohy je jenom dalším krokem v~tomto směru. Možnost že bych měl krabičku, jež bych mohl dát někomu do~auta, připnout k~nápravě kamionu (naivní to myšlenka) nebo vložit do~zásilky a~sledovat jeho pohyb do~doby vybití baterie, byla, a~stále je, velmi přitažlivá.
 	
-	Bylo jasné, že již existují řešení a "GPS trackery" jsou běžně dostupné a velmi dobré kvality a výdrže baterie. Avšak protože jsem dumal nad tématem pro zavěrečný projekt, výroba a řešení konstrukce vlastního, sic nízkokvalitního a nutně dosti poruchového, zařízení se ukázal jako vhodný nápad.
-	Existovala možnost vytvořit opravdu pouze "krabici" trackeru s ukládáním dat na pevné úložiště , avšak rozhodl jsem se to spojit s vývojem serveru jež by umožňoval sledování v reálném čase. Na tomto "webovém" serveru by tak šlo zobrazovat a spravovat data posílaná  zařízením přes mobilní síť.  
-	To se pak přirozeně rozvinulo do plného systému s uživatelskými účty a možností spravovat více zařízení na jednom z nich. 
+	Bylo jasné, že již existují řešení a~"GPS trackery" jsou běžně dostupné a~velmi dobré kvality a~výdrže baterie. Avšak protože jsem dumal nad tématem pro~zavěrečný projekt, výroba a~řešení konstrukce vlastního, sic nízkokvalitního a~nutně dosti poruchového, zařízení se ukázal jako vhodný nápad.
+	Existovala možnost vytvořit opravdu pouze "krabici" trackeru s~ukládáním dat na~pevné úložiště , avšak rozhodl jsem se to spojit s~vývojem serveru jež by umožňoval sledování v~reálném čase. Na~tomto "webovém" serveru by tak šlo zobrazovat a~spravovat data posílaná  zařízením přes mobilní síť.  
+	To se pak přirozeně rozvinulo do~plného systému s~uživatelskými účty a~možností spravovat více zařízení na~jednom z~nich. 
 
-	Jako méně důležitou, spíše doplňkovou, ale přesto užitečnou součást systému jsem pak viděl výtvoření mobilní aplikace pro systém Android. Avšak z důvodu, že by pak byl projekt roztřepen na až mnoho frontách, věnoval jsem ji menší (spíše minimální) pozornost.
-	Tato aplikace nemá důležitosti jako ostatní komponenty, jelikož byla koncipována jako testování API a pro neznalost Kotlinu většina (přes 90 \%) jejího kódu byla generována LLM (chcete-li "AI", konkrétně Gemini).
+	Jako méně důležitou, spíše doplňkovou, ale přesto užitečnou součást systému jsem pak viděl výtvoření mobilní aplikace pro~systém Android. Avšak z~důvodu, že by pak byl projekt roztřepen na~až mnoho frontách, věnoval jsem ji menší (spíše minimální) pozornost.
+	Tato aplikace nemá důležitosti jako ostatní komponenty, jelikož byla koncipována jako testování API a~pro~neznalost Kotlinu většina (přes 90~\%) jejího kódu byla generována LLM (chcete-li "AI", konkrétně Gemini).
 	Tato dokumentace ji proto nezmiňuje, pouze popisuje uivatelské prostředí.
 
-	Proto je tento Dokument rozdělen do tří hlavních kapitol. 
+	Proto je tento Dokument rozdělen do~tří hlavních kapitol. 
 
 \begin{enumerate}
 	  \setlength\itemsep{0.2em}
   \setlength\parskip{0pt}
   \setlength\parsep{0pt}
-	\item kapitola popisuje samotné zařízení, jeho návrh a konstrukci i príklady použití.
-	\item kapitola popisuje kód serveru, jeho návrh, API a většinu možností uživatelského rozhraní.
-	\item kapitola v krátkosti popisuje Aplikaci pro Android a její uživatelské rozhraní.
+	\item kapitola popisuje samotné zařízení, jeho návrh a~konstrukci i~príklady použití.
+	\item kapitola popisuje kód serveru, jeho návrh, API a~většinu možností uživatelského rozhraní.
+	\item kapitola v~krátkosti popisuje Aplikaci pro~Android a~její uživatelské rozhraní.
 \end{enumerate}
 
 %Příkaz \chapter*{Úvod}	
 %Tento příkaz vytvoří novou kapitolu s názvem "Úvod" ve vašem dokumentu.
 %Hvězdička * u příkazu \chapter* znamená, že tato kapitola nebude mít číslo. Ve výsledném dokumentu se tedy objeví jako "Úvod" bez předcházejícího čísla kapitoly, které se obvykle zobrazuje u číslovaných kapitol.
 %Tento příkaz také znamená, že kapitola se automaticky neobjeví v obsahu, protože LaTeX standardně zahrnuje do obsahu pouze číslované kapitoly.
-	\addcontentsline{toc}{chapter}{Úvod}
+%\addcontentsline{toc}{chapter}{Úvod}
 %Tento příkaz ručně přidává záznam do obsahu.
 %První parametr toc označuje, že přidáváme záznam do Table of Contents (obsahu).
 %Druhý parametr chapter specifikuje úroveň záznamu. V tomto případě říkáme, že přidávaný záznam má být považován za kapitolu.
@@ -356,17 +357,17 @@ The outcome is an IoT prototype enabling location tracking, movement history, an
 	
 \chapter*{Závěr}
 
-\noindent Dokončeno, v přijatelné míře a rozsahu, bylo samotné jádro systému. I když bez pokročilého zabezpečení tak API funguje a zařízení dokáží se serverem komunikovat a mají schopnosti se tak či onak vypořádat s vypadky sítě (cachování)
- a HW-tracker přestože s obtížemi by přece jenom šlo do doby vybití baterie používat v rámci možnstí (přes snahy o nízkou spotřeby však výdrž není úplně optimální). Nejlépe asi použít jako GPS alarm, kdy by se tracker hlasil s periodou cca. 1 dne a v případě změny by uivatel dostal hlášení. 
-\noindent Celkově tedy systém funguje v urovni možností a schopností prototypu, ale je zde mnoho místo pro zlepšení a rozšíření.
+\noindent Dokončeno, v~přijatelné míře a~rozsahu, bylo samotné jádro systému. I~když bez pokročilého zabezpečení tak API funguje a~zařízení dokáží se~serverem komunikovat a~mají schopnosti se~tak či onak vypořádat s~vypadky sítě (cachování)
+a~HW-tracker přestože s~obtížemi by přece jenom šlo do~doby vybití baterie používat v~rámci možností (přes snahy o~nízkou spotřeby však výdrž není úplně optimální). Nejlépe asi použít jako GPS alarm, kdy by se tracker hlasil s~periodou cca.~1~dne a~v~případě změny by uživatel dostal hlášení. 
+\noindent Celkově tedy systém funguje v~urovni možností a~schopností prototypu, ale je zde mnoho místo pro~zlepšení a~rozšíření.
 
-\noindent Seznam nedokonalostí či nedodělků může být dosti dlouhý. Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro HW tracker. Jediná použitelná část z již zmíněného modelu zůstal držák na : baterii a její nabíječku, ten se ukázal jako užitečný pro jednoduší manipulací s celou kontrukcí.
-Dále také celý základní princip API a identifikace mezi zařízeními a serverem je dosti primitivní a náchylný k chybám. V budoucnu by bylo vhodné přejít na nějaký propracovanější systém autentizace a autorizace zařízení (možná MQTT mezi-server obstarávající autentifikaci ?), místo pouhého ID a uživatelských údajů ( je to takto dosti jednoduché na falšování požadavků).
-Také nějaké více komplikované možnosti výpisu či třídění dat v uživatelském rozhraní chybí, a tak bych mohl pokračovat\dots
-To vše je tak v možnostech dalšího rozšíření a možných budoucích vylepšeních.
+\noindent Seznam nedokonalostí či nedodělků může být dosti dlouhý. Jako hlavní nedostatek vidím absenci 3D tisknutého pouzdra pro~HW tracker. Jediná použitelná část z~již zmíněného modelu zůstal držák na~: baterii a~její nabíječku, ten se ukázal jako užitečný pro~jednoduší manipulací s~celou kontrukcí.
+Dále také celý základní princip API a~identifikace mezi zařízeními a~serverem je dosti primitivní a~náchylný k~chybám. V~budoucnu by bylo vhodné přejít na~nějaký propracovanější systém autentizace a~autorizace zařízení (možná MQTT mezi-server obstarávající autentifikaci ?), místo pouhého ID a~uživatelských údajů ( je to takto dosti jednoduché na~falšování požadavků).
+Také nějaké více komplikované možnosti výpisu či třídění dat v~uživatelském rozhraní chybí, a~tak bych mohl pokračovat\dots
+To vše je tak v~možnostech dalšího rozšíření a~možných budoucích vylepšeních.
 
 \vspace*{2cm}
-Odkaz na GitHub repozitář projektu : \url{https://github.com/Balner123/GPS_server_NodeJS}
+\noindent Odkaz na GitHub repozitář projektu : \url{https://github.com/Balner123/GPS_server_NodeJS}
 
 
 \addcontentsline{toc}{chapter}{Závěr}

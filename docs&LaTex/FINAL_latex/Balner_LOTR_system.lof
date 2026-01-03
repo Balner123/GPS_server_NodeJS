@@ -1,0 +1,26 @@
+\babel@toc {czech}{}\relax 
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {1.1}{\ignorespaces Usecase diagram}}{4}{figure.caption.5}%
+\contentsline {figure}{\numberline {1.2}{\ignorespaces LilyGO T-Call V1.5 - integrované řešení ESP32 + LTE modem + použité piny}}{5}{figure.caption.6}%
+\contentsline {figure}{\numberline {1.3}{\ignorespaces Modul GPS a zapojení pro řízení napájení}}{6}{figure.caption.7}%
+\contentsline {figure}{\numberline {1.4}{\ignorespaces Baterie a nabíjecí modul / power latch modul - osazená deska}}{7}{figure.caption.8}%
+\contentsline {figure}{\numberline {1.5}{\ignorespaces Schéma power-modul [easyEDA]}}{7}{figure.caption.9}%
+\contentsline {figure}{\numberline {1.6}{\ignorespaces Blokové schéma zapojení hardwarového trackeru [easyEDA]}}{8}{figure.caption.10}%
+\contentsline {figure}{\numberline {1.7}{\ignorespaces "vnitřnosti" zařízení}}{9}{figure.caption.11}%
+\contentsline {figure}{\numberline {1.8}{\ignorespaces prototyp krabičky - průhled}}{9}{figure.caption.12}%
+\contentsline {figure}{\numberline {1.9}{\ignorespaces sekvenční diagram životního cyklu}}{12}{figure.caption.13}%
+\contentsline {figure}{\numberline {1.10}{\ignorespaces Ukázka Wi-Fi}}{17}{figure.caption.14}%
+\contentsline {figure}{\numberline {1.11}{\ignorespaces OTA režim - webové rozhraní}}{18}{figure.caption.15}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces ER diagram databázových modelů}}{21}{figure.caption.16}%
+\contentsline {figure}{\numberline {2.3}{\ignorespaces Administrátorský panel}}{27}{figure.caption.21}%
+\contentsline {figure}{\numberline {2.4}{\ignorespaces E-mailové scénáře: transakční zprávy a~bezpečnostní upozornění}}{27}{figure.caption.22}%
+\contentsline {figure}{\numberline {2.5}{\ignorespaces Webové rozhraní \unhbox \voidb@x \kern \z@ \char `\- Správa zařízení}}{29}{figure.caption.23}%
+\contentsline {figure}{\numberline {2.6}{\ignorespaces Webové rozhraní - Settings}}{30}{figure.caption.24}%
+\contentsline {figure}{\numberline {2.7}{\ignorespaces Webové rozhraní: registrace, přihlášení, verifikace e-mailu a bezpečnostní upozornění}}{31}{figure.caption.25}%
+\contentsline {figure}{\numberline {2.8}{\ignorespaces Use-case diagram systému LOTR: aktéři a hlavní případy použití}}{32}{figure.caption.26}%
+\contentsline {figure}{\numberline {2.9}{\ignorespaces Sekvenční diagram: tok sledování zařízení (handshake, input, aktualizace polohy)}}{33}{figure.caption.27}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Hlavní ovládací panel}}{36}{figure.caption.28}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Stav čekání na GPS signál}}{36}{figure.caption.29}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Diagnostická konzole}}{36}{figure.caption.30}%
