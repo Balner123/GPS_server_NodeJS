@@ -46,7 +46,7 @@ Sequelize abstrahuje SQL dotazy do~JavaScriptových objektů. V~projektu jsou de
   \setlength\parskip{0pt}
   \setlength\parsep{0pt}
     \item \texttt{User}: Ukládá informace o~uživatelích (jméno, email, hash hesla, OAuth ID).
-    \item \texttt{Device}: Reprezentuje hardwarové jednotky. Kromě identifikátoru a~vazby na~uživatele uchovává konfiguraci synchronizovanou s~HW: \texttt{interval\_gps} (četnost snímání), \texttt{interval\_send} (četnost odesílání), \texttt{mode} (režim simple/batch) a~\texttt{geofence} (definice bezpečnostní zóny ve~formátu GeoJSON).
+    \item \texttt{Device}: Reprezentuje hardwarové jednotky. Kromě identifikátoru a~vazby na~uživatele uchovává konfiguraci synchronizovanou s~HW: \texttt{interval\_gps} (četnost snímání), \\ \texttt{interval\_send} (četnost odesílání), \texttt{mode} (režim simple/batch) a~\texttt{geofence} (definice bezpečnostní zóny ve~formátu GeoJSON).
     \item \texttt{Location}: Uchovává historická data o~poloze (zeměpisná šířka, délka, čas, rychlost).
     \item \texttt{Alert}: Záznamy o~bezpečnostních událostech (např. opuštění geofence zóny nebo návrat do~ní).
 \end{itemize}
@@ -61,7 +61,7 @@ Vztahy mezi modely jsou definovány pouze jako 1:N (jeden uživatel má více za
 \subsection{Rozhraní API a komunikace}
 \label{sec:server_api}
 V~rámci optimalizace backendu došlo ke~sjednocení registračních procesů a~standardizaci HTTP metod. 
-Pro~registraci všech typů zařízení (HW i~APK) nyní slouží centrální endpoint \texttt{/api/devices/register}, 
+Pro~registraci všech typů zařízení (HW i~APK) nyní slouží centrální endpoint \\ \texttt{/api/devices/register},
 kde se typ klienta rozlišuje parametrem \texttt{client\_type}.
 
 \subsubsection{API - HW tracker (ESP32)}
@@ -117,7 +117,7 @@ Endpoint & Metoda & Popis \\ \hline
 \label{tab:api_apk}
 \end{table}
 
-APK Handshake (stejný endpoint, odlišný kontext): APK spouští handshake při startu služby, periodicky (např. 15 min) a~po~odeslání dávky. Server vrací \texttt{registered}, \texttt{config} a~\texttt{power\_instruction}; APK musí respektovat \texttt{TURN\_OFF} zastavením služby.
+APK Handshake (stejný endpoint, odlišný kontext): APK spouští handshake při startu služby, periodicky (např. 15 min) a~po~odeslání dávky. Server vrací \texttt{registered}, \texttt{config} \\ a~\texttt{power\_instruction}; APK musí respektovat \texttt{TURN\_OFF} zastavením služby.
 
 APK Input: Telemetrie se odesílá dávkově z~lokální SQLite (store-and-forward). Každý záznam obsahuje \texttt{device}, \texttt{latitude}, \texttt{longitude}, \texttt{timestamp}, \texttt{power\_status}, případně \texttt{speed} a~\texttt{accuracy}. Server po~\texttt{success:true} dovolí klientovi smazat dávku.
 
@@ -126,7 +126,7 @@ Autentizace a~chyby (APK):
       \setlength\itemsep{0.2em}
   \setlength\parskip{0pt}
   \setlength\parsep{0pt}
-        \item \texttt{401/403}: neplatná nebo chybějící session; APK musí zneplatnit lokální session (logout broadcast).
+        \item \texttt{401/403}: neplatná nebo chybějící session; APK musí zneplatnit lokální session \\ (logout broadcast).
         \item \texttt{404 registered=false}: zařízení není registrováno; klient zastaví službu a~vyžádá novou registraci.
         \item \texttt{500+}: retry s~exponential backoff; data v~lokální DB zůstávají.
 \end{itemize}
@@ -175,7 +175,7 @@ Výsledkem je pole, které obsahuje jak jednotlivé body (v~pohybu), tak "cluste
 
 \subsection{Správa uživatelů a Autorizace}
 \label{subsec:server_users}
-Používáme uživatelské účty s~možností registrace, přihlášení a~správy jejich údajů. Pro~bezpečnou autentizaci a~autorizaci je implementován middleware \texttt{authorization.js} (popsáno výše).
+Používáme uživatelské účty s~možností registrace, přihlášení a~správy jejich údajů. Pro~bezpečnou autentizaci a~autorizaci je implementován middleware \texttt{authorization.js} \\ (popsáno výše).
 
 \subsubsection{Autorizace a role (authorization.js)}
 Middleware \texttt{authorization.js} vynucuje přihlášení, odděluje běžné uživatele, administrátory a~blokuje nevhodné akce ROOT účtu, a~zároveň autentizuje HW/APK zařízení na~základě \texttt{device\_id}:
@@ -212,10 +212,10 @@ Role / middleware & Webové routy & API routy \\ \hline
 \end{minted}
 
 \subsubsection{Sessions}
-Relace (sessions) jsou spravovány pomocí \texttt{express-session}. Klíč \texttt{SESSION\_SECRET} se načítá z~prostředí, cookie je \texttt{httpOnly} s~\texttt{maxAge} 6 hodin. Flag \texttt{secure} se zapíná, pokud je \texttt{NODE\_ENV=using\_ssl}, aby se cookie přenášela jen přes HTTPS. Webové routy používají \texttt{isAuthenticated} a~případně přesměrování, API vrací JSON přes \texttt{isApiAuthenticated}.
+Relace (sessions) jsou spravovány pomocí \texttt{express-session}. Klíč \texttt{SESSION\_SECRET} se načítá z~prostředí, cookie je \texttt{httpOnly} s~\texttt{maxAge} 6 hodin. Flag \texttt{secure} se zapíná, pokud je \texttt{NODE\_ENV=using\_ssl}, aby se cookie přenášela jen přes HTTPS. Webové routy používají \\ \texttt{isAuthenticated} a~případně přesměrování, API vrací JSON přes \texttt{isApiAuthenticated}.
 
 \subsubsection{Správa identit (Passport.js)}
-Knihovna \texttt{passport.js} zajišťuje flexibilní autentizaci. V~systému jsou implementovány tři strategie:
+Knihovna \texttt{passport.js} zajišťuje flexibilní autentizaci. V~systému jsou implementovány \\ tři strategie:
 \begin{itemize}
       \setlength\itemsep{0.2em}
   \setlength\parskip{0pt}
@@ -244,7 +244,7 @@ passport.use(new GitHubStrategy({
 
 
 \subsubsection{Hashování hesel (Bcrypt.js)}
-Hesla uživatelů nejsou nikdy ukládána v~otevřené podobě. Při registraci je heslo prohnáno hashovací funkcí \texttt{bcrypt} se solí (salt). Při přihlášení se zadané heslo zahashuje a~porovná s~uloženým hashem. To chrání uživatele i~v~případě úniku databáze.
+Hesla uživatelů nejsou nikdy ukládána v~otevřené podobě. Při registraci je na heslo aplikována hashovací funkce \texttt{bcrypt}. Při přihlášení se zadané heslo zahashuje a~porovná s~uloženým hashem. To chrání uživatele i~v~případě úniku databáze.
 
 
 \subsubsection{ROOT účet} Z~provozních důvodů systém startuje s~hardcoded administrátorským účtem \texttt{ROOT}. Tento účet má vlastní administraci, která umožňuje přímý přístup do~DB a~manipulaci s~jejími daty.
@@ -419,14 +419,14 @@ Obě služby běží ve~společné virtuální síti \texttt{gps-network}, což 
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\textwidth]{../docs_server/schemas/Use_case_diagram.png}
-    \caption{Use-case diagram systému LOTR: aktéři a hlavní případy použití}
+    \includegraphics[width=1.2\textwidth]{../docs_server/schemas/Use_case_diagram.png}
+    \caption{Use-case diagram systému LOTR}
     \label{fig:use_case}
 \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\textwidth]{../docs_server/schemas/sequence_diagram_tracking.png}
+    \includegraphics[width=1.05\textwidth]{../docs_server/schemas/sequence_diagram_tracking.png}
     \caption{Sekvenční diagram: tok sledování zařízení (handshake, input, aktualizace polohy)}
     \label{fig:seq_tracking}
 \end{figure}
