@@ -4,6 +4,8 @@ Dokumentace (PDF): [Dokumentace_LOTR_system](https://github.com/Balner123/GPS_se
 
 Demo Serveru (Oracle cloud): [lotr-system.xyz](https://lotr-system.xyz)
 
+Demo Prezentačního videa : [lotrsystem2026](https://www.youtube.com/@Lotrsystem)
+
 
 ## Popis a cíl projektu (deprecated)
 
@@ -47,7 +49,7 @@ Možnost jakýchkoliv frontend frameworků
 
 
 
-## Postup a vývoj+ milníky
+## Postup a vývoj+ milníky (deprecated)
 
 - definování cílů -> základem byl fyzický Tracker -> server minimáně
 - přechod na t-cal v1.4  místo v1.0 (lepší SIM modul + zkratování původní desky)
@@ -59,10 +61,10 @@ Možnost jakýchkoliv frontend frameworků
 - zbylá dokumentace je vedená v "Obsidian" bude exportována průběžně
 
 
-### Další součásti
- APK -> pro android a její vyvěšení na Google play (?) --> fee 20 dollars --> discontinued
- 3D tisknutá schránka pro hardwerovou část (?) --> stability issues --> ?
-----
+## Další součásti (deprecated)
+APK -> pro android a její vyvěšení na Google play (?) --> fee 20 dollars --> discontinued
+3D tisknutá schránka pro hardwerovou část (?) --> stability issues --> ?
+
 
 
 
